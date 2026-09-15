@@ -4,10 +4,50 @@ import { useEffect } from 'react'
 import { useReducedMotion } from '../motion/reducedMotionContext'
 import { setupGsap } from '../motion/gsapSetup'
 
+/** The aspect ratio each page's camera poses were framed against — the
+ * measured canvas aspect on a desktop viewport (744x651). Poses are
+ * authored by eye at that shape, so this is the reference the fit below
+ * corrects away from, not an arbitrary constant. */
+const FRAMED_FOR_ASPECT = 1.14
+
+/** Cap on how far the fit may dolly back, so a freak aspect (a very short
+ * landscape window, a very tall phone) can't push the scene toward the
+ * far plane instead of merely framing it. */
+const MAX_PULLBACK = 2.2
+
 export interface CameraPose {
   x: number
   y: number
   z: number
+}
+
+/** three.js `fov` is vertical, so a portrait viewport sees a
+ * proportionally narrower horizontal slice of the scene at the same
+ * camera distance. On a phone that cropped both scenes badly — the
+ * podium's outer blocks and both ends of the portrait arc sat outside
+ * the frame entirely at 375px (canvas aspect 0.69 against the 1.14 the
+ * poses were framed for).
+ *
+ * The fix dollies straight back along the view axis by the ratio between
+ * the two aspects, which restores the whole composition without touching
+ * any page's authored framing and without the perspective distortion
+ * that widening `fov` would introduce. Scaling the offset *from the look
+ * target* (rather than the raw position) is what keeps the camera aimed
+ * at the same point, so the shot is the same shot, just further out.
+ *
+ * Never dollies closer than the authored pose: a wide viewport already
+ * sees everything, so `pullback` floors at 1. */
+function fitToViewport(
+  pose: CameraPose,
+  lookTarget: [number, number, number],
+  aspect: number,
+): CameraPose {
+  const pullback = Math.min(Math.max(FRAMED_FOR_ASPECT / aspect, 1), MAX_PULLBACK)
+  return {
+    x: lookTarget[0] + (pose.x - lookTarget[0]) * pullback,
+    y: lookTarget[1] + (pose.y - lookTarget[1]) * pullback,
+    z: lookTarget[2] + (pose.z - lookTarget[2]) * pullback,
+  }
 }
 
 /** Scroll-driven camera — SPEC.md §5.5's core interaction pattern,
@@ -41,23 +81,37 @@ export function ScrollCameraRig({
   scrolledPosition: CameraPose
   lookTarget: [number, number, number]
 }) {
-  const { camera } = useThree()
+  const { camera, size } = useThree()
   const prefersReducedMotion = useReducedMotion()
+  // Recomputed on resize and orientation change, since r3f updates
+  // `size` with the canvas — the effect below re-runs and re-fits.
+  const aspect = size.width / size.height
 
   useEffect(() => {
     setupGsap()
 
     const track = document.getElementById(trackId)
+    const rest = fitToViewport(restPosition, lookTarget, aspect)
+    const scrolled = fitToViewport(scrolledPosition, lookTarget, aspect)
 
     if (prefersReducedMotion || !track) {
-      camera.position.set(restPosition.x, restPosition.y, restPosition.z)
+      camera.position.set(rest.x, rest.y, rest.z)
       camera.lookAt(...lookTarget)
       return
     }
 
-    const current = { ...restPosition }
+    // Place the camera at the fitted rest pose up front. The scrub tween
+    // below only writes to camera.position from its onUpdate, which
+    // ScrollTrigger doesn't fire until the first scroll — so without this
+    // the first painted frame uses the raw pose from the <Canvas> camera
+    // prop, unfitted. That is exactly the frame that matters on a phone,
+    // where the unfitted pose is the cropped one.
+    camera.position.set(rest.x, rest.y, rest.z)
+    camera.lookAt(...lookTarget)
+
+    const current = { ...rest }
     const tween = gsap.to(current, {
-      ...scrolledPosition,
+      ...scrolled,
       ease: 'none', // the scrub value below supplies the "weighted" lag, not this ease
       scrollTrigger: {
         trigger: track,
@@ -83,6 +137,7 @@ export function ScrollCameraRig({
     // changes.
   }, [
     camera,
+    aspect,
     prefersReducedMotion,
     trackId,
     restPosition.x,

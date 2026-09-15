@@ -424,6 +424,30 @@ throws nothing. The same run confirmed the empty-lore path from Phase 8
 — with no lore authored, neither the Rivalries nor the Notable Events
 heading renders at all.
 
+Also fixed here, found by checking the deployed site at 375px rather
+than at desktop width: both 3D scenes were badly cropped on a phone.
+`fov` in three.js is vertical, so a portrait viewport sees a
+proportionally narrower horizontal slice at the same camera distance —
+the canvas aspect is 0.69 on a phone against the 1.14 the camera poses
+were framed for, and the podium's outer blocks and both ends of the
+portrait arc simply fell outside the frame. `ScrollCameraRig` now
+dollies back along the view axis by the ratio between those aspects,
+scaling the offset from the look target so the shot stays aimed at the
+same point. Desktop is untouched (the pullback floors at 1).
+
+That surfaced a second bug worth recording: the scrub tween only writes
+`camera.position` from its `onUpdate`, which ScrollTrigger doesn't fire
+until the first scroll — so the first painted frame used the raw pose
+from the `<Canvas>` camera prop regardless. On a phone that is precisely
+the frame that was cropped. The rig now sets the fitted pose up front
+and lets the tween take over from there.
+
+Verified by projecting every frame, block and plinth to NDC at both
+aspects: desktop holds at camera z 9.4 with both scenes inside ±0.73,
+and at phone aspect the camera moves to z 16.1 with the trophy room
+inside ±0.33 and the podium scene inside ±0.80 — previously outside ±1,
+which is what the cropping was.
+
 Still open in this phase: the accessibility re-pass, the real-device
 performance and reduced-quality-tier checks, HDRI/texture sizing, and
 the cross-browser smoke test.
