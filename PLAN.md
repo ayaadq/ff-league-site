@@ -159,6 +159,33 @@ This is the first showpiece phase — treat it as core work, not polish.
 
 ## Phase 6 — Scroll-driven camera + GSAP motion system
 
+**Status: Complete, verified on the live production URL.** GSAP +
+ScrollTrigger drives the persistent gallery camera on Home
+(three/ScrollCameraRig.tsx), shared ease tokens mirror the CSS
+`--ease-weighted` custom properties (motion/gsapSetup.ts), and two named
+stepped/stop-motion beats are in place: the trophy toppers clicking up
+on the gallery's first mount, and the Storylines numbers ticking up in
+steps once scrolled into view (motion/StatCountUp.tsx). All respect
+`prefers-reduced-motion`.
+
+One real bug only showed up live, same lesson as Phase 5 — worth
+repeating since it'll keep applying: the first deploy had the camera
+tween timed against the _whole document's_ scroll range, but the canvas
+itself (58-68vh tall) scrolled off screen within the first fraction of
+a multi-viewport page, so the camera had barely moved by the time it
+disappeared — the effect was nearly invisible in practice despite
+"working" by every code-level check. Fixed by wrapping the canvas in a
+taller `sticky top-0` track (`#gallery-scroll-track`) so it stays on
+screen for a real span of scroll, and re-pointing the camera tween's
+scroll range at that element instead of the document body. Verified
+live by actually scrolling the page and watching the camera move,
+which is the only way this class of bug shows up — `tsc`/build/lint
+all passed on the broken version too.
+
+Not yet checked: touch scroll / iOS Safari momentum behavior (SPEC.md
+§7.2) and the real-device frame-budget check, both still only doable on
+an actual phone.
+
 - GSAP + ScrollTrigger wired to the r3f camera: scrolling Home moves the
   camera through the gallery scene past standings/storylines (SPEC §5.5).
 - Define the shared easing/duration tokens as actual GSAP eases/timeline
