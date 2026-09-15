@@ -28,14 +28,23 @@ export const IVORY_MATERIAL_PROPS = {
   clearcoatRoughness: 0.35,
 } as const
 
+// envMapIntensity is boosted well past 1 here: a single-HDRI studio
+// environment reflects unevenly across instances facing different
+// directions (some catch the bright softbox, some reflect a dark studio
+// wall) — physically correct, but on a wall of 12 differently-angled
+// gold frames it reads as "half the frames are black," not gold. Extra
+// intensity plus the added gallery-track fill lights in GalleryCanvas
+// keep every instance legible regardless of which way it faces.
 export const GOLD_MATERIAL_PROPS = {
   color: '#d4af37',
-  roughness: 0.2,
-  metalness: 0.95,
+  roughness: 0.22,
+  metalness: 0.9,
+  envMapIntensity: 1.8,
 } as const
 
 export const BRASS_MATERIAL_PROPS = {
   color: '#8c6d46',
-  roughness: 0.32,
-  metalness: 0.85,
+  roughness: 0.34,
+  metalness: 0.8,
+  envMapIntensity: 1.5,
 } as const

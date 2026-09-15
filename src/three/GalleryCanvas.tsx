@@ -27,8 +27,14 @@ export function GalleryCanvas() {
       <fog attach="fog" args={['#f7f5f2', 11, 24]} />
       <Suspense fallback={null}>
         <Environment preset="studio" />
-        <ambientLight intensity={0.35} />
-        <directionalLight position={[4, 6, 5]} intensity={0.55} />
+        <ambientLight intensity={0.45} />
+        {/* Three lights standing in for gallery track lighting — a single
+            key light left every gold instance not facing it reading as
+            black (see materials.ts). Positioned around the arc so every
+            frame/plinth angle catches at least one bright source. */}
+        <directionalLight position={[4, 6, 5]} intensity={0.5} />
+        <directionalLight position={[-6, 5, 3]} intensity={0.4} />
+        <directionalLight position={[0, 5, -6]} intensity={0.35} />
         <GalleryScene />
       </Suspense>
     </Canvas>
