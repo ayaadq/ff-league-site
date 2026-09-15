@@ -2,6 +2,7 @@ import { Environment } from '@react-three/drei'
 import { Canvas } from '@react-three/fiber'
 import { Suspense } from 'react'
 import { GalleryScene } from './GalleryScene'
+import { ScrollCameraRig } from './ScrollCameraRig'
 
 /** The persistent gallery canvas — SPEC.md §5.4/PLAN.md Phase 5. Mounted
  * once at the Layout level (see components/Layout.tsx) and reused across
@@ -36,6 +37,7 @@ export function GalleryCanvas() {
         <directionalLight position={[-6, 5, 3]} intensity={0.4} />
         <directionalLight position={[0, 5, -6]} intensity={0.35} />
         <GalleryScene />
+        <ScrollCameraRig />
       </Suspense>
     </Canvas>
   )

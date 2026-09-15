@@ -1,5 +1,9 @@
 import { Instance, Instances } from '@react-three/drei'
-import { useMemo } from 'react'
+import { gsap } from 'gsap'
+import { useEffect, useMemo, useRef } from 'react'
+import type { Object3D } from 'three'
+import { useReducedMotion } from '../motion/reducedMotionContext'
+import { setupGsap } from '../motion/gsapSetup'
 import {
   BRASS_MATERIAL_PROPS,
   GOLD_MATERIAL_PROPS,
@@ -46,8 +50,21 @@ function Plinths({ slots }: { slots: Slot[] }) {
 
 /** A small gold trophy silhouette (cup + base) topping each plinth. Two
  * instanced passes — cup and base — rather than a single fused mesh, so
- * both stay instanced. */
+ * both stay instanced.
+ *
+ * Entrance is a deliberate stepped/stop-motion beat (PLAN.md Phase 6,
+ * SPEC.md §5.5) — each trophy "clicks" up to full size in discrete
+ * jumps rather than a smooth scale tween, staggered across the twelve
+ * so they arrive left-to-right like museum lights switching on. This
+ * runs once, the first time the persistent gallery canvas mounts (not
+ * on every route change) — see PLAN.md Phase 5 on why the canvas is
+ * mounted once at the Layout level. Skipped entirely under
+ * prefers-reduced-motion: trophies are simply present at full size. */
 function TrophyToppers({ slots }: { slots: Slot[] }) {
+  const prefersReducedMotion = useReducedMotion()
+  const cupRefs = useRef<Array<Object3D | null>>([])
+  const baseRefs = useRef<Array<Object3D | null>>([])
+
   const cupSlots = useMemo(
     () =>
       slots.map((slot) => ({
@@ -73,20 +90,73 @@ function TrophyToppers({ slots }: { slots: Slot[] }) {
     [slots],
   )
 
+  useEffect(() => {
+    setupGsap()
+
+    // Each trophy's cup+base pair pops together, twelve pairs staggered
+    // across the arc. `gsap.to` can't tween a THREE.Vector3 `scale`
+    // property directly as part of a batch array target, so each pair
+    // gets its own small tween with a manual per-index delay instead of
+    // a single call with `stagger`.
+    const pairs = slots.map((_, i) => [cupRefs.current[i], baseRefs.current[i]] as const)
+
+    if (prefersReducedMotion) {
+      pairs.forEach(([cup, base]) => {
+        cup?.scale.setScalar(1)
+        base?.scale.setScalar(1)
+      })
+      return
+    }
+
+    const tweens = pairs.flatMap(([cup, base], i) =>
+      [cup, base]
+        .filter((t): t is Object3D => t !== null)
+        .map((target) => {
+          target.scale.setScalar(0)
+          return gsap.to(target.scale, {
+            x: 1,
+            y: 1,
+            z: 1,
+            duration: 0.5,
+            ease: 'steps(6)',
+            delay: i * 0.045,
+          })
+        }),
+    )
+
+    return () => {
+      tweens.forEach((t) => t.kill())
+    }
+  }, [prefersReducedMotion, slots])
+
   return (
     <>
       <Instances limit={TEAM_COUNT}>
         <sphereGeometry args={[0.14, 20, 16, 0, Math.PI * 2, 0, Math.PI * 0.65]} />
         <meshStandardMaterial {...GOLD_MATERIAL_PROPS} />
         {cupSlots.map((slot, i) => (
-          <Instance key={i} position={slot.position} rotation={[Math.PI, slot.rotationY, 0]} />
+          <Instance
+            key={i}
+            ref={(el) => {
+              cupRefs.current[i] = el as Object3D | null
+            }}
+            position={slot.position}
+            rotation={[Math.PI, slot.rotationY, 0]}
+          />
         ))}
       </Instances>
       <Instances limit={TEAM_COUNT}>
         <cylinderGeometry args={[0.09, 0.12, 0.09, 16]} />
         <meshStandardMaterial {...BRASS_MATERIAL_PROPS} />
         {baseSlots.map((slot, i) => (
-          <Instance key={i} position={slot.position} rotation={[0, slot.rotationY, 0]} />
+          <Instance
+            key={i}
+            ref={(el) => {
+              baseRefs.current[i] = el as Object3D | null
+            }}
+            position={slot.position}
+            rotation={[0, slot.rotationY, 0]}
+          />
         ))}
       </Instances>
     </>

@@ -9,6 +9,7 @@ import {
 } from '../api/standings'
 import { SectionKicker } from '../components/SectionKicker'
 import { TeamAvatar } from '../components/TeamAvatar'
+import { StatCountUp } from '../motion/StatCountUp'
 
 export function HomePage() {
   const { leagueId, season } = useCurrentSeason()
@@ -95,7 +96,7 @@ export function HomePage() {
               <div className="min-w-0">
                 <SectionKicker>High score</SectionKicker>
                 <p className="text-gold-metal font-sans text-5xl leading-tight font-semibold lining-nums tabular-nums">
-                  {storylines.highScore.points.toFixed(1)}
+                  <StatCountUp value={storylines.highScore.points} />
                 </p>
                 <p className="text-charcoal-soft truncate text-sm">
                   {teamName(storylines.highScore.roster_id)}
@@ -107,7 +108,7 @@ export function HomePage() {
               <div className="min-w-0">
                 <SectionKicker>Biggest margin</SectionKicker>
                 <p className="text-charcoal mt-1 font-sans text-2xl font-semibold lining-nums tabular-nums">
-                  +{storylines.biggestMargin.margin.toFixed(1)}
+                  +<StatCountUp value={storylines.biggestMargin.margin} />
                 </p>
                 <p className="text-charcoal-soft truncate text-sm">
                   {teamName(storylines.biggestMargin.winner.roster_id)} def.{' '}
@@ -117,7 +118,7 @@ export function HomePage() {
               <div className="min-w-0">
                 <SectionKicker>Closest game</SectionKicker>
                 <p className="text-charcoal mt-1 font-sans text-2xl font-semibold lining-nums tabular-nums">
-                  {storylines.closestGame.margin.toFixed(1)}
+                  <StatCountUp value={storylines.closestGame.margin} />
                 </p>
                 <p className="text-charcoal-soft truncate text-sm">
                   {teamName(storylines.closestGame.winner.roster_id)} def.{' '}
