@@ -1,8 +1,21 @@
 import { useTexture } from '@react-three/drei'
 import { useThree } from '@react-three/fiber'
-import { Component, Suspense, useEffect, useMemo, type ReactNode } from 'react'
+import { gsap } from 'gsap'
+import {
+  Component,
+  Suspense,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  type ReactNode,
+  type RefObject,
+} from 'react'
 import { SRGBColorSpace } from 'three'
+import type { Group } from 'three'
 import { avatarUrl } from '../api/cdn'
+import { useReducedMotion } from '../motion/reducedMotionContext'
+import { setupGsap } from '../motion/gsapSetup'
 import { arcSlots } from './arcLayout'
 import { SceneFloor } from './SceneFloor'
 import { GOLD_MATERIAL_PROPS, IVORY_MATERIAL_PROPS, MARBLE_MATERIAL_PROPS } from './materials'
@@ -33,6 +46,18 @@ const PODIUM_LAYOUT: Array<{ x: number; height: number }> = [
   { x: -1.55, height: 0.55 }, // 2nd
   { x: 1.55, height: 0.42 }, // 3rd
 ]
+
+/** Seconds between each portrait's entrance. The wall matches
+ * TrophyRoomScene's trophy-topper stagger exactly, so a visitor moving
+ * between Home and League History sees the same motion signature. The
+ * podium is deliberately four times slower: at the wall's pacing, three
+ * items land within 90ms of each other, which reads as simultaneous and
+ * throws away the 3rd→2nd→1st ordering entirely. At this step the
+ * champion's portrait lands at 0.36s — the same moment a full 12-team
+ * league's wall sweep finishes (8 × WALL_REVEAL_STEP), so the room
+ * finishes filling and the winner arrives on the same beat. */
+const WALL_REVEAL_STEP = 0.045
+const PODIUM_REVEAL_STEP = 0.18
 
 /** A team's real Sleeper avatar, textured onto a portrait panel. Verified
  * against a live Sleeper avatar URL in a real browser before building
@@ -106,13 +131,20 @@ function Portrait({
   avatarId,
   position,
   rotationY,
+  groupRef,
 }: {
   avatarId: string | null
   position: [number, number, number]
   rotationY: number
+  /** Optional handle on the portrait's own <group>, so a parent can run
+   * the entrance tween in usePortraitReveal against it. A callback ref
+   * rather than forwardRef: each caller collects these into an indexed
+   * array (matching TrophyToppers' `ref={(el) => { refs.current[i] = el }}`
+   * pattern), which a forwarded ref object can't express as cleanly. */
+  groupRef?: (el: Group | null) => void
 }) {
   return (
-    <group position={position} rotation={[0, rotationY, 0]}>
+    <group ref={groupRef} position={position} rotation={[0, rotationY, 0]}>
       <mesh>
         <boxGeometry args={[FRAME_WIDTH, FRAME_HEIGHT, FRAME_DEPTH]} />
         <meshStandardMaterial {...GOLD_MATERIAL_PROPS} />
@@ -130,10 +162,91 @@ function Portrait({
   )
 }
 
+/** Same stepped "click into place" entrance TrophyRoomScene's
+ * TrophyToppers uses (PLAN.md Phase 6, SPEC.md §5.5) — scales a list of
+ * portrait groups in from 0 with `ease: 'steps(6)'`. Kept as its own copy
+ * scoped to this file rather than sharing code with TrophyToppers: that
+ * component tweens Instance cup/base pairs, this one tweens whole
+ * <group> portraits, and the two scenes' reveal orders differ enough
+ * (podium builds suspense out of layout order; TrophyToppers is a flat
+ * left-to-right sweep) that a shared abstraction would need as much
+ * branching as just having two small effects. Delays are passed in
+ * per-index rather than derived from a flat `i * step` here, so callers
+ * can control reveal order independently of array/layout order. Respects
+ * `prefers-reduced-motion` the same way TrophyToppers does: portraits are
+ * simply present at full size, no tween. */
+function usePortraitReveal(
+  refs: RefObject<Array<Group | null>>,
+  delays: number[],
+  /** How many portraits are actually mounted right now. Standings arrive
+   * async (HomePage fetches them), so the first pass of this hook usually
+   * runs against an empty scene and must re-run once the portraits exist
+   * — without this in the deps the podium would simply pop in at full
+   * size the moment data landed, which is exactly the no-motion problem
+   * this hook is here to fix. */
+  count: number,
+) {
+  const prefersReducedMotion = useReducedMotion()
+
+  // Layout effect, not useEffect: portraits mount into a canvas that is
+  // already on screen and already rendering (again — async standings), so
+  // zeroing their scale has to happen before r3f's next frame. A passive
+  // effect can land after that frame, which shows up as a full-size
+  // portrait flashing for a beat and then restarting its entrance.
+  useLayoutEffect(() => {
+    setupGsap()
+
+    if (prefersReducedMotion) {
+      refs.current.forEach((group) => group?.scale.setScalar(1))
+      return
+    }
+
+    const tweens = refs.current.map((group, i) => {
+      if (!group) return null
+      group.scale.setScalar(0)
+      return gsap.to(group.scale, {
+        x: 1,
+        y: 1,
+        z: 1,
+        duration: 0.5,
+        ease: 'steps(6)',
+        delay: delays[i] ?? 0,
+      })
+    })
+
+    return () => {
+      tweens.forEach((t) => t?.kill())
+    }
+    // delays is a small array literal built fresh via useMemo in each
+    // caller (identity-stable unless the underlying data actually
+    // changes) — see StandingsPodium/RemainingWall below.
+  }, [prefersReducedMotion, refs, delays, count])
+}
+
 /** The three podium blocks plus whichever of the top three standings
  * entries exist (defensive for a league with fewer than three rosters,
  * or before standings have loaded). */
 function StandingsPodium({ top3 }: { top3: Array<StandingEntry | undefined> }) {
+  const portraitRefs = useRef<Array<Group | null>>([])
+
+  // Reveal runs bottom-up — 3rd, then 2nd, then 1st — rather than in
+  // PODIUM_LAYOUT's own order (which is 1st-first, since 1st is the
+  // center block). Landing on the winner last is the whole point: it
+  // reads like a medal ceremony instead of a list rendering. Marble
+  // blocks aren't tweened, only the portraits — the podium itself is the
+  // stage that's already there, and popping the blocks too made the
+  // whole group read as one flashing object rather than three arrivals.
+  const revealDelays = useMemo(() => {
+    const delays: number[] = []
+    // PODIUM_LAYOUT indices in the order they appear: 3rd, 2nd, 1st.
+    ;[2, 1, 0].forEach((layoutIndex, step) => {
+      delays[layoutIndex] = step * PODIUM_REVEAL_STEP
+    })
+    return delays
+  }, [])
+
+  usePortraitReveal(portraitRefs, revealDelays, top3.filter(Boolean).length)
+
   return (
     <group position={[0, 0, 1.6]}>
       {PODIUM_LAYOUT.map((slot, i) => {
@@ -160,6 +273,9 @@ function StandingsPodium({ top3 }: { top3: Array<StandingEntry | undefined> }) {
                 avatarId={entry.avatarId}
                 position={[slot.x, slot.height + 0.62, 0.35]}
                 rotationY={0}
+                groupRef={(el) => {
+                  portraitRefs.current[i] = el
+                }}
               />
             )}
           </group>
@@ -175,6 +291,24 @@ function StandingsPodium({ top3 }: { top3: Array<StandingEntry | undefined> }) {
  * rather than needing a different layout. */
 function RemainingWall({ rest }: { rest: StandingEntry[] }) {
   const slots = useMemo(() => arcSlots(rest.length, 7.6, 2.15, -3.2, Math.PI * 0.38), [rest.length])
+  const portraitRefs = useRef<Array<Group | null>>([])
+
+  // Straight left-to-right sweep at the same per-item pacing
+  // TrophyRoomScene's trophy toppers already established, so the two
+  // scenes' entrances feel like the same site. Runs alongside the
+  // podium's reveal rather than after it — the wall arc sits behind and
+  // above the podium, so the two read as one sweep filling the room, not
+  // as two separate animations queued up.
+  // Built from the count alone (not `rest.map`) so the memo genuinely
+  // depends on nothing but `rest.length` — new scores landing reshuffle
+  // `rest`'s contents constantly, and rebuilding these delays on every
+  // such change would restart the entrance tween mid-week.
+  const revealDelays = useMemo(
+    () => Array.from({ length: rest.length }, (_, i) => i * WALL_REVEAL_STEP),
+    [rest.length],
+  )
+
+  usePortraitReveal(portraitRefs, revealDelays, rest.length)
 
   return (
     <>
@@ -184,6 +318,9 @@ function RemainingWall({ rest }: { rest: StandingEntry[] }) {
           avatarId={entry.avatarId}
           position={slots[i].position}
           rotationY={slots[i].rotationY}
+          groupRef={(el) => {
+            portraitRefs.current[i] = el
+          }}
         />
       ))}
     </>
