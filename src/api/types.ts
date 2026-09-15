@@ -12,6 +12,10 @@ export interface SleeperLeague {
   avatar: string | null
   previous_league_id: string | null
   roster_positions: string[]
+  settings: {
+    last_scored_leg: number
+    playoff_week_start: number
+  }
 }
 
 export interface SleeperRosterSettings {
@@ -47,6 +51,18 @@ export interface SleeperMatchup {
   starters: string[]
   players: string[]
   players_points?: Record<string, number>
+}
+
+/** One match in a playoff bracket. `p: 1` marks the championship game —
+ * its `w` is that season's champion roster_id. */
+export interface SleeperBracketMatch {
+  r: number
+  m: number
+  t1: number | null
+  t2: number | null
+  w: number | null
+  l: number | null
+  p?: number
 }
 
 export interface SleeperNflState {

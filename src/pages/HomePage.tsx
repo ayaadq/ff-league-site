@@ -1,28 +1,14 @@
-import { useMemo, type ReactNode } from 'react'
+import { useMemo } from 'react'
 import { useCurrentSeason, useMatchups, useNflState, useRosters, useUsers } from '../api/hooks'
+import { pairMatchups } from '../api/matchups'
 import {
   sortStandings,
   teamAvatarIdForRoster,
   teamNameForRoster,
   totalPoints,
 } from '../api/standings'
-import type { SleeperMatchup } from '../api/types'
+import { SectionKicker } from '../components/SectionKicker'
 import { TeamAvatar } from '../components/TeamAvatar'
-
-function groupMatchupsByPairing(matchups: SleeperMatchup[]): SleeperMatchup[][] {
-  const groups = new Map<number, SleeperMatchup[]>()
-  for (const matchup of matchups) {
-    if (matchup.matchup_id == null) continue
-    const group = groups.get(matchup.matchup_id) ?? []
-    group.push(matchup)
-    groups.set(matchup.matchup_id, group)
-  }
-  return [...groups.values()]
-}
-
-function SectionKicker({ children }: { children: ReactNode }) {
-  return <p className="text-charcoal-soft text-xs tracking-widest uppercase">{children}</p>
-}
 
 export function HomePage() {
   const { leagueId, season } = useCurrentSeason()
@@ -49,10 +35,7 @@ export function HomePage() {
     return roster ? teamAvatarIdForRoster(roster, users.data ?? []) : null
   }
 
-  const pairs = useMemo(() => {
-    const groups = groupMatchupsByPairing(resultsMatchups.data ?? [])
-    return groups.filter((p): p is [SleeperMatchup, SleeperMatchup] => p.length === 2)
-  }, [resultsMatchups.data])
+  const pairs = useMemo(() => pairMatchups(resultsMatchups.data ?? []), [resultsMatchups.data])
 
   const hasResults = pairs.some((pair) => pair.some((m) => m.points > 0))
 

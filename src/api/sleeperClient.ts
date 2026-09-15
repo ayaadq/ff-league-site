@@ -1,5 +1,6 @@
 import { SLEEPER_API_BASE } from '../config'
 import type {
+  SleeperBracketMatch,
   SleeperLeague,
   SleeperMatchup,
   SleeperNflState,
@@ -28,10 +29,10 @@ export const getMatchups = (leagueId: string, week: number) =>
   sleeperFetch<SleeperMatchup[]>(`/league/${leagueId}/matchups/${week}`)
 
 export const getWinnersBracket = (leagueId: string) =>
-  sleeperFetch<unknown[]>(`/league/${leagueId}/winners_bracket`)
+  sleeperFetch<SleeperBracketMatch[]>(`/league/${leagueId}/winners_bracket`)
 
 export const getLosersBracket = (leagueId: string) =>
-  sleeperFetch<unknown[]>(`/league/${leagueId}/losers_bracket`)
+  sleeperFetch<SleeperBracketMatch[]>(`/league/${leagueId}/losers_bracket`)
 
 export const getTransactions = (leagueId: string, week: number) =>
   sleeperFetch<unknown[]>(`/league/${leagueId}/transactions/${week}`)

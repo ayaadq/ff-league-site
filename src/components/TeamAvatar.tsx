@@ -3,6 +3,7 @@ import { avatarThumbUrl } from '../api/cdn'
 const SIZE_CLASSES = {
   sm: 'h-8 w-8 text-sm',
   md: 'h-12 w-12 text-lg',
+  lg: 'h-20 w-20 text-3xl',
 } as const
 
 /** Square, framed — the "portraits on a gallery wall" motif from
