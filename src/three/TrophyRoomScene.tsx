@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef } from 'react'
 import type { Object3D } from 'three'
 import { useReducedMotion } from '../motion/reducedMotionContext'
 import { setupGsap } from '../motion/gsapSetup'
+import { arcSlots, type Slot } from './arcLayout'
 import {
   BRASS_MATERIAL_PROPS,
   GOLD_MATERIAL_PROPS,
@@ -12,26 +13,6 @@ import {
 } from './materials'
 
 const TEAM_COUNT = 12
-
-interface Slot {
-  position: [number, number, number]
-  rotationY: number
-}
-
-/** Positions `count` items along a shallow concave arc — the "gallery
- * wall wraps around the viewer" feel — centered on the +Z axis (the
- * camera looks down -Z toward the origin, see GalleryCanvas). `spread`
- * is the total arc angle in radians; `bow` controls how far the arc's
- * center bulges toward the camera relative to its edges. */
-function arcSlots(count: number, radius: number, y: number, z: number, spread: number): Slot[] {
-  return Array.from({ length: count }, (_, i) => {
-    const t = count > 1 ? i / (count - 1) : 0.5
-    const angle = (t - 0.5) * spread
-    const x = Math.sin(angle) * radius
-    const zPos = z + Math.cos(angle) * radius - radius
-    return { position: [x, y, zPos], rotationY: -angle }
-  })
-}
 
 /** Twelve marble plinths in a gentle arc, one per team — the base every
  * team's trophy/portrait sits on. Instanced since the shape repeats
@@ -243,7 +224,17 @@ function Floor() {
   )
 }
 
-export function GalleryScene() {
+/** The "Trophy Room" scene — the original Phase 5 marble/gold gallery
+ * (plinths, trophy toppers, portrait wall, podium). Originally built as
+ * the Home page hero; moved to the League History page instead (user
+ * feedback: Home should be a live, data-driven weekly scoreboard, not a
+ * static display — see WeeklySummaryScene.tsx — and this generic
+ * trophy/gallery treatment fits League History's "look back at the
+ * league's record" purpose better than a page you'd revisit every
+ * week). Untextured portrait canvases are intentional here — this scene
+ * has no per-week data to show; WeeklySummaryScene.tsx is where real
+ * team photos actually load. */
+export function TrophyRoomScene() {
   // Narrower arcs than an initial pass used (SPEC.md §5.4 "portraits on a
   // gallery wall" still applies, but the outermost items at a wide spread
   // were viewed near edge-on from the fixed camera — see PLAN.md Phase 5 —

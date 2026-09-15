@@ -20,6 +20,7 @@ import { SLEEPER_LEAGUE_ID } from '../config'
 import type { SeasonChainEntry } from '../api/seasonChain'
 import { SectionKicker } from '../components/SectionKicker'
 import { TeamAvatar } from '../components/TeamAvatar'
+import { TrophyRoomCanvas } from '../three/TrophyRoomCanvas'
 
 const NO_SEASONS: SeasonChainEntry[] = []
 
@@ -113,6 +114,19 @@ export function HistoryPage() {
         <h1 className="font-display text-charcoal mt-2 text-4xl">League History</h1>
         <div className="gold-divider mx-auto mt-5 w-16" aria-hidden="true" />
       </header>
+
+      {/* The trophy room scene lives here now (PLAN.md pivot: Home became
+          a live weekly scoreboard, so the static marble/gold gallery moved
+          to the one page that's genuinely about looking back at the
+          league's record). Same sticky-track-inside-a-taller-wrapper
+          pattern Home used to host it — see three/ScrollCameraRig.tsx and
+          three/TrophyRoomCanvas.tsx, which owns its own scroll-track id
+          and camera framing so this page doesn't need to supply either. */}
+      <div aria-hidden="true" id="trophy-room-scroll-track" className="h-[230vh] sm:h-[260vh]">
+        <div className="sticky top-0 h-[58vh] min-h-[380px] w-full sm:h-[68vh]">
+          <TrophyRoomCanvas />
+        </div>
+      </div>
 
       {isLoading && <p className="text-charcoal-soft mt-14 text-center">Loading the archives…</p>}
 

@@ -72,7 +72,7 @@ export function HomePage() {
       <header className="text-center">
         <SectionKicker>{season ? `${season} Season` : 'Loading season…'}</SectionKicker>
         <h1 className="font-display text-charcoal mt-2 text-[clamp(2.75rem,9vw,4.5rem)] leading-[0.95]">
-          The Gallery
+          Scoreboard
         </h1>
         <div className="gold-divider mx-auto mt-5 w-16" aria-hidden="true" />
       </header>

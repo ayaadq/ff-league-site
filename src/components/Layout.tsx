@@ -1,7 +1,6 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react'
-import { NavLink, useLocation } from 'react-router'
+import { NavLink } from 'react-router'
 import { useCurrentSeason, useUsers } from '../api/hooks'
-import { GalleryCanvas } from '../three/GalleryCanvas'
 
 const overlayLinkClass = ({ isActive }: { isActive: boolean }) =>
   `block py-3 font-display text-2xl transition-colors duration-300 ${
@@ -81,43 +80,6 @@ function NavOverlay({ onClose }: { onClose: () => void }) {
   )
 }
 
-/** The gallery canvas is mounted once here (persistent across routes —
- * CLAUDE.md: "reuse the shared r3f canvas rather than mounting a new
- * canvas per route") and only given visible height on Home for now.
- * Team-page/History integration into the same scene is PLAN.md Phase 7;
- * until then the canvas stays mounted at zero height elsewhere so its
- * GL context and geometry never get torn down and rebuilt on nav.
- *
- * On Home the canvas sits in a `sticky top-0` inner div inside a taller
- * (`230vh`/`260vh`) outer track — plain CSS sticky, not a GSAP pin —
- * so the scene stays on screen and the ScrollCameraRig's camera move
- * (three/ScrollCameraRig.tsx) actually has screen time to play out
- * against, instead of scrolling away in the first ~60vh of a page
- * that's several viewports tall (SPEC.md §5.5: the camera should move
- * "through" the scene as you scroll, not just be a hero banner that
- * scrolls past). `#gallery-scroll-track`'s id is what ScrollCameraRig
- * measures its scroll range against. */
-function GalleryCanvasHost() {
-  const { pathname } = useLocation()
-  const isHome = pathname === '/'
-
-  if (!isHome) {
-    return (
-      <div aria-hidden="true" className="h-0 overflow-hidden">
-        <GalleryCanvas />
-      </div>
-    )
-  }
-
-  return (
-    <div aria-hidden="true" id="gallery-scroll-track" className="h-[230vh] sm:h-[260vh]">
-      <div className="sticky top-0 h-[58vh] min-h-[380px] w-full sm:h-[68vh]">
-        <GalleryCanvas />
-      </div>
-    </div>
-  )
-}
-
 export function Layout({ children }: { children: ReactNode }) {
   const [menuOpen, setMenuOpen] = useState(false)
 
@@ -139,8 +101,6 @@ export function Layout({ children }: { children: ReactNode }) {
       </header>
 
       {menuOpen && <NavOverlay onClose={() => setMenuOpen(false)} />}
-
-      <GalleryCanvasHost />
 
       <div className="px-6 py-10">{children}</div>
     </div>

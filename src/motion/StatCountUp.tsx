@@ -5,7 +5,7 @@ import { setupGsap } from './gsapSetup'
 import { useReducedMotion } from './reducedMotionContext'
 
 /** A stepped count-up — SPEC.md §5.5's other named stepped/stop-motion
- * beat alongside the trophy entrance (three/GalleryScene.tsx). Ticks up
+ * beat alongside the trophy entrance (three/TrophyRoomScene.tsx). Ticks up
  * from 0 to `value` in whole visible steps (not a smooth tween) once
  * the element scrolls into view, then stays put — a deliberate,
  * occasional accent per SPEC.md §5.5, not applied to every number on
