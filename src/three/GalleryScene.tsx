@@ -174,8 +174,14 @@ function Floor() {
 }
 
 export function GalleryScene() {
-  const plinthSlots = useMemo(() => arcSlots(TEAM_COUNT, 5.4, 0.525, 0.4, Math.PI * 0.72), [])
-  const wallSlots = useMemo(() => arcSlots(TEAM_COUNT, 8.4, 2.15, -3.2, Math.PI * 0.68), [])
+  // Narrower arcs than an initial pass used (SPEC.md §5.4 "portraits on a
+  // gallery wall" still applies, but the outermost items at a wide spread
+  // were viewed near edge-on from the fixed camera — see PLAN.md Phase 5 —
+  // reading as dark slivers instead of gold-framed portraits/marble
+  // plinths. Kept tight enough that every instance stays close to
+  // face-on within the camera's frame.
+  const plinthSlots = useMemo(() => arcSlots(TEAM_COUNT, 4.8, 0.525, 0.4, Math.PI * 0.42), [])
+  const wallSlots = useMemo(() => arcSlots(TEAM_COUNT, 7.6, 2.15, -3.2, Math.PI * 0.38), [])
 
   return (
     <group>

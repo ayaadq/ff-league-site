@@ -21,7 +21,7 @@ export function GalleryCanvas() {
     <Canvas
       dpr={[1, 1.5]}
       gl={{ antialias: true, powerPreference: 'high-performance' }}
-      camera={{ position: [0, 1.7, 8.5], fov: 42, near: 0.1, far: 40 }}
+      camera={{ position: [0, 1.85, 9.4], fov: 45, near: 0.1, far: 40 }}
     >
       <color attach="background" args={['#f7f5f2']} />
       <fog attach="fog" args={['#f7f5f2', 11, 24]} />
