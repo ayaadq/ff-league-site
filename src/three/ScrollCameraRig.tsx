@@ -16,14 +16,19 @@ const LOOK_TARGET: [number, number, number] = [0, 1.4, -1]
  * GSAP's ScrollTrigger works against the DOM regardless of where the
  * driving code runs.
  *
- * Scoped to Home for now: the canvas only has visible height there (see
- * Layout.tsx's GalleryCanvasHost) until team pages integrate with the
- * shared scene in Phase 7, so driving the camera on other routes would
- * have no visible effect. Recreates the scroll tween on route change
- * (a route's page height differs, and start/end are measured against
- * `document.body`'s height at creation time) rather than trying to
- * keep one ScrollTrigger valid across every route's differing content
- * height.
+ * Tracks `#gallery-scroll-track` (Layout.tsx's GalleryCanvasHost) —
+ * the tall wrapper whose height gives the `sticky` canvas inside it
+ * room to stay pinned on screen — from when it reaches the top of the
+ * viewport to when it's fully scrolled past, rather than the whole
+ * document. That keeps the camera's full move in sync with exactly the
+ * span of scroll where the canvas is actually visible, independent of
+ * how long the rest of the page is (which will keep growing in later
+ * phases).
+ *
+ * Scoped to Home for now: `#gallery-scroll-track` only exists there
+ * until team pages integrate with the shared scene in Phase 7. Recreates
+ * the scroll tween on route change/element availability rather than
+ * trying to keep one ScrollTrigger valid once the element unmounts.
  *
  * `prefers-reduced-motion`: skipped entirely — the camera stays at its
  * static Phase 5 framing rather than moving on scroll, per SPEC.md
@@ -38,7 +43,9 @@ export function ScrollCameraRig() {
   useEffect(() => {
     setupGsap()
 
-    if (prefersReducedMotion || !isHome) {
+    const track = isHome ? document.getElementById('gallery-scroll-track') : null
+
+    if (prefersReducedMotion || !track) {
       camera.position.set(REST_POSITION.x, REST_POSITION.y, REST_POSITION.z)
       camera.lookAt(...LOOK_TARGET)
       return
@@ -49,9 +56,9 @@ export function ScrollCameraRig() {
       ...SCROLLED_POSITION,
       ease: 'none', // the scrub value below supplies the "weighted" lag, not this ease
       scrollTrigger: {
-        trigger: document.body,
+        trigger: track,
         start: 'top top',
-        end: 'bottom bottom',
+        end: 'bottom top',
         scrub: 1.2,
       },
       onUpdate: () => {

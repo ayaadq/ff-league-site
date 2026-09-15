@@ -86,17 +86,34 @@ function NavOverlay({ onClose }: { onClose: () => void }) {
  * canvas per route") and only given visible height on Home for now.
  * Team-page/History integration into the same scene is PLAN.md Phase 7;
  * until then the canvas stays mounted at zero height elsewhere so its
- * GL context and geometry never get torn down and rebuilt on nav. */
+ * GL context and geometry never get torn down and rebuilt on nav.
+ *
+ * On Home the canvas sits in a `sticky top-0` inner div inside a taller
+ * (`230vh`/`260vh`) outer track — plain CSS sticky, not a GSAP pin —
+ * so the scene stays on screen and the ScrollCameraRig's camera move
+ * (three/ScrollCameraRig.tsx) actually has screen time to play out
+ * against, instead of scrolling away in the first ~60vh of a page
+ * that's several viewports tall (SPEC.md §5.5: the camera should move
+ * "through" the scene as you scroll, not just be a hero banner that
+ * scrolls past). `#gallery-scroll-track`'s id is what ScrollCameraRig
+ * measures its scroll range against. */
 function GalleryCanvasHost() {
   const { pathname } = useLocation()
   const isHome = pathname === '/'
 
+  if (!isHome) {
+    return (
+      <div aria-hidden="true" className="h-0 overflow-hidden">
+        <GalleryCanvas />
+      </div>
+    )
+  }
+
   return (
-    <div
-      aria-hidden="true"
-      className={isHome ? 'h-[58vh] min-h-[380px] w-full sm:h-[68vh]' : 'h-0 overflow-hidden'}
-    >
-      <GalleryCanvas />
+    <div aria-hidden="true" id="gallery-scroll-track" className="h-[230vh] sm:h-[260vh]">
+      <div className="sticky top-0 h-[58vh] min-h-[380px] w-full sm:h-[68vh]">
+        <GalleryCanvas />
+      </div>
     </div>
   )
 }
