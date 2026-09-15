@@ -28,23 +28,30 @@ export const IVORY_MATERIAL_PROPS = {
   clearcoatRoughness: 0.35,
 } as const
 
-// envMapIntensity is boosted well past 1 here: a single-HDRI studio
-// environment reflects unevenly across instances facing different
-// directions (some catch the bright softbox, some reflect a dark studio
-// wall) — physically correct, but on a wall of 12 differently-angled
-// gold frames it reads as "half the frames are black," not gold. Extra
-// intensity plus the added gallery-track fill lights in GalleryCanvas
-// keep every instance legible regardless of which way it faces.
+// Extra directional lights and a boosted envMapIntensity (a prior pass)
+// didn't fix it: at metalness ~0.9, a material's visible color comes
+// almost entirely from the *reflected environment map*, not scene
+// lights — a directional light mostly adds a tiny specular highlight,
+// not fill light, on a near-mirror surface. With one studio HDRI, that
+// means instances facing away from its bright softbox reflect its dark
+// surround and read as black, no matter how many lights are added.
+//
+// Fix: pull metalness down enough that the diffuse term (which *is*
+// lit evenly by the scene's lights, unlike a mirror reflection) carries
+// real weight. This trades some "physically exact gold" for "reads as
+// gold from every angle in a single-HDRI scene" — the right tradeoff
+// for a wall of 12 identically-colored instances facing different
+// directions, not a single hero object.
 export const GOLD_MATERIAL_PROPS = {
   color: '#d4af37',
-  roughness: 0.22,
-  metalness: 0.9,
-  envMapIntensity: 1.8,
+  roughness: 0.35,
+  metalness: 0.45,
+  envMapIntensity: 1.1,
 } as const
 
 export const BRASS_MATERIAL_PROPS = {
   color: '#8c6d46',
-  roughness: 0.34,
-  metalness: 0.8,
-  envMapIntensity: 1.5,
+  roughness: 0.4,
+  metalness: 0.4,
+  envMapIntensity: 1,
 } as const
