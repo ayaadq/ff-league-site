@@ -157,6 +157,11 @@ This is the first showpiece phase — treat it as core work, not polish.
   Chrome DevTools' emulator, which doesn't reflect real GPU/thermal
   behavior) and check the frame budget holds with the base scene loaded.
 
+**Update (Phase 7):** this scene (renamed `TrophyRoomScene`) now lives on
+League History instead of Home, and the canvas is no longer mounted once
+in `Layout` and shared across every route — each page mounts its own.
+See Phase 7 below for why and what changed.
+
 ## Phase 6 — Scroll-driven camera + GSAP motion system
 
 **Status: Complete, verified on the live production URL.** GSAP +
@@ -205,13 +210,88 @@ an actual phone.
   on an actual phone, touch-scrolling (not a trackpad or mouse wheel) —
   check against the SPEC §7.2 frame budget.
 
-## Phase 7 — Team page integration + animated view transitions
+**Update (Phase 7):** `ScrollCameraRig` described above was generalized
+to take `trackId`/`restPosition`/`scrolledPosition`/`lookTarget` as props
+instead of being hardcoded to Home's `#gallery-scroll-track`, so more
+than one page's canvas can drive it with its own scroll track and camera
+path. The trophy gallery this originally scrolled through now lives on
+League History, not Home — see Phase 7 below.
 
-- Bring the Phase 3 team page layouts into the shared gallery scene:
-  entering a team = a camera/scene move to that team's "hall", not a
-  route swap with a fade.
+## Phase 7 — Split the shared scene: Home gets a live standings podium, the trophy room moves to League History
+
+**Status: Complete against the code; verified with `tsc -b`, `oxlint`,
+and a production `vite build` locally — not yet deployed or checked on a
+real device (see the gaps below).** This phase was originally scoped as
+"bring team pages into the shared gallery scene" (the original bullets
+are kept below, now deferred/re-scoped, not built). What actually
+happened instead, from live feedback while Phase 6 was underway: Home
+should be a page worth revisiting every week, not a static display, so
+the generic marble/gold trophy gallery didn't belong there. It moved to
+League History instead — the one page that's genuinely about looking
+back at the league's permanent record — and Home got a scene of its own
+built from real data.
+
+What changed:
+
+- `GalleryScene`/`GalleryCanvas` renamed to `TrophyRoomScene`/
+  `TrophyRoomCanvas` (three/) and moved onto League History
+  (pages/HistoryPage.tsx), matching the "Trophy Room" name already used
+  in the site's own nav branding.
+- `ScrollCameraRig` generalized (see the Phase 6 update note above) so
+  each page's canvas supplies its own scroll-track id and camera framing
+  instead of one hardcoded to Home.
+- Shared arc-placement math (three/arcLayout.ts), the lighting rig
+  (three/SceneLighting.tsx), and the marble floor (three/SceneFloor.tsx)
+  were extracted out of the original scene so both scenes stay visually
+  consistent without duplicating code.
+- `Layout.tsx` no longer mounts a shared canvas across every route —
+  each page mounts its own now that Home and League History have
+  unrelated scenes with nothing to gain from one shared GL context. This
+  revises SPEC §5.4's "keep one shared canvas/renderer where possible"
+  guidance; see the note added there.
+- Home has a new scene instead (three/WeeklySummaryScene.tsx,
+  three/WeeklySummaryCanvas.tsx): a live standings podium built from
+  real data, not a generic display — top 3 by current record/points get
+  their own medal-stand podium blocks (1st centered/tallest), ranks 4-12
+  sit on the same portrait-wall arc style the trophy room uses, and
+  every portrait shows the team's actual Sleeper avatar rather than a
+  blank canvas.
+- Real avatar photos were verified safe to load before building against
+  them: a live-browser test (a canvas cross-origin-taint check with
+  `crossOrigin: 'anonymous'`, the same failure mode three.js's
+  `TextureLoader` hits) confirmed Sleeper's avatar CDN sends proper CORS
+  headers. Each portrait's texture load still gets its own Suspense +
+  error-boundary fallback to a blank ivory canvas, so one bad/slow avatar
+  URL can't blank out the whole scene.
+- Home's page heading changed from "The Gallery" to "Scoreboard" to
+  match what it actually shows now (SPEC §4 updated to match).
+
+Known gaps against this phase's own bar (SPEC §7.2, and PLAN's own
+"deploy + real-device check every 3D phase" pattern) — not yet closed:
+
+- Not yet deployed to the production URL, and not checked on a real
+  device at all. Everything above is only verified locally.
+- Avatar textures load as plain JPGs straight from Sleeper's CDN
+  (~400×400 each), not KTX2/Basis-compressed like SPEC §7.2 calls for —
+  probably fine at twelve small images, but worth confirming against the
+  frame/load-time budget on an actual mid-range phone rather than
+  assuming.
+- Touch-scroll/iOS Safari momentum behavior hasn't been re-verified on
+  either page's new scroll track (`weekly-summary-scroll-track`,
+  `trophy-room-scroll-track`) — Phase 6 found a real bug here that only
+  showed up on an actual device, so the same check applies to both new
+  tracks before calling this phase done.
+
+Original Phase 7 scope, deferred and re-scoped rather than built as
+written — the single shared gallery scene it assumed no longer exists,
+so this needs fresh thinking, not just resuming the plan below as-is:
+
+- Bring the Phase 3 team page layouts into a 3D scene — whether that's
+  still the right call, and what a team page's own scene would even
+  show, is now an open design question rather than an assumed extension
+  of one shared gallery.
 - Season selector and week-by-week roster/results views, with player
-  headshots, inside this animated frame.
+  headshots, inside whatever that ends up being.
 - Transition between team tabs is a first-class animation, not
   incidental — this is explicitly called out in SPEC §5.5 as a core
   interaction, budget real time for it.
@@ -220,6 +300,10 @@ an actual phone.
   loading on an actual phone, against the SPEC §7.2 frame budget.
 
 ## Phase 8 — League History, records, and lore surfacing
+
+(League History already carries the trophy-room 3D scene as of Phase 7 —
+its real-device check above should cover this page's 3D too, not just
+the 2D content below.)
 
 - Cross-season leaderboards/records (SPEC §4).
 - Wire up the hand-authored lore data structures (SPEC §6.4) as empty

@@ -43,11 +43,17 @@ Two things it must do well:
 ## 4. Information architecture
 
 - **Entry / Gate** — password screen.
-- **Home ("The Gallery")** — front page. Weekly pulse of the league:
+- **Home ("Scoreboard")** — front page. Weekly pulse of the league:
   most recent week's results, big storylines (score gaps, upsets, lore
-  callouts), standings snapshot. This is the "broadcast intro" moment,
-  but it is not the _only_ 3D/motion investment — see §5.5: scroll-driven
-  camera movement and animated view transitions run throughout the site.
+  callouts), a live 3D standings podium (top 3 on their own medal-stand
+  blocks, the rest on a portrait-wall arc, real team photos throughout —
+  see §5.4). This is the "broadcast intro" moment, but it is not the
+  _only_ 3D/motion investment — see §5.5: scroll-driven camera movement
+  and animated view transitions run throughout the site. (Originally
+  named "The Gallery" and built around the same static trophy-room scene
+  described below for League History — moved there once it became clear
+  Home needed a scene that changes with live standings, not a generic
+  display; see PLAN.md Phase 7.)
 - **Team pages** (one per team, 12 total) — a "hall" for that team:
   - Season selector (current + every historical season available).
   - Week-by-week results for the selected season: opponent, score,
@@ -57,7 +63,10 @@ Two things it must do well:
 - **League History / Records** — cross-season leaderboards (most
   championships, best single-week score, longest win streak, head-to-head
   records) plus surfaced lore: rivalries and notable past events, browsable
-  by team or by season.
+  by team or by season. Also carries the marble/gold trophy-room 3D scene
+  (§5.4) — plinths, trophies, a portrait wall — since this page is
+  genuinely about the league's permanent record, unlike Home's
+  live/weekly content (see PLAN.md Phase 7).
 - No admin UI — lore content is authored by hand in the repo (see §6.3),
   not through the site itself.
 
@@ -128,16 +137,26 @@ tabular-nums`.
 - Motifs: trophies on plinths, framed "portraits" (team avatars) on a
   gallery wall, marble pedestals/podiums for standings — literal trophy
   room objects, not abstract shapes.
-- 3D is not confined to a single hero: the home page and team pages share
-  a persistent-feeling gallery scene that the camera moves through on
-  scroll and on navigation (see §5.5) — treat the r3f canvas as a scene
-  the user travels through, not a one-off banner.
+- 3D is not confined to a single hero: multiple pages get their own
+  scroll-driven scene (see §5.5), not just a one-off home page banner.
+  In practice this became two purpose-built scenes rather than one scene
+  shared everywhere (PLAN.md Phase 7): League History keeps the original
+  static trophy-room gallery (trophies on plinths, a portrait wall, a
+  marble podium), while Home has its own live scene built from real
+  standings (a podium of the top 3, the rest on the same portrait-wall
+  style) — the two pages' content differs enough (permanent record vs.
+  changes weekly) that one shared scene didn't serve either well.
+  Whether team pages get a scene of their own is still an open question.
 - Performance: because 3D/motion is used ambitiously and throughout, this
-  needs real attention — reuse/instance geometry and materials across
-  scenes, keep one shared canvas/renderer where possible rather than
-  remounting per route, use LOD or simplified geometry for background
-  objects, and always provide a static-fallback/poster degrade path on
-  low-end devices or `prefers-reduced-motion`.
+  needs real attention — reuse/instance geometry and materials within a
+  scene, share a canvas/renderer across routes that show the *same*
+  scene rather than remounting it, use LOD or simplified geometry for
+  background objects, and always provide a static-fallback/poster degrade
+  path on low-end devices or `prefers-reduced-motion`. (Two pages with
+  genuinely different scenes each getting their own canvas is fine and
+  is what Home/League History do now, PLAN.md Phase 7 — the thing to
+  avoid is remounting/rebuilding the *same* scene's GL context on every
+  navigation.)
 
 ### 5.5 Motion
 
@@ -151,13 +170,18 @@ and used throughout, not confined to the home page hero.
   weighted" is a texture choice (things feel heavy, like moving marble),
   not a limit on scope or ambition.
 - **Scroll-driven camera movement through 3D space** is a core
-  interaction pattern, not just a hero moment: scrolling the home page
-  and team pages should move a real r3f camera through the gallery scene
-  (past plinths, portraits, trophies), not just fade 2D sections in/out.
+  interaction pattern, not just a hero moment: scrolling Home and League
+  History each move a real r3f camera through that page's own scene
+  (Home's live standings podium; League History's trophy-room gallery of
+  plinths, portraits, trophies), not just fade 2D sections in/out.
+  Whether team pages get the same treatment is still open (PLAN.md
+  Phase 7).
 - **Transitions between team views** (switching tabs, changing season)
-  are animated as camera/scene moves within the 3D gallery metaphor where
-  practical — e.g. moving from one team's "hall" to another — rather than
-  a plain route swap.
+  should be animated, not a plain route swap — originally scoped as
+  camera/scene moves between team "halls" within one shared gallery
+  metaphor; since that single shared scene no longer exists (see §5.4),
+  what this looks like for team pages is an open question (PLAN.md
+  Phase 7), not yet built.
 - Deliberate **stop-motion / stepped-easing** moments (GSAP `steps()` or
   hand-authored keyframes) are an intentional stylistic accent for
   specific beats (e.g. a trophy "clicking" into place, a score counting
