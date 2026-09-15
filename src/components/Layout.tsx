@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react'
-import { NavLink } from 'react-router'
+import { NavLink, useLocation } from 'react-router'
 import { useCurrentSeason, useUsers } from '../api/hooks'
+import { GalleryCanvas } from '../three/GalleryCanvas'
 
 const overlayLinkClass = ({ isActive }: { isActive: boolean }) =>
   `block py-3 font-display text-2xl transition-colors duration-300 ${
@@ -80,6 +81,26 @@ function NavOverlay({ onClose }: { onClose: () => void }) {
   )
 }
 
+/** The gallery canvas is mounted once here (persistent across routes —
+ * CLAUDE.md: "reuse the shared r3f canvas rather than mounting a new
+ * canvas per route") and only given visible height on Home for now.
+ * Team-page/History integration into the same scene is PLAN.md Phase 7;
+ * until then the canvas stays mounted at zero height elsewhere so its
+ * GL context and geometry never get torn down and rebuilt on nav. */
+function GalleryCanvasHost() {
+  const { pathname } = useLocation()
+  const isHome = pathname === '/'
+
+  return (
+    <div
+      aria-hidden="true"
+      className={isHome ? 'h-[58vh] min-h-[380px] w-full sm:h-[68vh]' : 'h-0 overflow-hidden'}
+    >
+      <GalleryCanvas />
+    </div>
+  )
+}
+
 export function Layout({ children }: { children: ReactNode }) {
   const [menuOpen, setMenuOpen] = useState(false)
 
@@ -101,6 +122,8 @@ export function Layout({ children }: { children: ReactNode }) {
       </header>
 
       {menuOpen && <NavOverlay onClose={() => setMenuOpen(false)} />}
+
+      <GalleryCanvasHost />
 
       <div className="px-6 py-10">{children}</div>
     </div>

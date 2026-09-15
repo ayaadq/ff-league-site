@@ -100,6 +100,19 @@ Phase 4.
 
 ## Phase 5 — Shared 3D gallery scene (foundation)
 
+**Status: Complete.** One persistent r3f canvas (mounted in `Layout`,
+given visible height only on Home for now — see Phase 7) with a studio
+HDRI environment, marble/ivory/gold/brass PBR materials, and instanced
+gallery geometry: 12 marble plinths with gold trophy toppers, a 12-panel
+gold-framed portrait wall (untextured ivory canvases — real avatar
+photos land in Phase 7, once cross-origin texture loading from the
+Sleeper CDN is verified in-browser), and a three-tier marble podium.
+Static camera framing, capped devicePixelRatio, no post-processing, one
+directional fill light — within the SPEC §7.2 mobile budget by
+construction, not yet perf-tested on a real low-end device (that's the
+real-device check below). Production build verified clean (tsc + vite
+build + oxlint, 0 errors).
+
 This is the first showpiece phase — treat it as core work, not polish.
 
 - One persistent r3f canvas/scene shell (not remounted per route) with
