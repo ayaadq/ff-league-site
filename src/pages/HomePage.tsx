@@ -1,11 +1,239 @@
+import { useMemo, type ReactNode } from 'react'
+import { useCurrentSeason, useMatchups, useNflState, useRosters, useUsers } from '../api/hooks'
+import {
+  sortStandings,
+  teamAvatarIdForRoster,
+  teamNameForRoster,
+  totalPoints,
+} from '../api/standings'
+import type { SleeperMatchup } from '../api/types'
+import { TeamAvatar } from '../components/TeamAvatar'
+
+function groupMatchupsByPairing(matchups: SleeperMatchup[]): SleeperMatchup[][] {
+  const groups = new Map<number, SleeperMatchup[]>()
+  for (const matchup of matchups) {
+    if (matchup.matchup_id == null) continue
+    const group = groups.get(matchup.matchup_id) ?? []
+    group.push(matchup)
+    groups.set(matchup.matchup_id, group)
+  }
+  return [...groups.values()]
+}
+
+function SectionKicker({ children }: { children: ReactNode }) {
+  return <p className="text-charcoal-soft text-xs tracking-widest uppercase">{children}</p>
+}
+
 export function HomePage() {
+  const { leagueId, season } = useCurrentSeason()
+  const rosters = useRosters(leagueId)
+  const users = useUsers(leagueId)
+  const nflState = useNflState()
+
+  const week = nflState.data?.week ?? 1
+  const previousWeek = Math.max(1, week - 1)
+  const currentWeekMatchups = useMatchups(leagueId, week)
+  const previousWeekMatchups = useMatchups(leagueId, previousWeek)
+
+  const hasCurrentScores = currentWeekMatchups.data?.some((m) => m.points > 0) ?? false
+  const resultsWeek = hasCurrentScores ? week : previousWeek
+  const resultsMatchups = hasCurrentScores ? currentWeekMatchups : previousWeekMatchups
+
+  const rosterFor = (rosterId: number) => rosters.data?.find((r) => r.roster_id === rosterId)
+  const teamName = (rosterId: number) => {
+    const roster = rosterFor(rosterId)
+    return roster ? teamNameForRoster(roster, users.data ?? []) : `Roster ${rosterId}`
+  }
+  const teamAvatarId = (rosterId: number) => {
+    const roster = rosterFor(rosterId)
+    return roster ? teamAvatarIdForRoster(roster, users.data ?? []) : null
+  }
+
+  const pairs = useMemo(() => {
+    const groups = groupMatchupsByPairing(resultsMatchups.data ?? [])
+    return groups.filter((p): p is [SleeperMatchup, SleeperMatchup] => p.length === 2)
+  }, [resultsMatchups.data])
+
+  const hasResults = pairs.some((pair) => pair.some((m) => m.points > 0))
+
+  const standings = useMemo(() => sortStandings(rosters.data ?? []), [rosters.data])
+
+  const storylines = useMemo(() => {
+    if (!hasResults) return null
+    const allEntries = pairs.flat().filter((m) => m.points > 0)
+    if (allEntries.length === 0) return null
+
+    const highScore = allEntries.reduce((best, m) => (m.points > best.points ? m : best))
+    const margins = pairs.map((pair) => {
+      const [a, b] = pair
+      const winner = a.points >= b.points ? a : b
+      const loser = a.points >= b.points ? b : a
+      return { winner, loser, margin: winner.points - loser.points }
+    })
+    const biggestMargin = margins.reduce((best, m) => (m.margin > best.margin ? m : best))
+    const closestGame = margins.reduce((best, m) => (m.margin < best.margin ? m : best))
+
+    return { highScore, biggestMargin, closestGame }
+  }, [pairs, hasResults])
+
+  const isLoading =
+    rosters.isLoading ||
+    users.isLoading ||
+    nflState.isLoading ||
+    currentWeekMatchups.isLoading ||
+    previousWeekMatchups.isLoading
+
   return (
-    <section>
-      <h1 className="font-display text-4xl">The Gallery</h1>
-      <p className="text-charcoal-soft mt-2">
-        Weekly league pulse lands here in Phase 3 (PLAN.md) — standings, recent results, and
-        storylines.
-      </p>
+    <section className="mx-auto max-w-4xl">
+      <header className="text-center">
+        <SectionKicker>{season ? `${season} Season` : 'Loading season…'}</SectionKicker>
+        <h1 className="font-display text-charcoal mt-2 text-[clamp(2.75rem,9vw,4.5rem)] leading-[0.95]">
+          The Gallery
+        </h1>
+        <div className="bg-gold mx-auto mt-5 h-px w-16" aria-hidden="true" />
+      </header>
+
+      {isLoading && <p className="text-charcoal-soft mt-14 text-center">Loading the room…</p>}
+
+      {!isLoading && storylines && (
+        <section className="mt-14 md:mt-20" aria-labelledby="storylines-heading">
+          <SectionKicker>Week {resultsWeek}</SectionKicker>
+          <h2 id="storylines-heading" className="font-display text-charcoal mt-1 text-3xl">
+            Storylines
+          </h2>
+
+          <div className="border-charcoal/10 mt-6 flex items-center gap-4 border-b pb-6">
+            <TeamAvatar
+              avatarId={teamAvatarId(storylines.highScore.roster_id)}
+              name={teamName(storylines.highScore.roster_id)}
+              size="md"
+            />
+            <div className="min-w-0">
+              <SectionKicker>High score</SectionKicker>
+              <p className="text-charcoal font-sans text-5xl leading-tight font-semibold lining-nums tabular-nums">
+                {storylines.highScore.points.toFixed(1)}
+              </p>
+              <p className="text-charcoal-soft truncate text-sm">
+                {teamName(storylines.highScore.roster_id)}
+              </p>
+            </div>
+          </div>
+
+          <div className="mt-6 grid grid-cols-2 gap-6">
+            <div className="min-w-0">
+              <SectionKicker>Biggest margin</SectionKicker>
+              <p className="text-charcoal mt-1 font-sans text-2xl font-semibold lining-nums tabular-nums">
+                +{storylines.biggestMargin.margin.toFixed(1)}
+              </p>
+              <p className="text-charcoal-soft truncate text-sm">
+                {teamName(storylines.biggestMargin.winner.roster_id)} def.{' '}
+                {teamName(storylines.biggestMargin.loser.roster_id)}
+              </p>
+            </div>
+            <div className="min-w-0">
+              <SectionKicker>Closest game</SectionKicker>
+              <p className="text-charcoal mt-1 font-sans text-2xl font-semibold lining-nums tabular-nums">
+                {storylines.closestGame.margin.toFixed(1)}
+              </p>
+              <p className="text-charcoal-soft truncate text-sm">
+                {teamName(storylines.closestGame.winner.roster_id)} def.{' '}
+                {teamName(storylines.closestGame.loser.roster_id)}
+              </p>
+            </div>
+          </div>
+        </section>
+      )}
+
+      {!isLoading && hasResults && (
+        <section className="mt-12 md:mt-16" aria-labelledby="results-heading">
+          <SectionKicker>Week {resultsWeek}</SectionKicker>
+          <h2 id="results-heading" className="font-display text-charcoal mt-1 text-3xl">
+            Results
+          </h2>
+          <ul className="divide-charcoal/10 border-charcoal/10 mt-6 divide-y border-t">
+            {pairs.map(([a, b]) => {
+              const aWins = a.points >= b.points
+              return (
+                <li
+                  key={`${a.roster_id}-${b.roster_id}`}
+                  className="flex items-center gap-2 py-3 text-sm"
+                >
+                  <div className="flex min-w-0 flex-1 items-center gap-2">
+                    <TeamAvatar avatarId={teamAvatarId(a.roster_id)} name={teamName(a.roster_id)} />
+                    <span className={`truncate ${aWins ? 'text-charcoal' : 'text-charcoal-soft'}`}>
+                      {teamName(a.roster_id)}
+                    </span>
+                  </div>
+                  <span className="text-charcoal shrink-0 px-2 lining-nums tabular-nums">
+                    {a.points.toFixed(1)} – {b.points.toFixed(1)}
+                  </span>
+                  <div className="flex min-w-0 flex-1 flex-row-reverse items-center gap-2 text-right">
+                    <TeamAvatar avatarId={teamAvatarId(b.roster_id)} name={teamName(b.roster_id)} />
+                    <span className={`truncate ${aWins ? 'text-charcoal-soft' : 'text-charcoal'}`}>
+                      {teamName(b.roster_id)}
+                    </span>
+                  </div>
+                </li>
+              )
+            })}
+          </ul>
+        </section>
+      )}
+
+      {!isLoading && (
+        <section className="mt-12 md:mt-16" aria-labelledby="standings-heading">
+          <SectionKicker>{season}</SectionKicker>
+          <h2 id="standings-heading" className="font-display text-charcoal mt-1 text-3xl">
+            Standings
+          </h2>
+          <div className="mt-6 overflow-x-auto">
+            <table className="w-full min-w-[420px] text-left text-sm">
+              <thead>
+                <tr className="border-charcoal/20 text-charcoal-soft border-b text-xs tracking-wide uppercase">
+                  <th scope="col" className="py-2 font-normal">
+                    #
+                  </th>
+                  <th scope="col" className="py-2 font-normal">
+                    Team
+                  </th>
+                  <th scope="col" className="py-2 text-right font-normal">
+                    W-L-T
+                  </th>
+                  <th scope="col" className="py-2 text-right font-normal">
+                    PF
+                  </th>
+                </tr>
+              </thead>
+              <tbody className="divide-charcoal/10 divide-y">
+                {standings.map((roster, index) => (
+                  <tr key={roster.roster_id} className="hover:bg-ivory/60 transition-colors">
+                    <td className="text-charcoal-soft py-3 lining-nums tabular-nums">
+                      {index + 1}
+                    </td>
+                    <td className="text-charcoal py-3">
+                      <div className="flex items-center gap-2">
+                        <TeamAvatar
+                          avatarId={teamAvatarIdForRoster(roster, users.data ?? [])}
+                          name={teamNameForRoster(roster, users.data ?? [])}
+                        />
+                        <span className="truncate">
+                          {teamNameForRoster(roster, users.data ?? [])}
+                        </span>
+                      </div>
+                    </td>
+                    <td className="text-charcoal py-3 text-right lining-nums tabular-nums">
+                      {roster.settings.wins}-{roster.settings.losses}-{roster.settings.ties}
+                    </td>
+                    <td className="text-charcoal py-3 text-right lining-nums tabular-nums">
+                      {totalPoints(roster.settings).toFixed(1)}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </section>
+      )}
     </section>
   )
 }

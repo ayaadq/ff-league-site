@@ -15,13 +15,8 @@ import {
   getRosters,
   getUsers,
 } from '../src/api/sleeperClient'
+import { sortStandings, teamNameForRoster, totalPoints } from '../src/api/standings'
 import { SLEEPER_LEAGUE_ID } from '../src/config'
-import type { SleeperRoster, SleeperUser } from '../src/api/types'
-
-function teamNameFor(roster: SleeperRoster, userById: Map<string, SleeperUser>): string {
-  const user = roster.owner_id ? userById.get(roster.owner_id) : undefined
-  return user?.metadata?.team_name ?? user?.display_name ?? `Roster ${roster.roster_id}`
-}
 
 async function main() {
   console.log(`Resolving season chain for league ${SLEEPER_LEAGUE_ID}...`)
@@ -46,19 +41,14 @@ async function main() {
     `\nLeague: "${league.name}" — ${league.total_rosters} teams, status: ${league.status}`,
   )
 
-  const userById = new Map(users.map((u) => [u.user_id, u]))
-
-  const standings = [...rosters].sort((a, b) => {
-    if (b.settings.wins !== a.settings.wins) return b.settings.wins - a.settings.wins
-    return b.settings.fpts - a.settings.fpts
-  })
+  const standings = sortStandings(rosters)
 
   console.log('\nStandings:')
   console.log(`  ${'Team'.padEnd(28)} ${'W-L-T'.padEnd(8)} PF`)
   for (const roster of standings) {
     const record = `${roster.settings.wins}-${roster.settings.losses}-${roster.settings.ties}`
     console.log(
-      `  ${teamNameFor(roster, userById).padEnd(28)} ${record.padEnd(8)} ${roster.settings.fpts}`,
+      `  ${teamNameForRoster(roster, users).padEnd(28)} ${record.padEnd(8)} ${totalPoints(roster.settings).toFixed(2)}`,
     )
   }
 
@@ -85,7 +75,7 @@ async function main() {
       '\nFetching the full player dictionary to resolve a sample roster (the ~5MB endpoint — this script calls it once)...',
     )
     const players = await getAllPlayers()
-    console.log(`\nSample roster — ${teamNameFor(sampleRoster, userById)} (starters):`)
+    console.log(`\nSample roster — ${teamNameForRoster(sampleRoster, users)} (starters):`)
     for (const playerId of sampleRoster.starters) {
       const player = players[playerId]
       const name =

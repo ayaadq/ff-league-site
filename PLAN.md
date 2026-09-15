@@ -15,6 +15,16 @@ small, so deploy/config issues surface early rather than at the end.
 Every phase from Phase 4 on ends with a push to that same URL — "deploy"
 is not a separate final step, it's the last bullet of each phase.
 
+**This is a mobile-first project (SPEC §7).** Most league members will
+open this on a phone, so every phase below builds and checks the ~390px
+layout first, not as an afterthought to a desktop design. From Phase 4
+onward, once there's a live URL, each phase's deploy step is followed by
+a real-device check — open the actual Vercel URL on an actual phone, not
+just Chrome DevTools' device emulator (which does not reflect real GPU/
+thermal performance, especially for the 3D work starting Phase 5). This
+matters most for Phase 5 onward, where mobile 3D performance is a hard
+requirement per SPEC §7.2, not a polish-pass concern.
+
 ## Phase 0 — Scaffolding
 
 - `npm create vite` (React + TypeScript), Tailwind setup, ESLint/Prettier.
@@ -49,6 +59,13 @@ is not a separate final step, it's the last bullet of each phase.
 
 - Build Home, Team page, and League History with real data and the
   palette/typography system, but as plain 2D layouts (no r3f, no GSAP).
+  Design mobile-first (~390px) and scale up per SPEC §7 — don't design
+  at desktop width and squeeze it down afterward.
+- The 14-target nav (Home, League History, 12 teams) needs the real
+  mobile pattern from SPEC §7.1 (a menu/overlay, not a horizontal
+  scrolling tab bar) — this is shared chrome every page depends on, so
+  it's cheaper to get right now than to retrofit once Team/History pages
+  also depend on it.
 - Goal: information architecture and data are fully correct and
   legible before any motion/3D is layered on. Use 21st MCP to generate/
   iterate the React components for these views.
@@ -66,6 +83,9 @@ is not a separate final step, it's the last bullet of each phase.
   build succeeds. This is the point of moving deploy early: catch
   hosting/env/build issues while the app is still small and easy to
   debug.
+- Real-device check: open the live URL on an actual phone and confirm
+  the gate and static pages work — this is the cheapest phase to catch
+  a mobile issue in, before any 3D/motion is layered on.
 - This becomes the permanent URL. Every phase below ends by deploying
   to it.
 
@@ -81,11 +101,19 @@ This is the first showpiece phase — treat it as core work, not polish.
   portraits, plinths, etc).
 - No scroll-driven camera yet — just get the scene lit, materialed, and
   performant with placeholder camera framing.
-- Perf checkpoint: confirm frame rate is acceptable with all 12 team
-  portraits + trophies present before adding camera motion on top.
+- Perf checkpoint against the SPEC §7.2 frame budget (≥60fps desktop,
+  ≥30fps floor on mid-range mobile): confirm frame rate is acceptable
+  with all 12 team portraits + trophies present before adding camera
+  motion on top. Apply the mobile requirements from the start —
+  capped devicePixelRatio, compressed (KTX2/Basis) textures, low draw
+  calls/lights, no heavy post-processing on mobile — not as a later
+  optimization pass.
 - Deploy to the live URL; check 3D asset loading (HDRI, textures) works
   in production, not just locally — CDN/CORS/asset-path issues for 3D
   assets are worth catching now.
+- Real-device check: open the live URL on an actual phone (not just
+  Chrome DevTools' emulator, which doesn't reflect real GPU/thermal
+  behavior) and check the frame budget holds with the base scene loaded.
 
 ## Phase 6 — Scroll-driven camera + GSAP motion system
 
@@ -98,8 +126,15 @@ This is the first showpiece phase — treat it as core work, not polish.
   animation primitives, not bespoke one-offs.
 - Wire `prefers-reduced-motion` to a real reduced variant (no
   scroll-camera, shorter/no transitions) — test it, don't just stub it.
+- Build the scroll-driven camera against touch scroll and iOS Safari's
+  momentum/rubber-banding behavior from the start (SPEC §7.2), not just
+  desktop wheel events — these behave differently enough that
+  wheel-only testing will feel wrong on an actual iPhone.
 - Deploy; verify scroll-driven motion feels right on the production
   build (motion/perf can behave differently than local dev).
+- Real-device check: the scroll-driven camera and stepped-easing beats
+  on an actual phone, touch-scrolling (not a trackpad or mouse wheel) —
+  check against the SPEC §7.2 frame budget.
 
 ## Phase 7 — Team page integration + animated view transitions
 
@@ -112,6 +147,8 @@ This is the first showpiece phase — treat it as core work, not polish.
   incidental — this is explicitly called out in SPEC §5.5 as a core
   interaction, budget real time for it.
 - Deploy.
+- Real-device check: team-to-team transitions and roster/headshot
+  loading on an actual phone, against the SPEC §7.2 frame budget.
 
 ## Phase 8 — League History, records, and lore surfacing
 
@@ -122,19 +159,27 @@ This is the first showpiece phase — treat it as core work, not polish.
 - Surface lore contextually (e.g. a rivalry callout on the relevant team
   page's matchup row), not only on a single dedicated lore page.
 - Deploy.
+- Real-device check: lore/records content on an actual phone — this
+  phase is lighter on 3D so the main thing to verify is layout, not
+  frame budget.
 
 ## Phase 9 — Polish and cross-cutting QA
 
 - Full accessibility re-pass now that 3D/motion is in place: contrast
   still holds, keyboard/reduced-motion paths still work, focus states
   visible against marble/gold.
-- Responsive/mobile pass: confirm the 3D scene and scroll-driven camera
-  degrade sensibly on phones (SPEC §5.4/§7) — this is where "ambitious
-  motion" most needs a deliberate mobile plan, not an afterthought.
+- Final mobile performance pass on real devices (not just emulators),
+  checked against the SPEC §7.2 frame budget (≥60fps desktop, ≥30fps
+  floor on mid-range mobile) — this is a verification pass on
+  requirements every phase since Phase 4 was already building against,
+  not the first time mobile is considered. Confirm the reduced-quality
+  tier actually kicks in on a genuinely low-end device.
 - Performance pass: bundle size, lazy-loading of the 3D canvas and
   below-the-fold images, HDRI/texture sizes.
 - Cross-browser smoke test (evergreen browsers per SPEC §7).
 - Deploy.
+- Real-device check: full end-to-end pass on at least one real iOS and
+  one real Android phone.
 
 ## Phase 10 — Handoff
 

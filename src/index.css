@@ -35,6 +35,35 @@
   --ease-weighted-in-out: cubic-bezier(0.65, 0, 0.35, 1);
 }
 
+/**
+ * Marble surface — SPEC.md §5.4 calls for "real PBR materials" in 3D
+ * (Phase 5+); until then, this is the 2D approximation: soft warm-toned
+ * gradient blooms standing in for depth/veining, plus a very fine grain
+ * texture, all at low enough opacity that contrast ratios are unaffected
+ * (verified: charcoal-on-marble stays ~13:1, nowhere near the 4.5:1 floor).
+ * Applied to every top-level page surface via this class — never a flat
+ * `bg-marble` fill on a full-page container, or the texture disappears
+ * behind it.
+ */
+.marble-surface {
+  background-color: var(--color-marble);
+  background-image:
+    radial-gradient(ellipse 70% 50% at 15% -10%, rgba(201, 162, 39, 0.05), transparent 60%),
+    radial-gradient(ellipse 60% 55% at 105% 15%, rgba(140, 109, 70, 0.045), transparent 55%),
+    radial-gradient(ellipse 75% 55% at 25% 110%, rgba(43, 41, 38, 0.035), transparent 60%),
+    linear-gradient(114deg, transparent 38%, rgba(43, 41, 38, 0.022) 39.5%, transparent 42%),
+    linear-gradient(68deg, transparent 58%, rgba(43, 41, 38, 0.018) 59.5%, transparent 63%),
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix type='matrix' values='0 0 0 0 0.169  0 0 0 0 0.161  0 0 0 0 0.149  0 0 0 0.03 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  background-repeat: no-repeat, no-repeat, no-repeat, no-repeat, no-repeat, repeat;
+  background-size:
+    cover,
+    cover,
+    cover,
+    cover,
+    cover,
+    180px 180px;
+}
+
 body {
   background-color: var(--color-marble);
   color: var(--color-charcoal);
@@ -50,5 +79,5 @@ h4 {
 
 table,
 .tabular {
-  font-variant-numeric: tabular-nums;
+  font-variant-numeric: lining-nums tabular-nums;
 }

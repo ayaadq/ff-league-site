@@ -29,6 +29,28 @@ build plan in `PLAN.md`. Read both before starting implementation work.
 
 ## Conventions
 
+### Mobile-first (hard requirement, not polish)
+
+- Build every layout at ~390px first, then scale up — never design at
+  desktop width and squeeze it down afterward. See `SPEC.md` §7.
+- The nav is a menu/overlay (`SPEC.md` §7.1), not a horizontal
+  scrolling tab bar — this was a deliberate fix, not a style preference,
+  don't revert it to a tab strip for "more desktop-native" look.
+- Any 3D/motion work (Phase 5+) must be built against the frame budget
+  in `SPEC.md` §7.2 (≥60fps desktop, ≥30fps floor on mid-range mobile)
+  from the start: capped `devicePixelRatio`, KTX2/Basis-compressed
+  textures, low draw calls/lights, no heavy post-processing on mobile,
+  and a real reduced-quality tier for low-end devices. Treat this the
+  same way you treat `prefers-reduced-motion` — a real branch that gets
+  tested, not an afterthought.
+- Scroll-driven camera work must be built and tested against touch
+  scroll and iOS Safari's momentum behavior, not just a desktop mouse
+  wheel.
+- Chrome DevTools' device emulator does not reflect real mobile GPU/
+  thermal performance — `PLAN.md` calls for a real-device check on the
+  live Vercel URL at the end of every phase from Phase 4 onward. Don't
+  skip that check because the emulator looked fine.
+
 ### Data layer
 
 - All Sleeper API calls go through a single typed client module — never

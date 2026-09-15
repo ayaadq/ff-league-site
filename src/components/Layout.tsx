@@ -1,43 +1,107 @@
-import type { ReactNode } from 'react'
+import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { NavLink } from 'react-router'
 import { useCurrentSeason, useUsers } from '../api/hooks'
 
-const navLinkClass = ({ isActive }: { isActive: boolean }) =>
-  `whitespace-nowrap border-b-2 px-1 py-3 text-sm text-charcoal transition-colors duration-300 ${
-    isActive ? 'border-gold' : 'border-transparent hover:border-charcoal/30'
+const overlayLinkClass = ({ isActive }: { isActive: boolean }) =>
+  `block py-3 font-display text-2xl transition-colors duration-300 ${
+    isActive
+      ? 'text-charcoal underline decoration-gold decoration-2 underline-offset-8'
+      : 'text-charcoal-soft hover:text-charcoal'
   }`
 
-function TeamTabs() {
+/** SPEC.md §7.1 — a menu/overlay, not a horizontal tab strip. Fourteen
+ * nav targets (Home, League History, 12 teams) don't fit a mobile-first
+ * header, and this pattern scales up to desktop as-is with no separate
+ * desktop-only implementation. */
+function NavOverlay({ onClose }: { onClose: () => void }) {
+  const closeButtonRef = useRef<HTMLButtonElement>(null)
   const { leagueId } = useCurrentSeason()
   const users = useUsers(leagueId)
 
-  if (!users.data) return null
+  useEffect(() => {
+    closeButtonRef.current?.focus()
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') onClose()
+    }
+    document.addEventListener('keydown', handleKeyDown)
+
+    const previousOverflow = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
+
+    return () => {
+      document.removeEventListener('keydown', handleKeyDown)
+      document.body.style.overflow = previousOverflow
+    }
+  }, [onClose])
 
   return (
-    <>
-      {users.data.map((user) => (
-        <NavLink key={user.user_id} to={`/team/${user.user_id}`} className={navLinkClass}>
-          {user.metadata?.team_name ?? user.display_name}
+    <div
+      id="site-nav-overlay"
+      role="dialog"
+      aria-modal="true"
+      aria-label="Site navigation"
+      className="marble-surface fixed inset-0 z-50 flex flex-col overflow-y-auto"
+    >
+      <div className="flex items-center justify-between px-6 py-4">
+        <span className="font-display text-charcoal text-lg">Trophy Room</span>
+        <button
+          ref={closeButtonRef}
+          type="button"
+          onClick={onClose}
+          className="text-charcoal flex min-h-11 min-w-11 items-center justify-center text-sm tracking-widest uppercase"
+        >
+          Close
+        </button>
+      </div>
+
+      <nav className="mx-auto w-full max-w-sm flex-1 px-6 pb-16">
+        <NavLink to="/" end className={overlayLinkClass} onClick={onClose}>
+          Home
         </NavLink>
-      ))}
-    </>
+        <NavLink to="/history" className={overlayLinkClass} onClick={onClose}>
+          League History
+        </NavLink>
+
+        <div className="bg-gold my-6 h-px w-16" aria-hidden="true" />
+
+        {users.data?.map((user) => (
+          <NavLink
+            key={user.user_id}
+            to={`/team/${user.user_id}`}
+            className={overlayLinkClass}
+            onClick={onClose}
+          >
+            {user.metadata?.team_name ?? user.display_name}
+          </NavLink>
+        ))}
+      </nav>
+    </div>
   )
 }
 
 export function Layout({ children }: { children: ReactNode }) {
+  const [menuOpen, setMenuOpen] = useState(false)
+
   return (
-    <div className="bg-marble text-charcoal min-h-svh">
-      <header className="border-charcoal/10 border-b px-6">
-        <nav className="flex gap-6 overflow-x-auto">
-          <NavLink to="/" end className={navLinkClass}>
-            Home
-          </NavLink>
-          <TeamTabs />
-          <NavLink to="/history" className={navLinkClass}>
-            League History
-          </NavLink>
-        </nav>
+    <div className="marble-surface text-charcoal min-h-svh">
+      <header className="border-charcoal/10 flex items-center justify-between border-b px-6 py-4">
+        <NavLink to="/" className="font-display text-charcoal text-lg">
+          Trophy Room
+        </NavLink>
+        <button
+          type="button"
+          aria-expanded={menuOpen}
+          aria-controls="site-nav-overlay"
+          onClick={() => setMenuOpen(true)}
+          className="text-charcoal flex min-h-11 min-w-11 items-center justify-center text-sm tracking-widest uppercase"
+        >
+          Menu
+        </button>
       </header>
+
+      {menuOpen && <NavOverlay onClose={() => setMenuOpen(false)} />}
+
       <div className="px-6 py-10">{children}</div>
     </div>
   )

@@ -252,19 +252,70 @@ simply don't appear, no placeholder text like "no rivalries yet").
 
 ## 7. Non-functional requirements
 
-- **Responsive**: usable on mobile (this is a league of people who will
-  check scores on their phones), though the flagship 3D moments can
-  scale back on small/low-power devices.
+- **Mobile-first, not mobile-tolerant.** Nearly everyone in the league
+  will open this on a phone. Design and build at ~390px width first,
+  then scale up to desktop — not the reverse. A layout that was designed
+  for desktop and then "made responsive" is the wrong process for this
+  project, not just a wrong result. This applies to every phase from
+  here on, including navigation (§7.1) and the 3D/motion work (§7.2).
 - **Accessibility**: WCAG AA contrast for all readable text (see palette
   rule above); reduced-motion support; keyboard-navigable nav and team
   tabs; alt text on avatars/headshots (player/team name).
-- **Performance**: 3D assets (HDRI, models) should be reasonably sized;
-  lazy-load the 3D hero so route changes to team pages don't re-pay that
-  cost; images from Sleeper CDN and Unsplash/Pexels lazy-loaded below the
-  fold.
+- **General performance**: lazy-load the 3D hero so route changes to
+  team pages don't re-pay that cost; images from Sleeper CDN and
+  Unsplash/Pexels lazy-loaded below the fold. See §7.2 for the
+  mobile-specific 3D/motion performance requirements, which go further
+  than general web performance hygiene.
 - **Browser support**: modern evergreen browsers only (Chrome/Edge/Safari/
   Firefox, current-ish versions) — no legacy/IE concerns for a 12-person
   friend group.
+
+### 7.1 Mobile navigation
+
+- Twelve team links plus Home and League History is fourteen nav
+  targets. An always-visible horizontal tab bar is a desktop pattern
+  dressed up with `overflow-x-auto` — it doesn't become a good mobile
+  pattern just because it scrolls. The real pattern is a menu: a
+  minimal persistent header (site mark + a text "Menu" toggle, not an
+  unlabeled icon — see the accessibility rule against icon-only
+  controls) that opens a full-screen overlay listing Home, League
+  History, and the 12 teams as a vertical list with real touch targets
+  (44×44px minimum, SPEC.md's own accessibility bar). This scales up to
+  desktop fine as-is — it doesn't need a second, different desktop-only
+  nav implementation.
+
+### 7.2 Mobile 3D and motion performance — a hard requirement, not polish
+
+Real PBR materials, an HDRI environment map, and large textures are
+exactly the workload that makes a mid-range Android phone struggle.
+"Desktop-tuned 3D that technically also runs on mobile" is the failure
+mode to design against from Phase 4 onward, not something to fix in the
+polish pass (PLAN.md Phase 9 still does a final pass, but the budget
+below is a gate every 3D-touching phase must check against, not a
+one-time cleanup).
+
+- **Frame budget target:** ≥60fps (≤16.6ms/frame) on desktop and modern
+  phones; a sustained ≥30fps (≤33ms/frame) floor on mid-range Android as
+  the minimum acceptable degraded tier. Below that floor, drop to the
+  reduced-quality tier (below) rather than let frame time creep.
+- **Cap `devicePixelRatio`** passed to the renderer (e.g. clamp to 1.5–2
+  max) rather than rendering at a phone's full native pixel ratio.
+- **Compressed textures**: KTX2/Basis Universal for anything beyond
+  small UI images, not raw PNG/JPG piped straight into materials.
+- **Keep draw calls and lights low**: instance repeated geometry (the 12
+  portraits, plinths), and favor the HDRI environment map plus one or
+  two lights over many discrete lights.
+- **Skip heavy post-processing on mobile** (bloom, SSAO, depth-of-field
+  stacks) — reserve those for desktop only, gated by a device/perf check.
+- **Plan a reduced-quality tier** for low-end devices: simplified
+  geometry/materials and a static-image fallback, not just "the same
+  scene but slower" (this is the same fallback path §5.4 already
+  requires for `prefers-reduced-motion`, extended to cover low-end
+  hardware as its own trigger).
+- **Scroll-driven camera work must account for touch scroll and iOS
+  Safari's momentum/rubber-banding behavior**, not just desktop wheel
+  events — a ScrollTrigger tuned only against a mouse wheel in dev tools
+  will feel wrong on an actual iPhone.
 
 ## 8. Out of scope (for now)
 
