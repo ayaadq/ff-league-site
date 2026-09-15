@@ -446,6 +446,20 @@ the cross-browser smoke test.
 
 ## Phase 10 — Handoff
 
+**Status: handoff docs written; custom domain is the owner's call.**
+
+README.md now covers the two things this league actually needs year to
+year. Adding a season is a one-line change to `SLEEPER_LEAGUE_ID` in
+`src/config.ts` — Sleeper mints a new `league_id` each renewal and links
+it back via `previous_league_id`, and `api/seasonChain.ts` walks that
+chain, so the season selector, cross-season records and League History
+all follow automatically with nothing to backfill. Authoring lore is
+documented alongside it: the three files under `src/content/lore/`, how
+to find a manager's `user_id` (it is in the team page URL), and a table
+of which file surfaces where. CLAUDE.md gained a matching rule that lore
+is read through `content/lore/index.ts`, never by importing the data
+files directly.
+
 - Custom domain on the existing Vercel project, if desired (no new
   deploy pipeline — same project from Phase 4).
 - Note in README/CLAUDE.md how to add a new season each year (the

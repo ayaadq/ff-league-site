@@ -88,6 +88,10 @@ build plan in `PLAN.md`. Read both before starting implementation work.
   API and not editable through the site. Keyed by Sleeper `user_id`.
 - The UI must render correctly with zero lore present — no placeholder
   copy like "no rivalries yet." Sections simply don't render when empty.
+- Read lore through `src/content/lore/index.ts`, never by importing the
+  data files directly — that module owns id matching and merging, so
+  pages don't reimplement it. README.md documents the authoring workflow
+  for whoever fills these in.
 
 ### General
 
