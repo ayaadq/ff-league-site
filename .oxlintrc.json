@@ -6,8 +6,7 @@
     "oxc"
   ],
   "ignorePatterns": [
-    "dist",
-    "dist_verify",
+    "dist*",
     "_to_delete"
   ],
   "rules": {

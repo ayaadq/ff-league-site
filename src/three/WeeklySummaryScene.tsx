@@ -144,6 +144,17 @@ function StandingsPodium({ top3 }: { top3: Array<StandingEntry | undefined> }) {
               <boxGeometry args={[1.1, slot.height, 1.1]} />
               <meshPhysicalMaterial {...MARBLE_MATERIAL_PROPS} />
             </mesh>
+            {/* A thin gold cap on top of each block -- the marble pedestal
+                is the same pale color as the floor behind it (materials.ts),
+                so without this it barely reads as a solid object at all
+                (confirmed live: it looked like the portraits were floating
+                disconnected from anything). Echoes the same marble+gold
+                pairing as the trophy room's plinths rather than introducing
+                a new material. */}
+            <mesh position={[slot.x, slot.height + 0.025, 0]}>
+              <boxGeometry args={[1.14, 0.05, 1.14]} />
+              <meshStandardMaterial {...GOLD_MATERIAL_PROPS} />
+            </mesh>
             {entry && (
               <Portrait
                 avatarId={entry.avatarId}
