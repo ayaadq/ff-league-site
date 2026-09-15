@@ -282,6 +282,55 @@ Known gaps against this phase's own bar (SPEC §7.2, and PLAN's own
   showed up on an actual device, so the same check applies to both new
   tracks before calling this phase done.
 
+**Update — entrance motion for Home's scene, plus a lighting degrade
+path.** Two things landed after the above.
+
+Home's standings scene had no entrance motion at all: podium portraits
+and the wall arc appeared the instant standings resolved, while League
+History's trophy room next door has the stepped "click into place" beat
+from SPEC §5.5. Portraits now scale in from 0 with the same
+`ease: 'steps(6)'` tween `TrophyToppers` uses (`usePortraitReveal` in
+three/WeeklySummaryScene.tsx — a local copy rather than shared code,
+since that component tweens instanced cup/base pairs, this one tweens
+whole `<group>` portraits, and the two want different reveal orders).
+The podium reveals 3rd, then 2nd, then 1st at 0.18s per step; the wall
+sweeps left-to-right at the 0.045s TrophyRoomScene already established.
+The podium's slower pacing is deliberate — at 0.045s three items land
+within 90ms of each other and the ordering may as well not exist, while
+at 0.18s the champion's portrait lands at 0.36s, exactly when a full
+12-team wall sweep finishes, so the room finishes filling and the winner
+arrives on the same beat. Two subtleties worth not re-learning: it is a
+`useLayoutEffect` keyed on the mounted-portrait count, because standings
+arrive async and an effect keyed only on the delay array never re-runs
+when the data lands (the podium would pop in at full size — the exact
+problem being fixed); and the wall's delays are built from the count
+rather than `rest.map`, so scores reshuffling mid-week doesn't restart
+the tween.
+
+`SceneLighting` now wraps `<Environment>` in an error boundary. drei
+fetches that HDRI at runtime from a third-party CDN (raw.githack.com),
+and with nothing catching a failed fetch the error propagates out of the
+`<Canvas>` and unmounts the _entire_ scene — a blank page on both Home
+and League History rather than a degraded one. Not theoretical: it
+happened in this project's own cloud dev environment, where that host
+isn't reachable — empty root element, no canvas at all. The fill lights
+carry either scene on their own (flatter, less specular bounce on the
+gold and marble, but fully legible), so the boundary turns a total
+failure into the degrade path SPEC §5.4 asks for.
+
+Verified: entrance timing was measured by sampling actual `scale` values
+per frame in headless Chromium rather than by eye — wall items 37-50ms
+apart, podium steps 185ms and 168ms apart, 1st place and the last wall
+portrait starting on the same frame and finishing together, values
+landing exactly on 0, 1/6 … 1 (the stepped ease, no smoothing), and all
+twelve portraits at full scale on the first frame under
+`prefers-reduced-motion`. The lighting boundary was verified by loading
+the real canvas with the HDRI host blocked: before, no canvas and an
+empty root; after, the full scene renders. `tsc -b`, `oxlint` (0 errors,
+same pre-existing warnings) and a production `vite build` all pass.
+Both changes still inherit the gaps above — not deployed, not checked on
+a real device.
+
 Original Phase 7 scope, deferred and re-scoped rather than built as
 written — the single shared gallery scene it assumed no longer exists,
 so this needs fresh thinking, not just resuming the plan below as-is:
