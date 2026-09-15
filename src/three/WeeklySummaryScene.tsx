@@ -1,5 +1,7 @@
 import { useTexture } from '@react-three/drei'
-import { Component, Suspense, useMemo, type ReactNode } from 'react'
+import { useThree } from '@react-three/fiber'
+import { Component, Suspense, useEffect, useMemo, type ReactNode } from 'react'
+import { SRGBColorSpace } from 'three'
 import { avatarUrl } from '../api/cdn'
 import { arcSlots } from './arcLayout'
 import { SceneFloor } from './SceneFloor'
@@ -40,6 +42,29 @@ const PODIUM_LAYOUT: Array<{ x: number; height: number }> = [
  * than needing a proxy. */
 function AvatarPanel({ avatarId }: { avatarId: string }) {
   const texture = useTexture(avatarUrl(avatarId))
+  const { gl } = useThree()
+
+  // useTexture/TextureLoader leaves color space and anisotropy at their
+  // (wrong-for-photos) defaults. Without sRGB decoding the photo reads
+  // washed out; without anisotropic filtering, every portrait *except*
+  // ones facing the camera dead-on (i.e. most of them -- these sit on a
+  // curved arc) blurs heavily, which is what "pixelated and blurry"
+  // turned out to be. Sleeper's avatars are a fixed 400x400 regardless,
+  // so this is a filtering fix, not a fix for the source image itself --
+  // very close/large portraits (the podium) will still look softer than
+  // a native-res photo would, that's a real ceiling, not a bug.
+  // Mutates the texture useTexture() returns rather than configuring it
+  // at construction, since drei's useTexture doesn't expose a way to do
+  // that -- safe here because useTexture caches one Texture instance per
+  // URL and this always sets the same two values for that same instance,
+  // so repeat runs (route changes, re-renders) are idempotent, not a
+  // growing pile of side effects on a shared object.
+  useEffect(() => {
+    texture.colorSpace = SRGBColorSpace
+    texture.anisotropy = gl.capabilities.getMaxAnisotropy()
+    texture.needsUpdate = true
+  }, [texture, gl])
+
   return (
     <mesh position={[0, 0, FRAME_DEPTH / 2 + 0.001]}>
       <planeGeometry args={[CANVAS_WIDTH, CANVAS_HEIGHT]} />
@@ -81,15 +106,13 @@ function Portrait({
   avatarId,
   position,
   rotationY,
-  scale = 1,
 }: {
   avatarId: string | null
   position: [number, number, number]
   rotationY: number
-  scale?: number
 }) {
   return (
-    <group position={position} rotation={[0, rotationY, 0]} scale={scale}>
+    <group position={position} rotation={[0, rotationY, 0]}>
       <mesh>
         <boxGeometry args={[FRAME_WIDTH, FRAME_HEIGHT, FRAME_DEPTH]} />
         <meshStandardMaterial {...GOLD_MATERIAL_PROPS} />
@@ -126,7 +149,6 @@ function StandingsPodium({ top3 }: { top3: Array<StandingEntry | undefined> }) {
                 avatarId={entry.avatarId}
                 position={[slot.x, slot.height + 0.62, 0.35]}
                 rotationY={0}
-                scale={1.15}
               />
             )}
           </group>
