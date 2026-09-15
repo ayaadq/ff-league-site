@@ -5,6 +5,7 @@ import type { Object3D } from 'three'
 import { useReducedMotion } from '../motion/reducedMotionContext'
 import { setupGsap } from '../motion/gsapSetup'
 import { arcSlots, type Slot } from './arcLayout'
+import { SceneFloor } from './SceneFloor'
 import {
   BRASS_MATERIAL_PROPS,
   GOLD_MATERIAL_PROPS,
@@ -214,16 +215,6 @@ function Podium() {
   )
 }
 
-/** The gallery floor — a simple large marble slab underfoot. */
-function Floor() {
-  return (
-    <mesh position={[0, -0.001, -1]} rotation={[-Math.PI / 2, 0, 0]}>
-      <planeGeometry args={[26, 26]} />
-      <meshPhysicalMaterial {...MARBLE_MATERIAL_PROPS} roughness={0.55} />
-    </mesh>
-  )
-}
-
 /** The "Trophy Room" scene — the original Phase 5 marble/gold gallery
  * (plinths, trophy toppers, portrait wall, podium). Originally built as
  * the Home page hero; moved to the League History page instead (user
@@ -246,7 +237,7 @@ export function TrophyRoomScene() {
 
   return (
     <group>
-      <Floor />
+      <SceneFloor />
       <Podium />
       <Plinths slots={plinthSlots} />
       <TrophyToppers slots={plinthSlots} />

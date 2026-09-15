@@ -10,6 +10,8 @@ import {
 import { SectionKicker } from '../components/SectionKicker'
 import { TeamAvatar } from '../components/TeamAvatar'
 import { StatCountUp } from '../motion/StatCountUp'
+import { WeeklySummaryCanvas } from '../three/WeeklySummaryCanvas'
+import type { StandingEntry } from '../three/WeeklySummaryScene'
 
 export function HomePage() {
   const { leagueId, season } = useCurrentSeason()
@@ -41,6 +43,18 @@ export function HomePage() {
   const hasResults = pairs.some((pair) => pair.some((m) => m.points > 0))
 
   const standings = useMemo(() => sortStandings(rosters.data ?? []), [rosters.data])
+
+  // Feeds the 3D standings podium below (three/WeeklySummaryScene.tsx) --
+  // same rank order as the Standings table further down the page, just
+  // reduced to what the 3D scene actually needs (roster id + avatar).
+  const podiumStandings = useMemo<StandingEntry[]>(
+    () =>
+      standings.map((roster) => ({
+        rosterId: roster.roster_id,
+        avatarId: teamAvatarIdForRoster(roster, users.data ?? []),
+      })),
+    [standings, users.data],
+  )
 
   const storylines = useMemo(() => {
     if (!hasResults) return null
@@ -76,6 +90,22 @@ export function HomePage() {
         </h1>
         <div className="gold-divider mx-auto mt-5 w-16" aria-hidden="true" />
       </header>
+
+      {/* The live standings podium (PLAN.md pivot: this replaced the old
+          static trophy gallery, which moved to League History -- see
+          three/WeeklySummaryScene.tsx). Held off until standings/avatars
+          are actually loaded rather than mounting with an empty roster
+          list, since unlike the trophy room this scene has nothing
+          generic to show while data is missing. Same sticky-track-inside-
+          a-taller-wrapper pattern as History's TrophyRoomCanvas -- see
+          three/ScrollCameraRig.tsx. */}
+      {!isLoading && (
+        <div aria-hidden="true" id="weekly-summary-scroll-track" className="h-[230vh] sm:h-[260vh]">
+          <div className="sticky top-0 h-[58vh] min-h-[380px] w-full sm:h-[68vh]">
+            <WeeklySummaryCanvas standings={podiumStandings} />
+          </div>
+        </div>
+      )}
 
       {isLoading && <p className="text-charcoal-soft mt-14 text-center">Loading the room…</p>}
 
