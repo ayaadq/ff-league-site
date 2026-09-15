@@ -112,6 +112,7 @@ verified in-browser), and a three-tier marble podium.
 Two issues only showed up once deployed and screenshotted live (not
 caught by `tsc`/build/lint, which all passed from the first pass) —
 worth noting since they'll recur in later 3D phases:
+
 - The initial arc spread put outer plinths/frames near edge-on to the
   fixed camera and cropped at the canvas edge. Fixed by narrowing both
   arcs and pulling the camera back slightly.

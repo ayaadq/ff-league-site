@@ -68,21 +68,34 @@ One thing at a time. If in doubt, remove an element rather than add one.
 
 ### 5.1 Palette
 
+**Revised post-Phase-5** (user feedback on the live deployed site: the
+original bright yellow gold on near-white marble didn't read as modern/
+minimalist/luxurious). Marble/ivory moved from near-white to a light
+warm grey so the stone grain reads more prominently; gold/brass moved
+from a saturated yellow-gold to a desaturated champagne/antique-brass.
+Re-sourced via the ui-ux-pro-max palette database (`--domain color`,
+"editorial minimalist neutral warm grey") rather than hand-picked — see
+`src/index.css` for the full sourcing note. The hex values below are the
+actual shipped tokens (`src/index.css` `@theme` block and
+`src/three/materials.ts`, kept in sync by hand); this table is the
+canonical reference going forward.
+
 | Token                   | Hex                   | Use                                                                                                                                                                     |
 | ----------------------- | --------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `--color-marble`        | `#F7F5F2`             | Primary background (Carrara white)                                                                                                                                      |
-| `--color-ivory`         | `#EFE8DA`             | Secondary surfaces, cards, panels                                                                                                                                       |
+| `--color-marble`        | `#E6E4E0`             | Primary background (light warm grey marble)                                                                                                                             |
+| `--color-ivory`         | `#EFEBE4`             | Secondary surfaces, cards, panels                                                                                                                                       |
 | `--color-charcoal`      | `#2B2926`             | Primary text — the only color allowed for body copy and any text below 24px                                                                                             |
 | `--color-charcoal-soft` | `#57534C`             | Secondary/muted text, still passes contrast on marble & ivory                                                                                                           |
-| `--color-gold`          | `#C9A227`             | Primary metal accent — borders, dividers, icons, large display numerals, hover states                                                                                   |
-| `--color-gold-bright`   | `#E4C25C`             | Gold highlight/specular moments only (3D materials, glints) — never text                                                                                                |
-| `--color-brass`         | `#8C6D46`             | Secondary metal accent, used to differentiate from gold sparingly                                                                                                       |
+| `--color-gold`          | `#6B5637`             | Metal shadow/depth (card elevation, gradient edges) — not the visible gold itself                                                                                       |
+| `--color-gold-bright`   | `#A6845C`             | Primary visible gold — borders, dividers, icons, large display numerals, hover states, 3D materials                                                                     |
+| `--color-gold-light`    | `#D9C7A8`             | Specular highlight stop in metallic gradients only                                                                                                                      |
+| `--color-brass`         | `#6F5F49`             | Secondary metal accent, used to differentiate from gold sparingly                                                                                                       |
 | Team colors             | (from Sleeper/manual) | **Accent only** — a small dot, underline, or 4–8px edge. Never a background, never large-area fill. Must never be the sole differentiator (pair with team name/avatar). |
 
 **Hard rule:** gold and brass fail accessibility contrast as text on both
-marble and ivory (~2:1–3:1). They are decorative only. Anything that must
-be read — body text, labels, table data, nav — uses charcoal or
-charcoal-soft, both of which pass WCAG AA on marble/ivory backgrounds.
+marble and ivory. They are decorative only. Anything that must be read —
+body text, labels, table data, nav — uses charcoal or charcoal-soft,
+both of which pass WCAG AA on marble/ivory backgrounds.
 
 ### 5.2 Typography
 

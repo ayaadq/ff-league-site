@@ -4,16 +4,18 @@
  * map (drei's <Environment>), not flat colored plastic:
  * - Marble/ivory: zero metalness, moderate roughness, a faint clearcoat
  *   for the soft sheen real polished stone catches under studio light.
- * - Gold/brass: high metalness (0.85-0.95), low roughness (0.2-0.32) —
- *   the two knobs that actually sell "metal" under an env map.
+ * - Gold/brass: moderate metalness (see the comment below on why it's
+ *   not higher), low-to-moderate roughness.
  *
- * Colors match the shipped 2D palette tokens (src/index.css) rather than
- * the raw SPEC.md §5.1 swatch table, so gold in the 3D scene and gold in
- * the page chrome read as the same material.
+ * Colors match the shipped 2D palette tokens (src/index.css) — kept in
+ * sync by hand, so gold in the 3D scene and gold in the page chrome
+ * read as the same material. Currently a muted champagne/antique-brass
+ * (moved off a brighter yellow gold per user feedback wanting something
+ * more modern/minimalist/luxurious).
  */
 
 export const MARBLE_MATERIAL_PROPS = {
-  color: '#f7f5f2',
+  color: '#e6e4e0',
   roughness: 0.42,
   metalness: 0,
   clearcoat: 0.12,
@@ -21,7 +23,7 @@ export const MARBLE_MATERIAL_PROPS = {
 } as const
 
 export const IVORY_MATERIAL_PROPS = {
-  color: '#efe8da',
+  color: '#efebe4',
   roughness: 0.48,
   metalness: 0,
   clearcoat: 0.08,
@@ -43,14 +45,14 @@ export const IVORY_MATERIAL_PROPS = {
 // for a wall of 12 identically-colored instances facing different
 // directions, not a single hero object.
 export const GOLD_MATERIAL_PROPS = {
-  color: '#d4af37',
+  color: '#a6845c',
   roughness: 0.35,
   metalness: 0.45,
   envMapIntensity: 1.1,
 } as const
 
 export const BRASS_MATERIAL_PROPS = {
-  color: '#8c6d46',
+  color: '#6f5f49',
   roughness: 0.4,
   metalness: 0.4,
   envMapIntensity: 1,

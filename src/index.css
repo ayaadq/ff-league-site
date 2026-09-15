@@ -16,35 +16,39 @@
  * Gold/brass are decorative only; never use them for text below 24px
  * or for anything that must be read (contrast fails on marble/ivory).
  *
- * Gold/gold-bright pulled from the ui-ux-pro-max palette database
- * (--domain color, "luxury gold marble museum gallery" /
- * "gold brass metallic accent bronze") rather than hand-picked: #A16207
- * is the repeated validated accent across its Premium/Luxury Brand,
- * E-commerce Luxury, and Architecture/Interior entries; #D4AF37 is the
- * classic metallic-gold reference value those same entries derive their
- * (contrast-adjusted-for-text) accent from. We use the un-adjusted
- * values since our gold is decorative-only, never text, so the
- * text-contrast adjustment those product systems needed doesn't apply.
- * `--color-brass` has no direct database match (search returned 0
- * results) — kept at its original hand-picked antique-brass value.
+ * Revised from an earlier bright-yellow-gold-on-white-marble pass (user
+ * feedback: wanted something more modern/minimalist/luxurious, and a
+ * grey marble rather than white). Re-sourced via the ui-ux-pro-max
+ * palette database (--domain color, "editorial minimalist neutral warm
+ * grey") rather than hand-picked: its Home Decoration/Interior Design
+ * entry ("Interior warm grey + gold accent") is the basis for both
+ * moves — a warm stone-grey neutral family for marble/ivory instead of
+ * near-white, and a desaturated amber/antique-brass accent (its
+ * #D97706) instead of a saturated yellow gold. `--color-gold-bright`
+ * (#A6845C) and `--color-brass` (#6F5F49) are hand-tuned further toward
+ * "muted champagne/antique brass" from that reference point — the
+ * database's own value read as more "warm interior accent" than
+ * "restrained luxury metal" once tried directly against the marble
+ * background and the 3D gold materials (src/three/materials.ts, which
+ * mirrors these hex values).
  *
- * `--color-gold-light` is not a separate database hit either — it's a
- * computed ~45% white-tint of the validated `--color-gold-bright`
- * (#D4AF37), used as the specular highlight stop in metallic gradients
- * so a gold border/line has real tonal variation instead of reading as
- * flat paint. `--color-gold` (#A16207, darker) is reserved for
- * shadow/depth (card elevation, gradient edges) — it is NOT the visible
- * gold anywhere; `--color-gold-bright` is the primary visible gold.
+ * `--color-gold-light` is a computed ~45% white-tint of
+ * `--color-gold-bright`, used as the specular highlight stop in
+ * metallic gradients so a gold border/line has real tonal variation
+ * instead of reading as flat paint. `--color-gold` (darker) is reserved
+ * for shadow/depth (card elevation, gradient edges) — it is NOT the
+ * visible gold anywhere; `--color-gold-bright` is the primary visible
+ * gold.
  */
 @theme {
-  --color-marble: #f7f5f2;
-  --color-ivory: #efe8da;
+  --color-marble: #e6e4e0;
+  --color-ivory: #efebe4;
   --color-charcoal: #2b2926;
   --color-charcoal-soft: #57534c;
-  --color-gold: #a16207;
-  --color-gold-bright: #d4af37;
-  --color-gold-light: #ecdba0;
-  --color-brass: #8c6d46;
+  --color-gold: #6b5637;
+  --color-gold-bright: #a6845c;
+  --color-gold-light: #d9c7a8;
+  --color-brass: #6f5f49;
 
   --font-display: 'Cormorant Garamond', serif;
   --font-sans: 'Inter', ui-sans-serif, system-ui, sans-serif;
@@ -61,10 +65,16 @@
  * (Phase 5+); until then, this is the 2D approximation. A real
  * photographed Carrara marble slab (Unsplash, hotlinked per the
  * Unsplash License — free for commercial/noncommercial use) sits under
- * a warm marble-tinted wash so the veining reads as actual stone grain
- * rather than a hinted pattern, plus a fine grain texture on top for
- * close-up tactility. The wash keeps contrast unaffected (verified:
- * charcoal-on-marble stays ~12:1, nowhere near the 4.5:1 floor).
+ * a warm grey-marble-tinted wash so the veining reads as actual stone
+ * grain rather than a hinted pattern, plus a fine grain texture on top
+ * for close-up tactility. The wash keeps contrast unaffected (verified:
+ * charcoal-on-marble stays >11:1, nowhere near the 4.5:1 floor).
+ *
+ * Wash opacity was lowered from an earlier 0.82 to 0.72 (user feedback:
+ * "emphasize the marble" as part of the same pass that moved the base
+ * tone from near-white to a light grey) — more of the photo's actual
+ * veining shows through now rather than reading mostly as a flat tint
+ * with a hint of stone underneath.
  *
  * The photo is on a `position: fixed` pseudo-element (sized to the
  * viewport, not this element's full scrollable height) rather than a
@@ -88,9 +98,9 @@
   inset: 0;
   z-index: -1;
   background-image:
-    radial-gradient(ellipse 60% 50% at 12% -5%, rgba(212, 175, 55, 0.16), transparent 55%),
-    radial-gradient(ellipse 55% 50% at 100% 10%, rgba(140, 109, 70, 0.13), transparent 55%),
-    linear-gradient(rgba(247, 245, 242, 0.82), rgba(247, 245, 242, 0.82)),
+    radial-gradient(ellipse 60% 50% at 12% -5%, rgba(166, 132, 92, 0.16), transparent 55%),
+    radial-gradient(ellipse 55% 50% at 100% 10%, rgba(111, 95, 73, 0.13), transparent 55%),
+    linear-gradient(rgba(230, 228, 224, 0.72), rgba(230, 228, 224, 0.72)),
     url('https://images.unsplash.com/photo-1558346648-9757f2fa4474?q=60&w=1920&auto=format&fit=crop'),
     url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix type='matrix' values='0 0 0 0 0.169  0 0 0 0 0.161  0 0 0 0 0.149  0 0 0 0.035 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
   background-repeat: no-repeat, no-repeat, no-repeat, no-repeat, repeat;
@@ -120,13 +130,13 @@
  */
 .gallery-card {
   position: relative;
-  background-color: rgb(239 232 218 / 94%);
-  border: 1.5px solid rgb(212 175 55 / 55%);
+  background-color: rgb(239 235 228 / 94%);
+  border: 1.5px solid rgb(166 132 92 / 55%);
   border-radius: 1rem;
   box-shadow:
     0 1px 2px rgb(43 41 38 / 8%),
     0 4px 10px -4px rgb(43 41 38 / 12%),
-    0 24px 48px -20px rgb(161 98 7 / 55%);
+    0 24px 48px -20px rgb(107 86 55 / 55%);
 }
 
 .gallery-card::before {
@@ -194,8 +204,8 @@
     )
     1;
   box-shadow:
-    0 0 0 1px rgb(212 175 55 / 22%),
-    0 10px 22px -10px rgb(161 98 7 / 60%);
+    0 0 0 1px rgb(166 132 92 / 22%),
+    0 10px 22px -10px rgb(107 86 55 / 60%);
 }
 
 body {
