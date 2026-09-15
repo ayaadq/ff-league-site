@@ -1,0 +1,54 @@
+@import 'tailwindcss';
+
+/* Self-hosted per SPEC.md §5.2. Weights: 400/500/600 display, 400/500/600/700
+   data. Latin subset only — pull in another subset here if the league ever
+   needs non-Latin text. */
+@import '@fontsource/cormorant-garamond/latin-400.css';
+@import '@fontsource/cormorant-garamond/latin-500.css';
+@import '@fontsource/cormorant-garamond/latin-600.css';
+@import '@fontsource/inter/latin-400.css';
+@import '@fontsource/inter/latin-500.css';
+@import '@fontsource/inter/latin-600.css';
+@import '@fontsource/inter/latin-700.css';
+
+/**
+ * Design tokens — see SPEC.md §5 for the full rationale.
+ * Gold/brass are decorative only; never use them for text below 24px
+ * or for anything that must be read (contrast fails on marble/ivory).
+ */
+@theme {
+  --color-marble: #f7f5f2;
+  --color-ivory: #efe8da;
+  --color-charcoal: #2b2926;
+  --color-charcoal-soft: #57534c;
+  --color-gold: #c9a227;
+  --color-gold-bright: #e4c25c;
+  --color-brass: #8c6d46;
+
+  --font-display: 'Cormorant Garamond', serif;
+  --font-sans: 'Inter', ui-sans-serif, system-ui, sans-serif;
+
+  /* Slow, weighted easing per SPEC.md §5.5 — mirrored as JS eases for
+     GSAP when motion work starts (PLAN.md Phase 6), so both CSS and
+     GSAP transitions share the same curves. */
+  --ease-weighted: cubic-bezier(0.22, 1, 0.36, 1);
+  --ease-weighted-in-out: cubic-bezier(0.65, 0, 0.35, 1);
+}
+
+body {
+  background-color: var(--color-marble);
+  color: var(--color-charcoal);
+  font-family: var(--font-sans);
+}
+
+h1,
+h2,
+h3,
+h4 {
+  font-family: var(--font-display);
+}
+
+table,
+.tabular {
+  font-variant-numeric: tabular-nums;
+}
