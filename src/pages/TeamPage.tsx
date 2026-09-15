@@ -17,6 +17,7 @@ import type { SleeperRoster } from '../api/types'
 import { PlayerHeadshot } from '../components/PlayerHeadshot'
 import { SectionKicker } from '../components/SectionKicker'
 import { TeamAvatar } from '../components/TeamAvatar'
+import { eventsForUser, loreForUser, rivalryBetween } from '../content/lore'
 
 interface OwnedSeason {
   season: SeasonChainEntry
@@ -123,7 +124,7 @@ export function TeamPage() {
         const opponentName = opponentOwnerId
           ? teamNameForUser(opponentOwnerId, allUsers)
           : `Roster ${opponent.roster_id}`
-        return { week: ref.week, self, opponent, opponentName }
+        return { week: ref.week, self, opponent, opponentName, opponentOwnerId }
       })
       .filter((w): w is NonNullable<typeof w> => w !== null)
       .reverse()
@@ -138,13 +139,27 @@ export function TeamPage() {
 
   const name = teamNameForUser(ownerId, allUsers)
   const avatarId = teamAvatarIdForUser(ownerId, allUsers)
+  // Hand-authored, usually absent (src/content/lore). Each block below
+  // is guarded rather than given a fallback: with no lore the page is
+  // exactly what it was before, no empty headings (CLAUDE.md).
+  const lore = loreForUser(ownerId)
+  const managerEvents = eventsForUser(ownerId)
 
   return (
     <section className="mx-auto max-w-3xl">
       <header className="flex flex-col items-center text-center">
         <TeamAvatar avatarId={avatarId} name={name} size="lg" />
         <h1 className="font-display text-charcoal mt-4 text-4xl">{name}</h1>
+        {lore?.nickname && (
+          <p className="font-display text-charcoal-soft mt-2 text-xl">{lore.nickname}</p>
+        )}
+        {lore?.tagline && (
+          <p className="text-charcoal-soft mt-2 max-w-prose text-sm">{lore.tagline}</p>
+        )}
         <div className="gold-divider mt-5 w-16" aria-hidden="true" />
+        {lore?.bio && (
+          <p className="text-charcoal-soft mt-5 max-w-prose text-sm leading-relaxed">{lore.bio}</p>
+        )}
       </header>
 
       {isLoading && <p className="text-charcoal-soft mt-14 text-center">Loading the hall…</p>}
@@ -189,12 +204,13 @@ export function TeamPage() {
             ) : (
               <div className="gallery-card mt-6 p-2 sm:p-3">
                 <ul className="divide-charcoal/10 divide-y">
-                  {weekResults.map(({ week, self, opponent, opponentName }) => {
+                  {weekResults.map(({ week, self, opponent, opponentName, opponentOwnerId }) => {
                     const won = self.points > opponent.points
                     const bench = self.players.filter(
                       (id) => id !== '0' && !self.starters.includes(id),
                     )
                     const starters = self.starters.filter((id) => id !== '0')
+                    const rivalry = rivalryBetween(ownerId, opponentOwnerId)
 
                     return (
                       <li key={week}>
@@ -257,6 +273,12 @@ export function TeamPage() {
                                 ›
                               </span>
                             </div>
+
+                            {rivalry && (
+                              <p className="text-charcoal-soft mt-1 text-xs tracking-wide uppercase">
+                                {rivalry.name}
+                              </p>
+                            )}
                           </summary>
 
                           <div className="pl-14">
@@ -281,6 +303,30 @@ export function TeamPage() {
               </div>
             )}
           </div>
+
+          {managerEvents.length > 0 && (
+            <section className="mt-14" aria-labelledby="team-lore-heading">
+              <h2 id="team-lore-heading" className="font-display text-charcoal text-3xl">
+                Notable
+              </h2>
+              <ul className="mt-6 space-y-5">
+                {managerEvents.map((event, index) => (
+                  <li key={`${event.season}-${event.week ?? 0}-${index}`}>
+                    <SectionKicker>
+                      {event.season}
+                      {event.week ? ` \u00b7 Week ${event.week}` : ''}
+                    </SectionKicker>
+                    <h3 className="text-charcoal mt-1 text-lg">{event.title}</h3>
+                    {event.description && (
+                      <p className="text-charcoal-soft mt-1 text-sm leading-relaxed">
+                        {event.description}
+                      </p>
+                    )}
+                  </li>
+                ))}
+              </ul>
+            </section>
+          )}
         </>
       )}
     </section>

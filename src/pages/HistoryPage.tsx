@@ -21,6 +21,7 @@ import type { SeasonChainEntry } from '../api/seasonChain'
 import { SectionKicker } from '../components/SectionKicker'
 import { TeamAvatar } from '../components/TeamAvatar'
 import { TrophyRoomCanvas } from '../three/TrophyRoomCanvas'
+import { allEvents, rivalries } from '../content/lore'
 
 const NO_SEASONS: SeasonChainEntry[] = []
 
@@ -98,6 +99,10 @@ export function HistoryPage() {
     () => (selectedManager ? headToHeadFor(games, selectedManager.userId) : []),
     [games, selectedManager],
   )
+
+  // Lore is a static import, so this never changes at runtime; memoized
+  // only because allEvents() merges and sorts three arrays.
+  const timeline = useMemo(() => allEvents(), [])
 
   const championRows = useMemo(
     () =>
@@ -232,6 +237,55 @@ export function HistoryPage() {
                   </ul>
                 </div>
               )}
+            </section>
+          )}
+
+          {rivalries.length > 0 && (
+            <section className="mt-14" aria-labelledby="rivalries-heading">
+              <h2 id="rivalries-heading" className="font-display text-charcoal text-3xl">
+                Rivalries
+              </h2>
+              <ul className="mt-6 space-y-6">
+                {rivalries.map((rivalry) => (
+                  <li key={rivalry.id}>
+                    <SectionKicker>
+                      {teamNameForUser(rivalry.teamAUserId, allUsers)} vs{' '}
+                      {teamNameForUser(rivalry.teamBUserId, allUsers)}
+                      {rivalry.since ? ` \u00b7 since ${rivalry.since}` : ''}
+                    </SectionKicker>
+                    <h3 className="font-display text-charcoal mt-1 text-xl">{rivalry.name}</h3>
+                    {rivalry.description && (
+                      <p className="text-charcoal-soft mt-1 text-sm leading-relaxed">
+                        {rivalry.description}
+                      </p>
+                    )}
+                  </li>
+                ))}
+              </ul>
+            </section>
+          )}
+
+          {timeline.length > 0 && (
+            <section className="mt-14" aria-labelledby="timeline-heading">
+              <h2 id="timeline-heading" className="font-display text-charcoal text-3xl">
+                Notable Events
+              </h2>
+              <ul className="mt-6 space-y-5">
+                {timeline.map((event, index) => (
+                  <li key={`${event.season}-${event.week ?? 0}-${index}`}>
+                    <SectionKicker>
+                      {event.season}
+                      {event.week ? ` \u00b7 Week ${event.week}` : ''}
+                    </SectionKicker>
+                    <h3 className="text-charcoal mt-1 text-lg">{event.title}</h3>
+                    {event.description && (
+                      <p className="text-charcoal-soft mt-1 text-sm leading-relaxed">
+                        {event.description}
+                      </p>
+                    )}
+                  </li>
+                ))}
+              </ul>
             </section>
           )}
         </>

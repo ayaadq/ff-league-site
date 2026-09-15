@@ -354,6 +354,44 @@ so this needs fresh thinking, not just resuming the plan below as-is:
 its real-device check above should cover this page's 3D too, not just
 the 2D content below.)
 
+**Status: built, pending deploy and a real-device check.** The records
+half of this phase was already standing from Phase 3 —
+`api/leagueRecords.ts` computes championships, best single week, longest
+win streak and head-to-head off the season chain, and League History
+renders them. What landed here is the lore half.
+
+`src/content/lore/` holds the three hand-authored data files SPEC §6.4
+proposed (teams, rivalries, events), a shared `types.ts`, and an
+`index.ts` that is the only module pages import from — so no page
+reimplements matching and the data files stay pure content. All three
+ship empty, which is a supported state rather than a TODO: every lore
+block is guarded, so with nothing authored the pages render exactly as
+they did before — no empty headings, no "no rivalries yet" placeholder
+copy (CLAUDE.md).
+
+Where it surfaces, rather than on one dedicated lore page:
+
+- Team page header: nickname, tagline, bio.
+- Team page week rows: a rivalry callout on the weeks against that
+  manager's rival, matched in either authored direction.
+- Team page: that manager's notable events, merged from their own
+  entries plus any league event or rivalry game naming them.
+- League History: a Rivalries section, and a league-wide Notable Events
+  timeline merged from all three files.
+
+Verified by exercising the lookups against a temporarily populated copy
+of all three files, then reverting: `rivalryBetween` matches both
+authored directions, non-rivals and null ids return nothing,
+`eventsForUser` merges the three sources newest-first, and `allEvents`
+sorts week-less entries last. Re-ran empty afterwards to confirm every
+accessor returns nothing and the guards hold. `tsc -b`, `oxlint` (0
+errors, same 5 warnings) and a production `vite build` pass in both
+states.
+
+Worth knowing for the real-device check: the deployed site shows the
+empty state until lore is actually authored, so what to look for on a
+phone is that nothing renders oddly, not that the sections look right.
+
 - Cross-season leaderboards/records (SPEC §4).
 - Wire up the hand-authored lore data structures (SPEC §6.4) as empty
   stubs the user can fill in; verify the UI degrades gracefully with no
