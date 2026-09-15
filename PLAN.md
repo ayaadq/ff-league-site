@@ -100,18 +100,37 @@ Phase 4.
 
 ## Phase 5 — Shared 3D gallery scene (foundation)
 
-**Status: Complete.** One persistent r3f canvas (mounted in `Layout`,
-given visible height only on Home for now — see Phase 7) with a studio
-HDRI environment, marble/ivory/gold/brass PBR materials, and instanced
-gallery geometry: 12 marble plinths with gold trophy toppers, a 12-panel
-gold-framed portrait wall (untextured ivory canvases — real avatar
-photos land in Phase 7, once cross-origin texture loading from the
-Sleeper CDN is verified in-browser), and a three-tier marble podium.
-Static camera framing, capped devicePixelRatio, no post-processing, one
-directional fill light — within the SPEC §7.2 mobile budget by
-construction, not yet perf-tested on a real low-end device (that's the
-real-device check below). Production build verified clean (tsc + vite
-build + oxlint, 0 errors).
+**Status: Complete, verified on the live production URL.** One
+persistent r3f canvas (mounted in `Layout`, given visible height only on
+Home for now — see Phase 7) with a studio HDRI environment,
+marble/ivory/gold/brass PBR materials, and instanced gallery geometry:
+12 marble plinths with gold trophy toppers, a 12-panel gold-framed
+portrait wall (untextured ivory canvases — real avatar photos land in
+Phase 7, once cross-origin texture loading from the Sleeper CDN is
+verified in-browser), and a three-tier marble podium.
+
+Two issues only showed up once deployed and screenshotted live (not
+caught by `tsc`/build/lint, which all passed from the first pass) —
+worth noting since they'll recur in later 3D phases:
+- The initial arc spread put outer plinths/frames near edge-on to the
+  fixed camera and cropped at the canvas edge. Fixed by narrowing both
+  arcs and pulling the camera back slightly.
+- The initial gold material (metalness 0.9-0.95) went visually black on
+  instances not facing the studio HDRI's one bright softbox — a single
+  environment map lights a mirror-like metal very unevenly across
+  differently-rotated instances, and extra scene lights/envMapIntensity
+  don't fix this (a near-mirror surface's color comes from the
+  reflection, not scene lights). Fixed by dropping metalness to ~0.4-0.45
+  so the evenly-lit diffuse term carries real visual weight — a
+  deliberate legibility-over-strict-PBR-realism tradeoff for a wall of
+  12 same-colored instances facing different directions.
+
+Static camera framing, capped devicePixelRatio, no post-processing.
+Checked at 375px width (holds up) and via console (no errors, only
+benign THREE.Clock/shader-precision warnings) on the live URL — not yet
+checked on an actual phone's GPU, which is what SPEC §7.2's frame-budget
+requirement is really about; that real-device pass is still outstanding
+(see below).
 
 This is the first showpiece phase — treat it as core work, not polish.
 
