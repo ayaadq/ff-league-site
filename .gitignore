@@ -25,3 +25,8 @@ dist-ssr
 
 # Claude Code local settings (machine-specific, not shared)
 .claude/settings.local.json
+
+# Installed Claude Code skills (tooling, not app source)
+.claude/skills/
+.agents/
+skills-lock.json

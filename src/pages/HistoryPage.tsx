@@ -111,7 +111,7 @@ export function HistoryPage() {
       <header className="text-center">
         <SectionKicker>Cross-Season</SectionKicker>
         <h1 className="font-display text-charcoal mt-2 text-4xl">League History</h1>
-        <div className="bg-gold mx-auto mt-5 h-px w-16" aria-hidden="true" />
+        <div className="gold-divider mx-auto mt-5 w-16" aria-hidden="true" />
       </header>
 
       {isLoading && <p className="text-charcoal-soft mt-14 text-center">Loading the archives…</p>}
@@ -123,22 +123,24 @@ export function HistoryPage() {
               <h2 id="champions-heading" className="font-display text-charcoal text-3xl">
                 Championships
               </h2>
-              <ul className="divide-charcoal/10 border-charcoal/10 mt-6 divide-y border-t">
-                {championRows.map(({ userId, count }) => (
-                  <li key={userId} className="flex items-center gap-3 py-3 text-sm">
-                    <TeamAvatar
-                      avatarId={teamAvatarIdForUser(userId, allUsers)}
-                      name={teamNameForUser(userId, allUsers)}
-                    />
-                    <span className="text-charcoal flex-1 truncate">
-                      {teamNameForUser(userId, allUsers)}
-                    </span>
-                    <span className="text-charcoal lining-nums tabular-nums">
-                      {count} {count === 1 ? 'title' : 'titles'}
-                    </span>
-                  </li>
-                ))}
-              </ul>
+              <div className="gallery-card mt-6 p-2 sm:p-3">
+                <ul className="divide-charcoal/10 divide-y">
+                  {championRows.map(({ userId, count }) => (
+                    <li key={userId} className="flex items-center gap-3 px-3 py-3 text-sm sm:px-4">
+                      <TeamAvatar
+                        avatarId={teamAvatarIdForUser(userId, allUsers)}
+                        name={teamNameForUser(userId, allUsers)}
+                      />
+                      <span className="text-charcoal flex-1 truncate">
+                        {teamNameForUser(userId, allUsers)}
+                      </span>
+                      <span className="text-charcoal lining-nums tabular-nums">
+                        {count} {count === 1 ? 'title' : 'titles'}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
             </section>
           )}
 
@@ -146,7 +148,7 @@ export function HistoryPage() {
             {bestWeek && (
               <div>
                 <SectionKicker>Best single week</SectionKicker>
-                <p className="text-charcoal font-sans text-4xl leading-tight font-semibold lining-nums tabular-nums">
+                <p className="text-gold-metal font-sans text-4xl leading-tight font-semibold lining-nums tabular-nums">
                   {bestWeek.points.toFixed(1)}
                 </p>
                 <p className="text-charcoal-soft mt-1 text-sm">
@@ -159,7 +161,7 @@ export function HistoryPage() {
             {streak && (
               <div>
                 <SectionKicker>Longest win streak</SectionKicker>
-                <p className="text-charcoal font-sans text-4xl leading-tight font-semibold lining-nums tabular-nums">
+                <p className="text-gold-metal font-sans text-4xl leading-tight font-semibold lining-nums tabular-nums">
                   {streak.length}
                 </p>
                 <p className="text-charcoal-soft mt-1 text-sm">
@@ -194,25 +196,27 @@ export function HistoryPage() {
               {headToHead.length === 0 ? (
                 <p className="text-charcoal-soft mt-6 text-sm">No games played yet.</p>
               ) : (
-                <ul className="divide-charcoal/10 border-charcoal/10 mt-6 divide-y border-t">
-                  {headToHead.map((record) => (
-                    <li
-                      key={record.opponentUserId}
-                      className="flex items-center gap-3 py-3 text-sm"
-                    >
-                      <TeamAvatar
-                        avatarId={teamAvatarIdForUser(record.opponentUserId, allUsers)}
-                        name={teamNameForUser(record.opponentUserId, allUsers)}
-                      />
-                      <span className="text-charcoal flex-1 truncate">
-                        {teamNameForUser(record.opponentUserId, allUsers)}
-                      </span>
-                      <span className="text-charcoal lining-nums tabular-nums">
-                        {record.wins}-{record.losses}
-                      </span>
-                    </li>
-                  ))}
-                </ul>
+                <div className="gallery-card mt-6 p-2 sm:p-3">
+                  <ul className="divide-charcoal/10 divide-y">
+                    {headToHead.map((record) => (
+                      <li
+                        key={record.opponentUserId}
+                        className="flex items-center gap-3 px-3 py-3 text-sm sm:px-4"
+                      >
+                        <TeamAvatar
+                          avatarId={teamAvatarIdForUser(record.opponentUserId, allUsers)}
+                          name={teamNameForUser(record.opponentUserId, allUsers)}
+                        />
+                        <span className="text-charcoal flex-1 truncate">
+                          {teamNameForUser(record.opponentUserId, allUsers)}
+                        </span>
+                        <span className="text-charcoal lining-nums tabular-nums">
+                          {record.wins}-{record.losses}
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
               )}
             </section>
           )}

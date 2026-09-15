@@ -57,6 +57,15 @@ requirement per SPEC §7.2, not a polish-pass concern.
 
 ## Phase 3 — Static layout pass (2D, real data, no 3D/motion yet)
 
+**Status: Complete.** Home, Team page, and League History are built with
+real Sleeper data, the mobile-first nav overlay, and the marble/gold
+visual system (including a follow-up materiality pass: card contrast
+against the marble background, gold-gradient borders/dividers/numerals).
+Verified via a real Playwright screenshot pass at 390px width, not just
+the DevTools emulator. Good enough to move forward, not polished to a
+final degree — that's expected at this stage, not a gap to close before
+Phase 4.
+
 - Build Home, Team page, and League History with real data and the
   palette/typography system, but as plain 2D layouts (no r3f, no GSAP).
   Design mobile-first (~390px) and scale up per SPEC §7 — don't design

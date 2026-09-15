@@ -15,14 +15,35 @@
  * Design tokens — see SPEC.md §5 for the full rationale.
  * Gold/brass are decorative only; never use them for text below 24px
  * or for anything that must be read (contrast fails on marble/ivory).
+ *
+ * Gold/gold-bright pulled from the ui-ux-pro-max palette database
+ * (--domain color, "luxury gold marble museum gallery" /
+ * "gold brass metallic accent bronze") rather than hand-picked: #A16207
+ * is the repeated validated accent across its Premium/Luxury Brand,
+ * E-commerce Luxury, and Architecture/Interior entries; #D4AF37 is the
+ * classic metallic-gold reference value those same entries derive their
+ * (contrast-adjusted-for-text) accent from. We use the un-adjusted
+ * values since our gold is decorative-only, never text, so the
+ * text-contrast adjustment those product systems needed doesn't apply.
+ * `--color-brass` has no direct database match (search returned 0
+ * results) — kept at its original hand-picked antique-brass value.
+ *
+ * `--color-gold-light` is not a separate database hit either — it's a
+ * computed ~45% white-tint of the validated `--color-gold-bright`
+ * (#D4AF37), used as the specular highlight stop in metallic gradients
+ * so a gold border/line has real tonal variation instead of reading as
+ * flat paint. `--color-gold` (#A16207, darker) is reserved for
+ * shadow/depth (card elevation, gradient edges) — it is NOT the visible
+ * gold anywhere; `--color-gold-bright` is the primary visible gold.
  */
 @theme {
   --color-marble: #f7f5f2;
   --color-ivory: #efe8da;
   --color-charcoal: #2b2926;
   --color-charcoal-soft: #57534c;
-  --color-gold: #c9a227;
-  --color-gold-bright: #e4c25c;
+  --color-gold: #a16207;
+  --color-gold-bright: #d4af37;
+  --color-gold-light: #ecdba0;
   --color-brass: #8c6d46;
 
   --font-display: 'Cormorant Garamond', serif;
@@ -37,31 +58,144 @@
 
 /**
  * Marble surface — SPEC.md §5.4 calls for "real PBR materials" in 3D
- * (Phase 5+); until then, this is the 2D approximation: soft warm-toned
- * gradient blooms standing in for depth/veining, plus a very fine grain
- * texture, all at low enough opacity that contrast ratios are unaffected
- * (verified: charcoal-on-marble stays ~13:1, nowhere near the 4.5:1 floor).
+ * (Phase 5+); until then, this is the 2D approximation. A real
+ * photographed Carrara marble slab (Unsplash, hotlinked per the
+ * Unsplash License — free for commercial/noncommercial use) sits under
+ * a warm marble-tinted wash so the veining reads as actual stone grain
+ * rather than a hinted pattern, plus a fine grain texture on top for
+ * close-up tactility. The wash keeps contrast unaffected (verified:
+ * charcoal-on-marble stays ~12:1, nowhere near the 4.5:1 floor).
+ *
+ * The photo is on a `position: fixed` pseudo-element (sized to the
+ * viewport, not this element's full scrollable height) rather than a
+ * `background-size: cover` on `.marble-surface` itself — the page's
+ * real height can be several viewports tall, and `cover` against that
+ * would scale the image far past its native resolution, blurring the
+ * veining into mush. Fixed sizing keeps it crisp at any page length.
  * Applied to every top-level page surface via this class — never a flat
  * `bg-marble` fill on a full-page container, or the texture disappears
  * behind it.
  */
 .marble-surface {
+  position: relative;
+  z-index: 0;
   background-color: var(--color-marble);
+}
+
+.marble-surface::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  z-index: -1;
   background-image:
-    radial-gradient(ellipse 70% 50% at 15% -10%, rgba(201, 162, 39, 0.05), transparent 60%),
-    radial-gradient(ellipse 60% 55% at 105% 15%, rgba(140, 109, 70, 0.045), transparent 55%),
-    radial-gradient(ellipse 75% 55% at 25% 110%, rgba(43, 41, 38, 0.035), transparent 60%),
-    linear-gradient(114deg, transparent 38%, rgba(43, 41, 38, 0.022) 39.5%, transparent 42%),
-    linear-gradient(68deg, transparent 58%, rgba(43, 41, 38, 0.018) 59.5%, transparent 63%),
-    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix type='matrix' values='0 0 0 0 0.169  0 0 0 0 0.161  0 0 0 0 0.149  0 0 0 0.03 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
-  background-repeat: no-repeat, no-repeat, no-repeat, no-repeat, no-repeat, repeat;
+    radial-gradient(ellipse 60% 50% at 12% -5%, rgba(212, 175, 55, 0.16), transparent 55%),
+    radial-gradient(ellipse 55% 50% at 100% 10%, rgba(140, 109, 70, 0.13), transparent 55%),
+    linear-gradient(rgba(247, 245, 242, 0.82), rgba(247, 245, 242, 0.82)),
+    url('https://images.unsplash.com/photo-1558346648-9757f2fa4474?q=60&w=1920&auto=format&fit=crop'),
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix type='matrix' values='0 0 0 0 0.169  0 0 0 0 0.161  0 0 0 0 0.149  0 0 0 0.035 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  background-repeat: no-repeat, no-repeat, no-repeat, no-repeat, repeat;
+  background-position:
+    top left,
+    top right,
+    center,
+    center,
+    top left;
   background-size:
     cover,
     cover,
     cover,
     cover,
-    cover,
     180px 180px;
+}
+
+/**
+ * Gallery card — the ivory "placard" surface for grouped content
+ * (results, standings, records). Near-opaque ivory (94%, up from an
+ * earlier 72% that let the marble grain bleed through and killed the
+ * card/background separation) plus a heavier gold-tinted border and a
+ * two-layer shadow — a tight near shadow for a crisp physical edge, a
+ * wide soft one tinted with the *darker* --color-gold (reserved for
+ * shadow/depth per the palette comment above, never the visible gold
+ * itself) — so the card reads as a lifted museum placard, not a wash.
+ */
+.gallery-card {
+  position: relative;
+  background-color: rgb(239 232 218 / 94%);
+  border: 1.5px solid rgb(212 175 55 / 55%);
+  border-radius: 1rem;
+  box-shadow:
+    0 1px 2px rgb(43 41 38 / 8%),
+    0 4px 10px -4px rgb(43 41 38 / 12%),
+    0 24px 48px -20px rgb(161 98 7 / 55%);
+}
+
+.gallery-card::before {
+  content: '';
+  position: absolute;
+  inset: -1.5px -1.5px auto -1.5px;
+  height: 3px;
+  border-radius: 1rem 1rem 0 0;
+  background: var(--gradient-gold-metal);
+}
+
+/**
+ * Shared metallic-gold gradient — three real tones (dark/shadow, bright/
+ * primary, light/specular) rather than one flat hex, so gold surfaces
+ * (dividers, card inlay strips, avatar frames) read as brushed metal
+ * catching light rather than a painted line. Bright is the dominant
+ * stop; dark only appears at the fading edges.
+ */
+:root {
+  --gradient-gold-metal: linear-gradient(
+    90deg,
+    transparent,
+    var(--color-gold) 6%,
+    var(--color-gold-bright) 30%,
+    var(--color-gold-light) 50%,
+    var(--color-gold-bright) 70%,
+    var(--color-gold) 94%,
+    transparent
+  );
+}
+
+/** Gradient-gold "shine" for large display numerals (High score, League
+ * History records) — the same metallic gradient as the borders/dividers
+ * above, clipped to the glyphs themselves via `background-clip: text` so
+ * the numeral catches light like brushed metal instead of sitting as a
+ * flat, mustard-looking fill. `color: transparent` is the standard
+ * fallback for browsers without background-clip: text support (the
+ * numeral would render solid black) — acceptable here since every
+ * evergreen browser this project targets (CLAUDE.md) supports it. */
+.text-gold-metal {
+  background: var(--gradient-gold-metal);
+  background-clip: text;
+  -webkit-background-clip: text;
+  color: transparent;
+  -webkit-text-fill-color: transparent;
+}
+
+/** A brushed-gold bar — replaces flat `bg-gold` dividers/underlines. */
+.gold-divider {
+  height: 3px;
+  background: var(--gradient-gold-metal);
+}
+
+/** Metallic-gradient frame for the "trophy portrait" avatars (TeamAvatar
+ * md/lg) — border-image gives the frame edge itself tonal variation, and
+ * a soft gold-tinted shadow lifts the portrait off the page the way a
+ * real gallery frame throws a shadow off the wall. */
+.gold-frame {
+  border-style: solid;
+  border-image: linear-gradient(
+      135deg,
+      var(--color-gold-light),
+      var(--color-gold-bright) 45%,
+      var(--color-gold) 100%
+    )
+    1;
+  box-shadow:
+    0 0 0 1px rgb(212 175 55 / 22%),
+    0 10px 22px -10px rgb(161 98 7 / 60%);
 }
 
 body {

@@ -5,7 +5,7 @@ import { useCurrentSeason, useUsers } from '../api/hooks'
 const overlayLinkClass = ({ isActive }: { isActive: boolean }) =>
   `block py-3 font-display text-2xl transition-colors duration-300 ${
     isActive
-      ? 'text-charcoal underline decoration-gold decoration-2 underline-offset-8'
+      ? 'text-charcoal underline decoration-gold-bright decoration-2 underline-offset-8'
       : 'text-charcoal-soft hover:text-charcoal'
   }`
 
@@ -63,7 +63,7 @@ function NavOverlay({ onClose }: { onClose: () => void }) {
           League History
         </NavLink>
 
-        <div className="bg-gold my-6 h-px w-16" aria-hidden="true" />
+        <div className="gold-divider my-6 w-16" aria-hidden="true" />
 
         {users.data?.map((user) => (
           <NavLink
