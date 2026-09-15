@@ -9,11 +9,16 @@
     "lint": "oxlint",
     "format": "prettier --write .",
     "typecheck": "tsc -b --noEmit",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "verify:sleeper": "tsx scripts/verify-sleeper.ts"
   },
   "dependencies": {
     "@fontsource/cormorant-garamond": "^5.3.0",
     "@fontsource/inter": "^5.3.0",
+    "@tanstack/query-async-storage-persister": "^5.102.8",
+    "@tanstack/react-query": "^5.102.8",
+    "@tanstack/react-query-persist-client": "^5.102.8",
+    "idb-keyval": "^6.3.0",
     "react": "^19.2.8",
     "react-dom": "^19.2.8"
   },
@@ -27,6 +32,7 @@
     "prettier": "^3.9.6",
     "prettier-plugin-tailwindcss": "^0.8.1",
     "tailwindcss": "^4.3.3",
+    "tsx": "^4.23.13",
     "typescript": "~6.0.2",
     "vite": "^8.3.0"
   }
