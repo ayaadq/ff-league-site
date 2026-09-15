@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { lazy, Suspense, useMemo, useState } from 'react'
 import {
   bestSingleWeek,
   buildGameResults,
@@ -20,8 +20,21 @@ import { SLEEPER_LEAGUE_ID } from '../config'
 import type { SeasonChainEntry } from '../api/seasonChain'
 import { SectionKicker } from '../components/SectionKicker'
 import { TeamAvatar } from '../components/TeamAvatar'
-import { TrophyRoomCanvas } from '../three/TrophyRoomCanvas'
 import { allEvents, rivalries } from '../content/lore'
+
+/** three + r3f + drei + gsap are by far the largest thing in the bundle
+ * and none of it is needed to render this page's 2D content, so the
+ * canvas is split into its own chunk and loaded after the page paints
+ * (PLAN.md Phase 9 performance pass, SPEC.md §7.2's mobile budget).
+ *
+ * `fallback={null}` rather than a placeholder: the scroll track wrapping
+ * the canvas has a fixed height, so the space is already reserved and a
+ * spinner would just flash in a decorative, aria-hidden region. Nothing
+ * shifts when the chunk lands, which also keeps ScrollTrigger from
+ * measuring a moving target. */
+const TrophyRoomCanvas = lazy(() =>
+  import('../three/TrophyRoomCanvas').then((m) => ({ default: m.TrophyRoomCanvas })),
+)
 
 const NO_SEASONS: SeasonChainEntry[] = []
 
@@ -129,7 +142,9 @@ export function HistoryPage() {
           and camera framing so this page doesn't need to supply either. */}
       <div aria-hidden="true" id="trophy-room-scroll-track" className="h-[230vh] sm:h-[260vh]">
         <div className="sticky top-0 h-[58vh] min-h-[380px] w-full sm:h-[68vh]">
-          <TrophyRoomCanvas />
+          <Suspense fallback={null}>
+            <TrophyRoomCanvas />
+          </Suspense>
         </div>
       </div>
 

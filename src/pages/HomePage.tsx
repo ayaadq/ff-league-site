@@ -1,4 +1,4 @@
-import { useMemo } from 'react'
+import { lazy, Suspense, useMemo } from 'react'
 import { useCurrentSeason, useMatchups, useNflState, useRosters, useUsers } from '../api/hooks'
 import { pairMatchups } from '../api/matchups'
 import {
@@ -10,8 +10,21 @@ import {
 import { SectionKicker } from '../components/SectionKicker'
 import { TeamAvatar } from '../components/TeamAvatar'
 import { StatCountUp } from '../motion/StatCountUp'
-import { WeeklySummaryCanvas } from '../three/WeeklySummaryCanvas'
 import type { StandingEntry } from '../three/WeeklySummaryScene'
+
+/** three + r3f + drei + gsap are by far the largest thing in the bundle
+ * and none of it is needed to render this page's 2D content, so the
+ * canvas is split into its own chunk and loaded after the page paints
+ * (PLAN.md Phase 9 performance pass, SPEC.md §7.2's mobile budget).
+ *
+ * `fallback={null}` rather than a placeholder: the scroll track wrapping
+ * the canvas has a fixed height, so the space is already reserved and a
+ * spinner would just flash in a decorative, aria-hidden region. Nothing
+ * shifts when the chunk lands, which also keeps ScrollTrigger from
+ * measuring a moving target. */
+const WeeklySummaryCanvas = lazy(() =>
+  import('../three/WeeklySummaryCanvas').then((m) => ({ default: m.WeeklySummaryCanvas })),
+)
 
 export function HomePage() {
   const { leagueId, season } = useCurrentSeason()
@@ -102,7 +115,9 @@ export function HomePage() {
       {!isLoading && (
         <div aria-hidden="true" id="weekly-summary-scroll-track" className="h-[230vh] sm:h-[260vh]">
           <div className="sticky top-0 h-[58vh] min-h-[380px] w-full sm:h-[68vh]">
-            <WeeklySummaryCanvas standings={podiumStandings} />
+            <Suspense fallback={null}>
+              <WeeklySummaryCanvas standings={podiumStandings} />
+            </Suspense>
           </div>
         </div>
       )}

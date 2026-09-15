@@ -405,6 +405,29 @@ phone is that nothing renders oddly, not that the sections look right.
 
 ## Phase 9 — Polish and cross-cutting QA
 
+**Status: in progress — the performance/bundle item below is done, the
+rest is not.**
+
+The 3D canvas is now code-split. Both canvases are `React.lazy` imports
+behind a `Suspense` boundary, which moves three, r3f, drei and gsap out
+of the initial bundle: 1,380 kB down to 422 kB of initial JS (399 kB to
+142 kB gzipped), with the renderer arriving in its own ~948 kB chunk
+after the page paints. That is the single largest mobile win available
+here, since none of it is needed to render either page's 2D content.
+`fallback={null}` is deliberate — each canvas sits inside a fixed-height
+scroll track, so the space is already reserved, nothing shifts when the
+chunk lands, and ScrollTrigger isn't left measuring a moving target.
+
+Verified in a browser, not just by reading the build output: the
+lazy chunk is requested, the canvas mounts and renders, and the page
+throws nothing. The same run confirmed the empty-lore path from Phase 8
+— with no lore authored, neither the Rivalries nor the Notable Events
+heading renders at all.
+
+Still open in this phase: the accessibility re-pass, the real-device
+performance and reduced-quality-tier checks, HDRI/texture sizing, and
+the cross-browser smoke test.
+
 - Full accessibility re-pass now that 3D/motion is in place: contrast
   still holds, keyboard/reduced-motion paths still work, focus states
   visible against marble/gold.
