@@ -38,6 +38,49 @@ Sleeper `user_id`, which is stable across seasons. `roster_id` and
 `CLAUDE.md`). Lore is keyed the same way, so it survives the rollover
 untouched.
 
+## Adding a weekly recap
+
+The site computes every hard number in a weekly recap by itself, straight
+from Sleeper, the moment scores settle: final scores, margins, each
+team's best possible lineup, lineup efficiency, points left on the bench,
+top scorer, the biggest blowout and the closest game. None of that is
+written by hand, and none of it is stored in the repo. See
+`src/api/weeklyRecap.ts`.
+
+What is written by hand is the commentary — headlines, storylines, the
+roast under each award, the line beside each power ranking. Those live in
+`src/content/recaps/`.
+
+To add a week, create `<season>-week-<n>.ts` exporting one
+`WeekRecapContent`, then import it in `src/content/recaps/index.ts` and
+add it to the `recaps` array. `types.ts` documents every field and
+`index.ts` carries a worked example. Every field beyond `season` and
+`week` is optional: a week with no file renders as pure data, and a week
+with only headlines renders those and nothing more.
+
+Everything is keyed by Sleeper `user_id`, never `roster_id`, so a recap
+still points at the right people after the season rolls over. The ids for
+the current league:
+
+| Manager   | Team                      | user_id               |
+| --------- | ------------------------- | --------------------- |
+| Zuhayr    | My Strange Nabers         | `608578919938973696`  |
+| Tejas     | 2x Champion               | `731614826014564352`  |
+| Raghav    | Rags                      | `995074340020453376`  |
+| Justin    | justins team              | `858983252424261632`  |
+| Rohan     | I Love to Chase Brown ppl | `859091870352031744`  |
+| Supratim  | Njigba Please             | `734958413582336000`  |
+| swishhh99 | Waddling to the Mooon     | `985633204772147200`  |
+| Joey      | hopeless again            | `859328673705230336`  |
+| Jai       | Mark up the Lamb Price    | `846079026111062016`  |
+| Nidhish   | Hey Pukie                 | `861473628066299904`  |
+| Zain      | ConkeyonmyCooktillIGoff   | `1265846882979028993` |
+| Ayaad     | Chasing My Next Pacheco   | `558362285233664000`  |
+
+Team names change; ids do not. If a name in that table looks wrong, trust
+the id — or re-read the current names from
+`https://api.sleeper.app/v1/league/<league_id>/users`.
+
 ## Adding lore
 
 Lore is hand-authored, versioned in the repo, and edited like code —
