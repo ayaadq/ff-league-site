@@ -562,7 +562,20 @@ treatment across League History and the team pages.
 
 ## Phase 12 — The weekly journey (Home rebuilt as a scroll experience)
 
-**Status: foundations landed, the 3D sequence not started.**
+**Status: acts 1, 3, 4, and 5 are built and in their final scroll
+order** (Storylines → six-station journey → Awards → Efficiency chart →
+Power rankings/closing → the standings finale cluster). **The skycam 3D
+sequence itself (act 2) is built and scrubbing correctly** — this line
+previously read "the 3D sequence not started," which stopped being true
+once it shipped; see the commit history around "Add the skycam journey."
+**Still open within act 2:** its four embellishments — score count-up on
+arrival at each station, a real triggered "ignite" on the winning side
+(currently just a static lit/unlit state), standout-player headshot
+cards, and a visual promotion for game of the week (currently text-only).
+**Two gaps outside this phase's own scope don't resolve when it does:**
+Phase 11's sound/scroll rollout to League History and team pages (Home
+only, still), and Phase 9's remaining real-device performance and
+cross-browser QA.
 
 Direction, decided with the user against two references: leoparpeix.com
 for the motion feel, and their own Week 1 recap PDF for the content. The
