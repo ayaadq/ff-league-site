@@ -3,6 +3,7 @@ import { NavLink } from 'react-router'
 import { useCurrentSeason, useUsers } from '../api/hooks'
 import { SoundToggle } from '../audio/SoundToggle'
 import { useSound } from '../audio/soundContext'
+import { MotionDiagnostics } from '../debug/MotionDiagnostics'
 
 const overlayLinkClass = ({ isActive }: { isActive: boolean }) =>
   `block py-3 font-display text-2xl transition-colors duration-300 ${
@@ -112,6 +113,11 @@ export function Layout({ children }: { children: ReactNode }) {
       {menuOpen && <NavOverlay onClose={() => setMenuOpen(false)} />}
 
       <div className="px-6 py-10">{children}</div>
+
+      {/* TEMPORARY -- diagnosing the frozen-camera bug. Delete this line
+          and its import above (and src/debug/MotionDiagnostics.tsx)
+          once that's root-caused. */}
+      <MotionDiagnostics />
     </div>
   )
 }
