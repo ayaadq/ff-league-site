@@ -3,7 +3,7 @@ import { gsap } from 'gsap'
 import { useEffect } from 'react'
 import { useReducedMotion } from '../motion/reducedMotionContext'
 import { setupGsap } from '../motion/gsapSetup'
-import { stationZ } from './journeyLayout'
+import { stationBounds, uniformTiming, zAtProgress, type StationTiming } from './journeyLayout'
 
 /** The aspect the framing was tuned at, measured on a desktop canvas.
  * Same reference the gallery rig uses, and the same reason: `fov` is
@@ -30,6 +30,14 @@ const SWAY = 0.7
  * the camera stops with you, which is what makes it feel like your
  * movement rather than a video.
  *
+ * Z position is piecewise (journeyLayout.ts's stationBounds/zAtProgress)
+ * rather than one flat lerp from first station to last -- the
+ * foundation for per-station pacing (closeness-based dwell, a longer
+ * game-of-week beat) that isn't wired up yet. `timings` defaults to
+ * `uniformTiming`, which zAtProgress reduces to the exact same lerp
+ * this rig used before that existed -- not visually close to the old
+ * behavior, algebraically identical to it.
+ *
  * Under `prefers-reduced-motion` the camera parks at the first station
  * and never moves. The DOM panels above the canvas carry every score and
  * headline regardless, so nothing is lost by not travelling — which is
@@ -37,9 +45,14 @@ const SWAY = 0.7
 export function JourneyCameraRig({
   trackId,
   stationCount,
+  timings,
 }: {
   trackId: string
   stationCount: number
+  /** Per-station dwell/travel shares (journeyLayout.ts). Defaults to
+   * `uniformTiming(stationCount)` -- zero dwell, even travel spacing,
+   * today's plain glide. No caller passes anything else yet. */
+  timings?: StationTiming[]
 }) {
   const { camera, size } = useThree()
   const prefersReducedMotion = useReducedMotion()
@@ -51,11 +64,10 @@ export function JourneyCameraRig({
 
     const pullback = Math.min(Math.max(FRAMED_FOR_ASPECT / aspect, 1), MAX_PULLBACK)
     const standoff = BASE_STANDOFF * pullback
-    const firstZ = stationZ(0)
-    const lastZ = stationZ(stationCount - 1)
+    const bounds = stationBounds(timings ?? uniformTiming(stationCount))
 
     const place = (progress: number) => {
-      const targetZ = firstZ + (lastZ - firstZ) * progress
+      const targetZ = zAtProgress(progress, bounds)
       camera.position.set(
         Math.sin(progress * Math.PI * Math.max(stationCount - 1, 1)) * SWAY,
         CAMERA_HEIGHT * (1 + (pullback - 1) * 0.35),
@@ -85,7 +97,7 @@ export function JourneyCameraRig({
       tween.scrollTrigger?.kill()
       tween.kill()
     }
-  }, [camera, aspect, prefersReducedMotion, trackId, stationCount])
+  }, [camera, aspect, prefersReducedMotion, trackId, stationCount, timings])
 
   return null
 }
