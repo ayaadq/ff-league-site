@@ -559,3 +559,60 @@ in `public/`, so it is never bundled.
 
 Remaining: deploy and check on a real phone, then roll the same
 treatment across League History and the team pages.
+
+## Phase 12 — The weekly journey (Home rebuilt as a scroll experience)
+
+**Status: foundations landed, the 3D sequence not started.**
+
+Direction, decided with the user against two references: leoparpeix.com
+for the motion feel, and their own Week 1 recap PDF for the content. The
+brief is a skycam — the overhead cable camera NFL broadcasts use —
+travelling between stations, one per matchup, through a dark night-stadium
+world, then emerging back into the marble gallery for standings and
+history. Motion never gates the data: this is a scoreboard people check
+weekly, not a portfolio they visit once.
+
+What already exists:
+
+- `api/weeklyRecap.ts` — best legal lineup, efficiency, points left on
+  the bench, per-matchup pairing, and the derivable awards. Verified
+  12/12 against the numbers published in the user's own recap PDF.
+- `content/recaps/` — the authored half (headlines, storylines, award
+  roasts, ranking lines), one file per week, keyed by user_id, every
+  field optional. Authored in a separate chat with the user; README
+  documents the workflow and carries the user_id table.
+- `motion/Reveal.tsx`, `components/Marquee.tsx`, `components/ScrollCue.tsx`,
+  `audio/` — all shipped and verified on the three existing pages.
+
+The acts, in scroll order:
+
+1. Storylines — the recap's "what the hell just happened" openers.
+2. Six matchup stations — the journey proper. Both portraits face off,
+   scores count up on arrival, the winner's side ignites, that week's
+   standout players appear as headshot cards. Game of the week gets
+   promoted. Sleeper serves real player headshots and `PlayerHeadshot`
+   already loads them — no stock photography.
+3. Awards.
+4. Actual-vs-perfect efficiency chart, which is the one section that is
+   pure computation and needs no writing at all.
+5. Power rankings, with the closing piece.
+
+Then standings, still reachable below, as now.
+
+Things to get right, learned the hard way earlier in this build:
+
+- Camera framing must be fitted to viewport aspect (see
+  `ScrollCameraRig`'s `fitToViewport`) or the whole thing crops on a
+  phone, and the fitted pose must be applied on the first frame rather
+  than waiting for the first scroll.
+- Anything scroll-driven needs the `prefers-reduced-motion` branch built
+  at the same time, not after. The user's own machine has the OS setting
+  on, so they will see that branch by default.
+- A week with no authored recap must render as pure data. That is the
+  normal state most weeks, not an edge case.
+- The 3D canvas is code-split and must stay that way; it is 948 kB and
+  the page has to paint without it.
+
+Known issue carried forward: the standings table on Home is stretched at
+phone width and the PF column looks faded and clipped when scrolled to.
+The user is handling that one.
