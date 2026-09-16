@@ -206,6 +206,74 @@ export function closenessTiming(games: Array<{ margin: number; tied: boolean }>)
   }))
 }
 
+/** Deliberately past closenessTiming's own MAX_DWELL -- the "game of the
+ * week" is an editorial flag (content/recaps), not a margin/closeness
+ * outcome, so its beat is meant to read as longer than even the
+ * closest game of the week gets on closeness alone. */
+const GOTW_DWELL = 2.2
+
+/** Overrides one station's dwell to GOTW_DWELL, leaving every other
+ * station's timing (and that station's own travel share) untouched --
+ * still the same StationTiming[] every other piecewise function here
+ * already consumes, not a second camera-control mechanism layered on
+ * top. `gotwIndex` is null on a week with no game flagged, in which
+ * case this is a no-op and `timings` is returned as given. */
+export function applyGotwDwell(
+  timings: StationTiming[],
+  gotwIndex: number | null,
+): StationTiming[] {
+  if (gotwIndex === null || !timings[gotwIndex]) return timings
+  return timings.map((t, i) => (i === gotwIndex ? { ...t, dwell: GOTW_DWELL } : t))
+}
+
+/** The <Canvas> camera's own fov prop (JourneyCanvas.tsx) -- shared here
+ * rather than a second 45 hardcoded in both files, the same reasoning
+ * as BASE_STANDOFF/FRAMED_FOR_ASPECT above. */
+export const BASE_FOV = 45
+const GOTW_MIN_FOV = 34
+
+/** The camera's field of view at a given progress -- BASE_FOV
+ * everywhere except the one "game of the week" station, where it eases
+ * down to GOTW_MIN_FOV across the travel approaching it and its own
+ * dwell, then back up across the travel leaving it. Linear, not eased
+ * with a curve -- matching this file's own "the scrub supplies the
+ * weight, not the ease" convention (JourneyCameraRig's scrollTrigger
+ * comment).
+ *
+ * A tighter frame via FOV rather than a closer physical standoff is
+ * deliberate: JourneyScene's ignite plane and accent light both recover
+ * the camera's look target by inverting camera.position.z against a
+ * FIXED standoff (BASE_STANDOFF * cameraPullback), decoupled from
+ * JourneyCameraRig by design (Station's own comment, glow/ignite). A
+ * standoff that varied per-station would break that inversion exactly
+ * during the one station meant to look its best, unless JourneyScene
+ * also knew the same per-progress scale -- reopening the standoff/
+ * pullback duplication this project has already paid to fix twice. FOV
+ * plays no part in either effect's distance math, so easing it here
+ * can't touch them at all. */
+export function fovAtProgress(
+  progress: number,
+  bounds: StationBounds[],
+  gotwIndex: number | null,
+): number {
+  if (gotwIndex === null || !bounds[gotwIndex]) return BASE_FOV
+  const b = bounds[gotwIndex]
+  const clamped = Math.min(Math.max(progress, 0), 1)
+  const enterStart = gotwIndex > 0 ? bounds[gotwIndex - 1].dwellEnd : b.dwellStart
+  const exitEnd = b.travelEnd
+
+  if (clamped < enterStart || clamped > exitEnd) return BASE_FOV
+  if (clamped < b.dwellStart) {
+    const span = b.dwellStart - enterStart
+    const t = span > 0 ? (clamped - enterStart) / span : 1
+    return BASE_FOV - (BASE_FOV - GOTW_MIN_FOV) * t
+  }
+  if (clamped <= b.dwellEnd) return GOTW_MIN_FOV
+  const span = exitEnd - b.dwellEnd
+  const t = span > 0 ? (clamped - b.dwellEnd) / span : 1
+  return GOTW_MIN_FOV + (BASE_FOV - GOTW_MIN_FOV) * t
+}
+
 /** Which station's dwell window a given overall progress falls inside,
  * or -1 during a travel window (between two stations, or before the
  * first/after the last). Shares `bounds` with zAtProgress rather than

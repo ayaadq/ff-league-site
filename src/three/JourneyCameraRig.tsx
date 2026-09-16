@@ -1,12 +1,14 @@
 import { useThree } from '@react-three/fiber'
 import { gsap } from 'gsap'
 import { useEffect, useRef } from 'react'
+import type { PerspectiveCamera } from 'three'
 import { useReducedMotion } from '../motion/reducedMotionContext'
 import { setupGsap } from '../motion/gsapSetup'
 import {
   BASE_STANDOFF,
   cameraPullback,
   dwellIndexAtProgress,
+  fovAtProgress,
   stationBounds,
   uniformTiming,
   zAtProgress,
@@ -46,6 +48,7 @@ export function JourneyCameraRig({
   stationCount,
   timings,
   onStationDwellStart,
+  gotwIndex = null,
 }: {
   trackId: string
   stationCount: number
@@ -66,6 +69,13 @@ export function JourneyCameraRig({
    * ScrollTrigger for no camera-relevant reason, losing the "last
    * fired" bookkeeping that keeps this a once-per-arrival callback. */
   onStationDwellStart?: (index: number) => void
+  /** The one "game of the week" station, if this week has one --
+   * eases the camera's fov for it (journeyLayout.ts's fovAtProgress,
+   * see its own comment for why fov and not a closer standoff). A
+   * primitive, unlike onStationDwellStart above, so it's fine in the
+   * effect's own dependency array below -- it only changes when the
+   * actual GOTW game changes, not on every WeeklyJourney render. */
+  gotwIndex?: number | null
 }) {
   const { camera, size } = useThree()
   const prefersReducedMotion = useReducedMotion()
@@ -91,6 +101,27 @@ export function JourneyCameraRig({
         targetZ + standoff,
       )
       camera.lookAt(0, LOOK_HEIGHT, targetZ)
+
+      // Skipped entirely on a week with no GOTW game (fovAtProgress
+      // would just return BASE_FOV every time anyway) -- no reason to
+      // write camera.fov and recompute the projection matrix every
+      // scrub frame for a value that's never going to change.
+      //
+      // Mutating the hook-returned camera directly, same as
+      // camera.position.set()/camera.lookAt() just above -- three.js
+      // gives no other way to change a PerspectiveCamera's fov, and
+      // updateProjectionMatrix() is required after doing so or the
+      // change never reaches the render (same "mutate the object the
+      // hook gave you, not a copy" pattern Portrait.tsx's texture setup
+      // already documents). Triggers oxlint's react(immutability)
+      // warning where the .set()/.lookAt() calls above don't -- the
+      // linter only flags a raw property assignment, not a method call
+      // on the same object -- expected, not a bug to work around.
+      if (gotwIndex !== null) {
+        const perspectiveCamera = camera as PerspectiveCamera
+        perspectiveCamera.fov = fovAtProgress(progress, bounds, gotwIndex)
+        perspectiveCamera.updateProjectionMatrix()
+      }
     }
 
     // The first painted frame has to be framed correctly. ScrollTrigger
@@ -141,7 +172,7 @@ export function JourneyCameraRig({
       tween.scrollTrigger?.kill()
       tween.kill()
     }
-  }, [camera, aspect, prefersReducedMotion, trackId, stationCount, timings])
+  }, [camera, aspect, prefersReducedMotion, trackId, stationCount, timings, gotwIndex])
 
   return null
 }

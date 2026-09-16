@@ -2,7 +2,7 @@ import { Canvas } from '@react-three/fiber'
 import { Suspense } from 'react'
 import { JourneyCameraRig } from './JourneyCameraRig'
 import { JourneyScene } from './JourneyScene'
-import type { JourneyStation, StationTiming } from './journeyLayout'
+import { BASE_FOV, type JourneyStation, type StationTiming } from './journeyLayout'
 import { SceneLighting } from './SceneLighting'
 
 /** Night, reskinned toward the site's marble/gold family rather than an
@@ -34,6 +34,7 @@ export function JourneyCanvas({
   trackId,
   timings,
   onStationDwellStart,
+  gotwIndex = null,
 }: {
   stations: JourneyStation[]
   trackId: string
@@ -43,12 +44,16 @@ export function JourneyCanvas({
   /** Passed straight through to JourneyCameraRig -- see its own prop
    * comment for why the camera rig, not this canvas, owns firing it. */
   onStationDwellStart?: (index: number) => void
+  /** The one "game of the week" station, if this week has one -- passed
+   * straight through to JourneyCameraRig, which eases the camera's fov
+   * for it (journeyLayout.ts's fovAtProgress). */
+  gotwIndex?: number | null
 }) {
   return (
     <Canvas
       dpr={[1, 1.5]}
       gl={{ antialias: true, powerPreference: 'high-performance' }}
-      camera={{ position: [0, 5.4, 9], fov: 45, near: 0.1, far: 120 }}
+      camera={{ position: [0, 5.4, 9], fov: BASE_FOV, near: 0.1, far: 120 }}
     >
       <color attach="background" args={['#2B2926']} />
       <fog attach="fog" args={['#2B2926', 14, 58]} />
@@ -60,6 +65,7 @@ export function JourneyCanvas({
           stationCount={stations.length}
           timings={timings}
           onStationDwellStart={onStationDwellStart}
+          gotwIndex={gotwIndex}
         />
       </Suspense>
     </Canvas>

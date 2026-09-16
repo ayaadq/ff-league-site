@@ -5,6 +5,7 @@ import { matchupNoteFor, type WeekRecapContent } from '../content/recaps'
 import { Reveal } from '../motion/Reveal'
 import { StatCountUp } from '../motion/StatCountUp'
 import {
+  applyGotwDwell,
   closenessOf,
   closenessTiming,
   stationHeightFractions,
@@ -106,11 +107,26 @@ export function WeeklyJourney({
     loserAvatarId: avatarFor(game.loser.userId),
   }))
 
+  // The one game the recap content flags gameOfTheWeek (content/recaps
+  // -- editorial, not derived from margin/closeness), if this week has
+  // one. Reuses the same matchupNoteFor lookup the panels below already
+  // do per game rather than a second way of finding "the" note.
+  const gotwGameIndex = games.findIndex(
+    (game) => matchupNoteFor(content, game.winner.userId, game.loser.userId)?.gameOfTheWeek,
+  )
+  const gotwIndex = gotwGameIndex === -1 ? null : gotwGameIndex
+
   // Closer games hold the camera longer, relative to the other five
   // this week (journeyLayout.ts's closenessTiming) -- not memoized,
   // matching `stations` above: both are cheap derived arrays recomputed
-  // each render, not state that needs to survive one.
-  const timings = closenessTiming(games.map((g) => ({ margin: g.margin, tied: g.tied })))
+  // each render, not state that needs to survive one. The GOTW station,
+  // if there is one, then gets a dedicated longer dwell on top
+  // (applyGotwDwell) -- editorial pacing overriding the closeness-based
+  // default for that one beat, not a second timing system.
+  const timings = applyGotwDwell(
+    closenessTiming(games.map((g) => ({ margin: g.margin, tied: g.tied }))),
+    gotwIndex,
+  )
 
   // Panel heights come from the SAME timings driving the camera
   // (stationHeightFractions reads stationBounds, not a parallel
@@ -140,6 +156,7 @@ export function WeeklyJourney({
               trackId={TRACK_ID}
               timings={timings}
               onStationDwellStart={handleStationDwellStart}
+              gotwIndex={gotwIndex}
             />
           </Suspense>
         </ChunkErrorBoundary>
