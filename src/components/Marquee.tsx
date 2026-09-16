@@ -31,11 +31,15 @@ export function Marquee({ text, className = '' }: { text: string; className?: st
 
   return (
     <div className={`relative overflow-hidden py-10 ${className}`}>
-      <div className="animate-marquee flex w-max">
+      {/* The phrase reaches a screen reader exactly once. The visible
+          track repeats it six times — three to fill the width, doubled
+          again for the loop — which is right for the eye and absurd for
+          the ear, so the whole track is hidden from the a11y tree and
+          this carries the content instead. */}
+      <span className="sr-only">{text}</span>
+      <div aria-hidden="true" className="animate-marquee flex w-max">
         {copy}
-        <span aria-hidden="true" className="flex">
-          {copy}
-        </span>
+        {copy}
       </div>
       {/* Feather both ends into the marble so the type emerges and exits
           rather than being sliced off at the viewport edge. */}
