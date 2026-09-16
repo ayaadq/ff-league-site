@@ -3,6 +3,7 @@ import { NavLink } from 'react-router'
 import { useCurrentSeason, useUsers } from '../api/hooks'
 import { SoundToggle } from '../audio/SoundToggle'
 import { useSound } from '../audio/soundContext'
+import { useEffectsTier } from '../motion/effectsTierContext'
 
 const overlayLinkClass = ({ isActive }: { isActive: boolean }) =>
   `block py-3 font-display text-2xl transition-colors duration-300 ${
@@ -85,9 +86,14 @@ function NavOverlay({ onClose }: { onClose: () => void }) {
 export function Layout({ children }: { children: ReactNode }) {
   const [menuOpen, setMenuOpen] = useState(false)
   const { play } = useSound()
+  const effectsTier = useEffectsTier()
 
   return (
-    <div className="marble-surface text-charcoal min-h-svh">
+    // data-effects-tier isn't decorative: it's the one place this value
+    // is genuinely observable from outside React (Playwright/devtools),
+    // and a legitimate CSS hook if a future tier-gated 2D style ever
+    // needs one -- not a throwaway debug attribute to strip out later.
+    <div className="marble-surface text-charcoal min-h-svh" data-effects-tier={effectsTier}>
       <header className="border-charcoal/10 flex items-center justify-between border-b px-6 py-4">
         <NavLink to="/" className="font-display text-charcoal text-lg">
           Trophy Room
