@@ -52,13 +52,18 @@ const MIN_INTENSITY = 0.08
 
 /** Team-color accent lighting -- see AccentLighting below. ACCENT_MIX is
  * how much of a manager's assigned hue (content/teamColors.ts) survives
- * once blended toward ACCENT_WARM_BASE: CLAUDE.md's "gold/brass is
- * decorative only, never a flood" rule, generalized from text color to
- * scene-scale lighting -- 0.35 reads as a tint the eye can attribute to
- * "this team," not a colored spotlight. ACCENT_WARM_BASE is the site's
- * one existing accent hue (GOLD_MATERIAL_PROPS' own tone), so an
- * unauthored/neutral-toned team color still lands somewhere warm rather
- * than washing out to grey.
+ * once blended toward ACCENT_WARM_BASE.
+ *
+ * Raised from an original 0.35 after live feedback that the six
+ * stadiums read as nearly identical -- a light this diluted, shining on
+ * neutral marble, structurally can't carry team identity on its own
+ * (light modulates a surface's existing color, it doesn't override it).
+ * The real fix is FLOOR_TINT_MIX below: the *surface* is now the
+ * primary color carrier, at far less dilution, and this light is
+ * explicitly a secondary/ambient contributor on top of that -- still
+ * generalizing CLAUDE.md's "gold/brass is decorative only, never a
+ * flood" rule, just no longer trying to make one diluted light do both
+ * jobs at once.
  *
  * ACCENT_RADIUS/MAX_INTENSITY use the same distance-falloff shape as
  * IGNITE_RADIUS/MIN_INTENSITY above, but are separate constants and
@@ -66,10 +71,34 @@ const MIN_INTENSITY = 0.08
  * (which should never read as fully dark), the ambient light is meant
  * to fully fade between stations, not ember at a minimum. */
 const ACCENT_WARM_BASE = '#a6845c'
-const ACCENT_MIX = 0.35
+const ACCENT_MIX = 0.55
 const ACCENT_RADIUS = 12
-const ACCENT_MAX_INTENSITY = 0.45
+const ACCENT_MAX_INTENSITY = 0.55
 const ACCENT_HEIGHT = 4
+
+/** Stadium step 1: a saturated team-color floor patch under each
+ * station -- the primary way a stadium now reads as *this* team's,
+ * surface color rather than light being the carrier (see ACCENT_MIX's
+ * comment above for why light alone couldn't do this job). Still no
+ * new geometry category: one more plane per station, same construction
+ * as the existing gold seam just below it in the Station return.
+ *
+ * FLOOR_TINT_MIX stays far less diluted than the light's own
+ * ACCENT_MIX -- 0.85 keeps the team's assigned hue clearly dominant,
+ * with only a whisper of ACCENT_WARM_BASE blended in so a cooler
+ * fallback color (blues, violets in content/teamColors.ts's fallback
+ * palette) doesn't read as a jarring, uncomposited hex against the warm
+ * marble everywhere else on the site.
+ *
+ * Sized well under STATION_GAP (15) on purpose: leaves clearance at
+ * both ends of a station's footprint for the tunnel archways, which
+ * still span the *whole* inter-station gap today -- narrowing that
+ * span to match is tracked as a later tuning pass (stadium step 3),
+ * not done here, since this step is scoped to color only, no other
+ * geometry changes. */
+const FLOOR_TINT_WIDTH = 16
+const FLOOR_TINT_DEPTH = 11
+const FLOOR_TINT_MIX = 0.85
 
 /** Archway geometry -- see TunnelArches below. Half-width is wide
  * enough to clear the camera's lateral sway (currently 0.7, well under
@@ -112,6 +141,20 @@ function Station({ station, index }: { station: JourneyStation; index: number })
   const prefersReducedMotion = useReducedMotion()
   const igniteEnabled = effectsTier === 'full' && !prefersReducedMotion
   const igniteColor = useMemo(() => new Color(IGNITED_GOLD), [])
+  // Static color, computed once per station rather than per-frame -- a
+  // team's assigned hue doesn't change while scrolling, unlike the
+  // ignite plane above (which tracks live camera distance) or the
+  // accent light (which tracks which station is nearest). Renders on
+  // both quality tiers: this is plain static geometry, not a per-frame
+  // effect, so there's nothing here for "reduced" to skip.
+  const floorTintColor = useMemo(
+    () =>
+      new Color(teamColorFor(station.winnerUserId)).lerp(
+        new Color(ACCENT_WARM_BASE),
+        1 - FLOOR_TINT_MIX,
+      ),
+    [station.winnerUserId],
+  )
 
   useFrame(({ camera, size }) => {
     if (!igniteEnabled) return
@@ -147,6 +190,27 @@ function Station({ station, index }: { station: JourneyStation; index: number })
       <Portrait avatarId={station.winnerAvatarId} position={[-2.7, 2.35, 0]} rotationY={0.13} />
 
       <Portrait avatarId={station.loserAvatarId} position={[2.7, 2.35, 0]} rotationY={-0.13} />
+
+      {/* The team-color floor patch -- see FLOOR_TINT_MIX's own comment.
+          Sits above the marble floor (y=0) but below the gold seam
+          (y=0.012) so the seam still reads as a distinct accent line
+          layered on top of the tint, not fighting it for the same
+          pixels.
+
+          Unlit (meshBasicMaterial, toneMapped false), matching the
+          ignite plane/gold seam above rather than a PBR material -- not
+          the original choice here. A live screenshot check caught a lit
+          meshStandardMaterial reading as barely-there: even a pure
+          #ff0000 test swap (bypassing FLOOR_TINT_MIX entirely) rendered
+          as a pale wash under this scene's soft studio HDRI + fill
+          lights, the same lighting a diffuse surface has no way to
+          opt out of. Unlit sidesteps that -- the whole point of this
+          patch is to be the primary, unmistakable color carrier the
+          plan called for, not a subtly-shaded piece of ground. */}
+      <mesh position={[0, 0.01, 0]} rotation={[-Math.PI / 2, 0, 0]}>
+        <planeGeometry args={[FLOOR_TINT_WIDTH, FLOOR_TINT_DEPTH]} />
+        <meshBasicMaterial color={floorTintColor} toneMapped={false} />
+      </mesh>
 
       {/* A gold seam across the floor marks where the station is, so the
           ground reads as a place rather than an empty plane. Stays
