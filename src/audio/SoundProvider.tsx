@@ -14,10 +14,13 @@ const SOURCES = {
  * which is the behaviour everyone hates. */
 const PREF_KEY = 'trophy-room-sound'
 
-const AMBIENCE_LEVEL = 0.55
+const AMBIENCE_LEVEL = 0.8
 /** Slow on purpose: the bed emerges underneath the roar as the roar
  * decays, so enabling sound is one continuous event rather than two
  * things starting at once. */
+/* Level raised twice on the same feedback ("still very low sounding").
+ * The audio files now carry a proper level of their own, so this is a
+ * trim rather than the main gain staging it used to be. */
 const FADE_IN = 4.5
 const FADE_OUT = 0.7
 /** The roar is already mixed hotter than the bed and builds its own
