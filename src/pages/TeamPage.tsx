@@ -18,6 +18,8 @@ import { PlayerHeadshot } from '../components/PlayerHeadshot'
 import { SectionKicker } from '../components/SectionKicker'
 import { TeamAvatar } from '../components/TeamAvatar'
 import { eventsForUser, loreForUser, rivalryBetween } from '../content/lore'
+import { Reveal } from '../motion/Reveal'
+import { useSound } from '../audio/soundContext'
 
 interface OwnedSeason {
   season: SeasonChainEntry
@@ -69,6 +71,7 @@ function RosterGrid({
 
 export function TeamPage() {
   const { ownerId } = useParams<{ ownerId: string }>()
+  const { play } = useSound()
   const seasonChain = useSeasonChain(SLEEPER_LEAGUE_ID)
   const seasons = seasonChain.data ?? NO_SEASONS
   const rosterQueries = useSeasonsRosters(seasons)
@@ -176,7 +179,10 @@ export function TeamPage() {
                 key={season.leagueId}
                 type="button"
                 aria-current={season.leagueId === selected.season.leagueId}
-                onClick={() => setSelectedLeagueId(season.leagueId)}
+                onClick={() => {
+                  play('click')
+                  setSelectedLeagueId(season.leagueId)
+                }}
                 className={`min-h-11 px-1 text-sm tracking-wide transition-colors duration-300 ${
                   season.leagueId === selected.season.leagueId
                     ? 'border-gold-bright text-charcoal border-b-2'
@@ -195,44 +201,83 @@ export function TeamPage() {
             </span>
           </div>
 
-          <div className="mt-10">
-            <SectionKicker>{selected.season.season} Season</SectionKicker>
-            <h2 className="font-display text-charcoal mt-1 text-3xl">Week by week</h2>
+          <Reveal>
+            <div className="mt-10">
+              <SectionKicker>{selected.season.season} Season</SectionKicker>
+              <h2 className="font-display text-charcoal mt-1 text-3xl">Week by week</h2>
 
-            {weekResults.length === 0 ? (
-              <p className="text-charcoal-soft mt-6 text-sm">No games played yet this season.</p>
-            ) : (
-              <div className="gallery-card mt-6 p-2 sm:p-3">
-                <ul className="divide-charcoal/10 divide-y">
-                  {weekResults.map(({ week, self, opponent, opponentName, opponentOwnerId }) => {
-                    const won = self.points > opponent.points
-                    const bench = self.players.filter(
-                      (id) => id !== '0' && !self.starters.includes(id),
-                    )
-                    const starters = self.starters.filter((id) => id !== '0')
-                    const rivalry = rivalryBetween(ownerId, opponentOwnerId)
+              {weekResults.length === 0 ? (
+                <p className="text-charcoal-soft mt-6 text-sm">No games played yet this season.</p>
+              ) : (
+                <div className="gallery-card mt-6 p-2 sm:p-3">
+                  <ul className="divide-charcoal/10 divide-y">
+                    {weekResults.map(({ week, self, opponent, opponentName, opponentOwnerId }) => {
+                      const won = self.points > opponent.points
+                      const bench = self.players.filter(
+                        (id) => id !== '0' && !self.starters.includes(id),
+                      )
+                      const starters = self.starters.filter((id) => id !== '0')
+                      const rivalry = rivalryBetween(ownerId, opponentOwnerId)
 
-                    return (
-                      <li key={week}>
-                        <details className="group px-3 py-3 sm:px-4">
-                          <summary className="block min-h-11 w-full cursor-pointer list-none text-sm marker:content-none">
-                            {/* Mobile (<sm): stack the label row and the
+                      return (
+                        <li key={week}>
+                          <details
+                            className="group px-3 py-3 sm:px-4"
+                            onToggle={() => play('click')}
+                          >
+                            <summary className="block min-h-11 w-full cursor-pointer list-none text-sm marker:content-none">
+                              {/* Mobile (<sm): stack the label row and the
                                 score/opponent row so a long opponent name
                                 doesn't get truncated to a few characters
                                 sharing a line with the week/result labels
                                 and score. */}
-                            <div className="flex flex-col gap-1 py-1 sm:hidden">
-                              <div className="flex items-center justify-between gap-3">
-                                <div className="flex items-center gap-3">
-                                  <span className="text-charcoal-soft">Week {week}</span>
+                              <div className="flex flex-col gap-1 py-1 sm:hidden">
+                                <div className="flex items-center justify-between gap-3">
+                                  <div className="flex items-center gap-3">
+                                    <span className="text-charcoal-soft">Week {week}</span>
+                                    <span
+                                      className={`text-xs font-semibold tracking-wide uppercase ${
+                                        won ? 'text-charcoal' : 'text-charcoal-soft'
+                                      }`}
+                                    >
+                                      {won ? 'Win' : 'Loss'}
+                                    </span>
+                                  </div>
                                   <span
-                                    className={`text-xs font-semibold tracking-wide uppercase ${
-                                      won ? 'text-charcoal' : 'text-charcoal-soft'
-                                    }`}
+                                    aria-hidden="true"
+                                    className="text-charcoal-soft shrink-0 transition-transform duration-300 group-open:rotate-90"
                                   >
-                                    {won ? 'Win' : 'Loss'}
+                                    ›
                                   </span>
                                 </div>
+                                <div className="text-charcoal flex items-baseline justify-between gap-3">
+                                  <span className="shrink-0 lining-nums tabular-nums">
+                                    {self.points.toFixed(1)} – {opponent.points.toFixed(1)}
+                                  </span>
+                                  <span className="text-charcoal-soft min-w-0 truncate text-right">
+                                    vs {opponentName}
+                                  </span>
+                                </div>
+                              </div>
+
+                              {/* sm+: compact single-line layout, room for score+name together. */}
+                              <div className="hidden w-full items-center gap-3 sm:flex">
+                                <span className="text-charcoal-soft w-14 shrink-0">
+                                  Week {week}
+                                </span>
+                                <span
+                                  className={`w-14 shrink-0 text-xs font-semibold tracking-wide uppercase ${
+                                    won ? 'text-charcoal' : 'text-charcoal-soft'
+                                  }`}
+                                >
+                                  {won ? 'Win' : 'Loss'}
+                                </span>
+                                <span className="text-charcoal min-w-0 flex-1 truncate">
+                                  <span className="lining-nums tabular-nums">
+                                    {self.points.toFixed(1)} – {opponent.points.toFixed(1)}
+                                  </span>{' '}
+                                  vs {opponentName}
+                                </span>
                                 <span
                                   aria-hidden="true"
                                   className="text-charcoal-soft shrink-0 transition-transform duration-300 group-open:rotate-90"
@@ -240,92 +285,62 @@ export function TeamPage() {
                                   ›
                                 </span>
                               </div>
-                              <div className="text-charcoal flex items-baseline justify-between gap-3">
-                                <span className="shrink-0 lining-nums tabular-nums">
-                                  {self.points.toFixed(1)} – {opponent.points.toFixed(1)}
-                                </span>
-                                <span className="text-charcoal-soft min-w-0 truncate text-right">
-                                  vs {opponentName}
-                                </span>
-                              </div>
+
+                              {rivalry && (
+                                <p className="text-charcoal-soft mt-1 text-xs tracking-wide uppercase">
+                                  {rivalry.name}
+                                </p>
+                              )}
+                            </summary>
+
+                            <div className="pl-14">
+                              <RosterGrid
+                                title="Starters"
+                                playerIds={starters}
+                                players={players.data}
+                                playersLoading={players.isLoading}
+                              />
+                              <RosterGrid
+                                title="Bench"
+                                playerIds={bench}
+                                players={players.data}
+                                playersLoading={players.isLoading}
+                              />
                             </div>
-
-                            {/* sm+: compact single-line layout, room for score+name together. */}
-                            <div className="hidden w-full items-center gap-3 sm:flex">
-                              <span className="text-charcoal-soft w-14 shrink-0">Week {week}</span>
-                              <span
-                                className={`w-14 shrink-0 text-xs font-semibold tracking-wide uppercase ${
-                                  won ? 'text-charcoal' : 'text-charcoal-soft'
-                                }`}
-                              >
-                                {won ? 'Win' : 'Loss'}
-                              </span>
-                              <span className="text-charcoal min-w-0 flex-1 truncate">
-                                <span className="lining-nums tabular-nums">
-                                  {self.points.toFixed(1)} – {opponent.points.toFixed(1)}
-                                </span>{' '}
-                                vs {opponentName}
-                              </span>
-                              <span
-                                aria-hidden="true"
-                                className="text-charcoal-soft shrink-0 transition-transform duration-300 group-open:rotate-90"
-                              >
-                                ›
-                              </span>
-                            </div>
-
-                            {rivalry && (
-                              <p className="text-charcoal-soft mt-1 text-xs tracking-wide uppercase">
-                                {rivalry.name}
-                              </p>
-                            )}
-                          </summary>
-
-                          <div className="pl-14">
-                            <RosterGrid
-                              title="Starters"
-                              playerIds={starters}
-                              players={players.data}
-                              playersLoading={players.isLoading}
-                            />
-                            <RosterGrid
-                              title="Bench"
-                              playerIds={bench}
-                              players={players.data}
-                              playersLoading={players.isLoading}
-                            />
-                          </div>
-                        </details>
-                      </li>
-                    )
-                  })}
-                </ul>
-              </div>
-            )}
-          </div>
+                          </details>
+                        </li>
+                      )
+                    })}
+                  </ul>
+                </div>
+              )}
+            </div>
+          </Reveal>
 
           {managerEvents.length > 0 && (
-            <section className="mt-14" aria-labelledby="team-lore-heading">
-              <h2 id="team-lore-heading" className="font-display text-charcoal text-3xl">
-                Notable
-              </h2>
-              <ul className="mt-6 space-y-5">
-                {managerEvents.map((event, index) => (
-                  <li key={`${event.season}-${event.week ?? 0}-${index}`}>
-                    <SectionKicker>
-                      {event.season}
-                      {event.week ? ` \u00b7 Week ${event.week}` : ''}
-                    </SectionKicker>
-                    <h3 className="text-charcoal mt-1 text-lg">{event.title}</h3>
-                    {event.description && (
-                      <p className="text-charcoal-soft mt-1 text-sm leading-relaxed">
-                        {event.description}
-                      </p>
-                    )}
-                  </li>
-                ))}
-              </ul>
-            </section>
+            <Reveal sound>
+              <section className="mt-14" aria-labelledby="team-lore-heading">
+                <h2 id="team-lore-heading" className="font-display text-charcoal text-3xl">
+                  Notable
+                </h2>
+                <ul className="mt-6 space-y-5">
+                  {managerEvents.map((event, index) => (
+                    <li key={`${event.season}-${event.week ?? 0}-${index}`}>
+                      <SectionKicker>
+                        {event.season}
+                        {event.week ? ` \u00b7 Week ${event.week}` : ''}
+                      </SectionKicker>
+                      <h3 className="text-charcoal mt-1 text-lg">{event.title}</h3>
+                      {event.description && (
+                        <p className="text-charcoal-soft mt-1 text-sm leading-relaxed">
+                          {event.description}
+                        </p>
+                      )}
+                    </li>
+                  ))}
+                </ul>
+              </section>
+            </Reveal>
           )}
         </>
       )}
