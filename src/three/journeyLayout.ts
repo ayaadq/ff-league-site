@@ -95,3 +95,41 @@ export function zAtProgress(progress: number, bounds: StationBounds[]): number {
   }
   return stationZ(n - 1)
 }
+
+/** Dwell share at the two ends of the closeness range -- a blowout
+ * still gets a real beat (never below MIN_DWELL, a flash), the
+ * closest game of the week doesn't consume the whole scrub (capped at
+ * MAX_DWELL). Tuned by feel once this is live; not derived from
+ * anything physical. */
+const MIN_DWELL = 0.3
+const MAX_DWELL = 1.4
+
+/** Per-station dwell weighted by how close each game was, closest
+ * relative to the *other five* this week -- not an absolute margin
+ * threshold, matching how weekAwards' own "closest game"/"biggest
+ * margin" are already relative-to-the-week stats, not fixed cutoffs.
+ * Travel shares stay uniform (`uniformTiming`'s 1 between every pair) --
+ * only how long the camera lingers at a station changes, not how long
+ * it takes to get there. A tie is the closest possible outcome
+ * regardless of its (zero) margin value. */
+export function closenessTiming(games: Array<{ margin: number; tied: boolean }>): StationTiming[] {
+  const n = games.length
+  if (n === 0) return []
+
+  const values = games.map((g) => (g.tied ? 0 : g.margin))
+  const minMargin = Math.min(...values)
+  const maxMargin = Math.max(...values)
+  const spread = maxMargin - minMargin
+
+  return games.map((_, i) => {
+    // spread === 0 means every game this week was equally close (or
+    // there's only one game) -- nothing to weight against, so every
+    // station gets the same middle-of-the-road dwell.
+    const normalized = spread > 0 ? (values[i] - minMargin) / spread : 0.5
+    const closeness = 1 - normalized
+    return {
+      dwell: MIN_DWELL + (MAX_DWELL - MIN_DWELL) * closeness,
+      travel: i < n - 1 ? 1 : 0,
+    }
+  })
+}

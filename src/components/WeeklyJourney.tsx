@@ -3,7 +3,7 @@ import type { MatchupRecap } from '../api/weeklyRecap'
 import { matchupNoteFor, type WeekRecapContent } from '../content/recaps'
 import { Reveal } from '../motion/Reveal'
 import { StatCountUp } from '../motion/StatCountUp'
-import type { JourneyStation } from '../three/journeyLayout'
+import { closenessTiming, type JourneyStation } from '../three/journeyLayout'
 import { ChunkErrorBoundary } from './ChunkErrorBoundary'
 import { PlayerHeadshot } from './PlayerHeadshot'
 
@@ -53,12 +53,18 @@ export function WeeklyJourney({
     loserAvatarId: avatarFor(game.loser.userId),
   }))
 
+  // Closer games hold the camera longer, relative to the other five
+  // this week (journeyLayout.ts's closenessTiming) -- not memoized,
+  // matching `stations` above: both are cheap derived arrays recomputed
+  // each render, not state that needs to survive one.
+  const timings = closenessTiming(games.map((g) => ({ margin: g.margin, tied: g.tied })))
+
   return (
     <section id={TRACK_ID} className="relative mt-16 md:mt-24" aria-label={`Week ${week} matchups`}>
       <div className="pointer-events-none sticky top-0 h-svh w-full overflow-hidden bg-[#0b0b0c]">
         <ChunkErrorBoundary>
           <Suspense fallback={null}>
-            <JourneyCanvas stations={stations} trackId={TRACK_ID} />
+            <JourneyCanvas stations={stations} trackId={TRACK_ID} timings={timings} />
           </Suspense>
         </ChunkErrorBoundary>
       </div>
@@ -74,7 +80,22 @@ export function WeeklyJourney({
               className="flex h-svh flex-col justify-center px-6 sm:px-10"
             >
               <div className="mx-auto w-full max-w-3xl">
-                <p className="text-[0.65rem] tracking-[0.3em] text-[#a6845c] uppercase">
+                {/* Broadcast-style title card, entering as this station
+                    arrives. Plain team names, not a personalized "YOU
+                    vs." -- the site has no per-visitor identity to draw
+                    on (single shared password, SPEC.md §8 puts accounts
+                    out of scope), so team names are the honest version
+                    of this. A larger y-offset than Reveal's default
+                    (28px) is what gives it the bigger "flies in" feel
+                    the brief asked for -- still the same trigger and
+                    tween every other beat in this file already uses. */}
+                <Reveal y={56}>
+                  <p className="font-display text-2xl tracking-wide text-[#f2efe9] uppercase sm:text-3xl">
+                    Week {week} — {nameFor(game.winner.userId)} vs. {nameFor(game.loser.userId)}
+                  </p>
+                </Reveal>
+
+                <p className="mt-2 text-[0.65rem] tracking-[0.3em] text-[#a6845c] uppercase">
                   Week {week} · Final
                   {game.tied ? ' · Tied' : ` · Margin ${game.margin.toFixed(2)}`}
                   {note?.gameOfTheWeek ? ' · Game of the week' : ''}

@@ -2,7 +2,7 @@ import { Canvas } from '@react-three/fiber'
 import { Suspense } from 'react'
 import { JourneyCameraRig } from './JourneyCameraRig'
 import { JourneyScene } from './JourneyScene'
-import type { JourneyStation } from './journeyLayout'
+import type { JourneyStation, StationTiming } from './journeyLayout'
 
 /** Night. The weekly journey's world is the one dark place on an
  * otherwise marble site, which is the point: you leave the gallery, go
@@ -20,9 +20,13 @@ import type { JourneyStation } from './journeyLayout'
 export function JourneyCanvas({
   stations,
   trackId,
+  timings,
 }: {
   stations: JourneyStation[]
   trackId: string
+  /** Per-station dwell/travel shares (journeyLayout.ts). Optional --
+   * JourneyCameraRig falls back to uniformTiming when omitted. */
+  timings?: StationTiming[]
 }) {
   return (
     <Canvas
@@ -36,7 +40,7 @@ export function JourneyCanvas({
         <ambientLight intensity={0.22} />
         <directionalLight position={[3, 12, 6]} intensity={0.55} />
         <JourneyScene stations={stations} />
-        <JourneyCameraRig trackId={trackId} stationCount={stations.length} />
+        <JourneyCameraRig trackId={trackId} stationCount={stations.length} timings={timings} />
       </Suspense>
     </Canvas>
   )
