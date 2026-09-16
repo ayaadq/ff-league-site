@@ -1,8 +1,26 @@
+import { Instance, Instances } from '@react-three/drei'
+import { useMemo } from 'react'
 import { STATION_GAP, stationZ, type JourneyStation } from './journeyLayout'
+import { GOLD_MATERIAL_PROPS, MARBLE_MATERIAL_PROPS } from './materials'
 import { Portrait } from './Portrait'
 
 const DARK_FLOOR = '#0e0e10'
 const IGNITED_GOLD = '#a6845c'
+
+/** Archway geometry -- see TunnelArches below. Half-width is wide
+ * enough to clear the camera's lateral sway (currently 0.7, well under
+ * this even if a future pass widens it) with room to spare; height is
+ * tall enough that the camera's skycam height (CAMERA_HEIGHT scaled by
+ * up to MAX_PULLBACK in JourneyCameraRig.tsx, ~7.7 at its highest)
+ * passes under the lintel rather than through it. */
+const ARCH_HALF_WIDTH = 4.5
+const ARCH_HEIGHT = 9
+const PILLAR_SIZE = 0.5
+/** Archways per inter-station gap -- enough that a couple are always
+ * visible ahead in the fog as the camera approaches, without the
+ * instance count climbing (still two Instances draw calls total,
+ * regardless of station or archway count). */
+const ARCHES_PER_GAP = 3
 
 /** The two portraits of one matchup, facing the camera.
  *
@@ -36,6 +54,55 @@ function Station({ station, index }: { station: JourneyStation; index: number })
   )
 }
 
+/** Marble-and-gold archways between stations -- the "tunnel" transition,
+ * built from the same shared PBR presets TrophyRoomScene and the
+ * standings wall use (materials.ts), not new materials invented for
+ * this. Framing rather than a modeled corridor: three freestanding
+ * archways per gap, evenly spaced along the same inter-station travel
+ * the camera already rides (JourneyCameraRig's piecewise place()) --
+ * this adds no new camera-control path, only geometry for the existing
+ * one to fly past and under.
+ *
+ * Two Instances groups total (pillars, lintels), matching
+ * TrophyRoomScene's per-geometry-type instancing -- archway count
+ * scales with station count without adding draw calls. */
+function TunnelArches({ stationCount }: { stationCount: number }) {
+  const archZs = useMemo(() => {
+    const zs: number[] = []
+    for (let gap = 0; gap < stationCount - 1; gap++) {
+      const zStart = stationZ(gap)
+      const zEnd = stationZ(gap + 1)
+      for (let a = 1; a <= ARCHES_PER_GAP; a++) {
+        const t = a / (ARCHES_PER_GAP + 1)
+        zs.push(zStart + (zEnd - zStart) * t)
+      }
+    }
+    return zs
+  }, [stationCount])
+
+  if (archZs.length === 0) return null
+
+  return (
+    <>
+      <Instances limit={archZs.length * 2}>
+        <boxGeometry args={[PILLAR_SIZE, ARCH_HEIGHT, PILLAR_SIZE]} />
+        <meshPhysicalMaterial {...MARBLE_MATERIAL_PROPS} />
+        {archZs.flatMap((z, i) => [
+          <Instance key={`${i}-l`} position={[-ARCH_HALF_WIDTH, ARCH_HEIGHT / 2, z]} />,
+          <Instance key={`${i}-r`} position={[ARCH_HALF_WIDTH, ARCH_HEIGHT / 2, z]} />,
+        ])}
+      </Instances>
+      <Instances limit={archZs.length}>
+        <boxGeometry args={[ARCH_HALF_WIDTH * 2 + PILLAR_SIZE, PILLAR_SIZE, PILLAR_SIZE]} />
+        <meshStandardMaterial {...GOLD_MATERIAL_PROPS} />
+        {archZs.map((z, i) => (
+          <Instance key={i} position={[0, ARCH_HEIGHT, z]} />
+        ))}
+      </Instances>
+    </>
+  )
+}
+
 /** The weekly journey's world: a dark field with the week's matchups
  * standing along it, lit one at a time.
  *
@@ -55,6 +122,8 @@ export function JourneyScene({ stations }: { stations: JourneyStation[] }) {
         <planeGeometry args={[70, depth]} />
         <meshStandardMaterial color={DARK_FLOOR} roughness={0.92} metalness={0.05} />
       </mesh>
+
+      <TunnelArches stationCount={stations.length} />
 
       {stations.map((station, i) => (
         <Station key={station.id} station={station} index={i} />
