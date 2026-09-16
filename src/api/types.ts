@@ -79,6 +79,10 @@ export interface SleeperPlayer {
   first_name?: string
   last_name?: string
   position?: string | null
+  /** Every slot this player is eligible for; Sleeper uses this rather
+   * than `position` for lineup legality, and a player can qualify for
+   * more than one. */
+  fantasy_positions?: string[] | null
   team?: string | null
 }
 
