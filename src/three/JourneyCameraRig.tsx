@@ -3,17 +3,15 @@ import { gsap } from 'gsap'
 import { useEffect } from 'react'
 import { useReducedMotion } from '../motion/reducedMotionContext'
 import { setupGsap } from '../motion/gsapSetup'
-import { stationBounds, uniformTiming, zAtProgress, type StationTiming } from './journeyLayout'
+import {
+  BASE_STANDOFF,
+  cameraPullback,
+  stationBounds,
+  uniformTiming,
+  zAtProgress,
+  type StationTiming,
+} from './journeyLayout'
 
-/** The aspect the framing was tuned at, measured on a desktop canvas.
- * Same reference the gallery rig uses, and the same reason: `fov` is
- * vertical, so a portrait viewport sees a much narrower horizontal slice
- * and would cut the two portraits off at the edges. */
-const FRAMED_FOR_ASPECT = 1.14
-const MAX_PULLBACK = 2.2
-
-/** How far behind the station the camera sits, at the reference aspect. */
-const BASE_STANDOFF = 9
 /** Skycam height — above the action looking down, the way the cable
  * camera in a broadcast sits. */
 const CAMERA_HEIGHT = 5.4
@@ -62,7 +60,7 @@ export function JourneyCameraRig({
     setupGsap()
     if (stationCount === 0) return
 
-    const pullback = Math.min(Math.max(FRAMED_FOR_ASPECT / aspect, 1), MAX_PULLBACK)
+    const pullback = cameraPullback(aspect)
     const standoff = BASE_STANDOFF * pullback
     const bounds = stationBounds(timings ?? uniformTiming(stationCount))
 

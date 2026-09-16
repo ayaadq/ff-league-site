@@ -20,6 +20,34 @@ export const STATION_GAP = 15
 
 export const stationZ = (index: number) => -index * STATION_GAP
 
+/** How far behind a station's own Z the camera sits, at the reference
+ * aspect JourneyCameraRig frames for (FRAMED_FOR_ASPECT below) --
+ * cameraPullback scales this up on narrower-than-that canvases. Shared
+ * here, not defined once in JourneyCameraRig.tsx and duplicated in
+ * JourneyScene.tsx, because a camera-to-station "distance" only means
+ * what either file expects it to mean once both agree the camera never
+ * actually reaches a station's own Z -- it always stops this far short. */
+export const BASE_STANDOFF = 9
+
+/** The aspect the framing was tuned at, and the cap on how far a
+ * narrower canvas may pull the camera back -- see JourneyCameraRig.tsx
+ * for the full rationale (fov is vertical, so a taller-than-that canvas
+ * needs to dolly back to keep both portraits in frame). Shared for the
+ * same reason as BASE_STANDOFF: caught live, not assumed, that the
+ * journey's canvas is capped by HomePage's own `max-w-4xl` content
+ * column, so its aspect is often narrower than 1.14 even on a wide
+ * desktop viewport -- "pullback is basically always 1 on desktop" was
+ * the wrong assumption an earlier version of this file's own comment
+ * made, and BASE_STANDOFF alone measurably undershot the true standoff
+ * as a result. One pullback formula, not a second copy that could
+ * silently stop matching the first. */
+const FRAMED_FOR_ASPECT = 1.14
+const MAX_PULLBACK = 2.2
+
+export function cameraPullback(aspect: number): number {
+  return Math.min(Math.max(FRAMED_FOR_ASPECT / aspect, 1), MAX_PULLBACK)
+}
+
 /** Per-station scrub timing, as a share of the *whole* journey's
  * progress (0..1) -- not seconds, not pixels. `dwell` is how much of
  * that budget the camera holds still at this station's Z; `travel` is
