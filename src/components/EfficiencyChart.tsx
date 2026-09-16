@@ -93,36 +93,42 @@ export function EfficiencyChart({
                 </span>
               </div>
 
-              <div className="mt-1.5 flex h-7 items-stretch">
-                <div
-                  className="relative rounded-l-[4px] transition-opacity duration-300"
-                  style={{
-                    width: `${scoredWidth}%`,
-                    background: 'var(--chart-scored)',
-                    opacity: hovered === null || active ? 1 : 0.55,
-                  }}
-                >
-                  <span className="absolute inset-y-0 right-2 flex items-center text-xs font-semibold text-white lining-nums tabular-nums">
-                    {team.actual.toFixed(1)}
-                  </span>
+              <div className="mt-1.5 flex items-center gap-3">
+                <div className="flex h-7 flex-1 items-stretch">
+                  <div
+                    className="rounded-l-[4px] transition-opacity duration-300"
+                    style={{
+                      width: `${scoredWidth}%`,
+                      background: 'var(--chart-scored)',
+                      opacity: hovered === null || active ? 1 : 0.55,
+                    }}
+                  />
+                  {/* 2px of surface between the fills so the boundary reads as
+                      a boundary and not as a third colour. */}
+                  {shortfallWidth > 0 && (
+                    <>
+                      <span className="w-[2px] shrink-0" />
+                      <div
+                        className="rounded-r-[4px] transition-opacity duration-300"
+                        style={{
+                          width: `${shortfallWidth}%`,
+                          background: 'var(--chart-shortfall)',
+                          opacity: hovered === null || active ? 1 : 0.55,
+                        }}
+                      />
+                    </>
+                  )}
                 </div>
-                {/* 2px of surface between the fills so the boundary reads as
-                    a boundary and not as a third colour. */}
-                {shortfallWidth > 0 && (
-                  <>
-                    <span className="w-[2px] shrink-0" />
-                    <div
-                      className="rounded-r-[4px] transition-opacity duration-300"
-                      style={{
-                        width: `${shortfallWidth}%`,
-                        background: 'var(--chart-shortfall)',
-                        opacity: hovered === null || active ? 1 : 0.55,
-                      }}
-                    />
-                  </>
-                )}
-                <span className="text-charcoal-soft ml-2 flex items-center text-xs lining-nums tabular-nums">
-                  {team.possible.toFixed(1)}
+                {/* Values sit beside the bar, never on it. Ink on a mid-tone
+                    fill cannot clear AA at this size -- measured 3.46:1 for
+                    white and 4.2:1 for charcoal against the gold, both short
+                    of the 4.5:1 normal-text floor. On the marble surface the
+                    same text clears it many times over, and the fill stays
+                    the validated colour instead of being darkened to rescue
+                    a label. */}
+                <span className="w-24 shrink-0 text-right text-xs lining-nums tabular-nums sm:w-28">
+                  <span className="text-charcoal font-semibold">{team.actual.toFixed(1)}</span>
+                  <span className="text-charcoal-soft"> / {team.possible.toFixed(1)}</span>
                 </span>
               </div>
 
