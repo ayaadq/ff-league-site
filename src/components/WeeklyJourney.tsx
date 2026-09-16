@@ -1,6 +1,7 @@
 import { lazy, Suspense } from 'react'
 import type { MatchupRecap } from '../api/weeklyRecap'
 import { matchupNoteFor, type WeekRecapContent } from '../content/recaps'
+import { StatCountUp } from '../motion/StatCountUp'
 import type { JourneyStation } from '../three/journeyLayout'
 import { ChunkErrorBoundary } from './ChunkErrorBoundary'
 
@@ -79,7 +80,7 @@ export function WeeklyJourney({
                           sideIndex === 0 ? 'text-[#d9c7a8]' : 'text-[#8d877c]'
                         }`}
                       >
-                        {side.actual.toFixed(2)}
+                        <StatCountUp value={side.actual} decimals={2} />
                       </p>
                       <p className="mt-1 text-xs text-[#8d877c] lining-nums tabular-nums">
                         {sideIndex === 0 ? 'Winner' : 'Loser'} · {side.possible.toFixed(1)} possible
