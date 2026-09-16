@@ -73,9 +73,10 @@ export function HomePage() {
 
   const standings = useMemo(() => sortStandings(rosters.data ?? []), [rosters.data])
 
-  // Feeds the 3D standings wall below (three/WeeklySummaryScene.tsx) --
-  // same rank order as the Standings table further down the page, just
-  // reduced to what the 3D scene actually needs (roster id + avatar).
+  // Feeds the 3D standings wall in the finale cluster below
+  // (three/WeeklySummaryScene.tsx) -- same rank order as the Standings
+  // table further down the page, just reduced to what the 3D scene
+  // actually needs (roster id + avatar).
   const standingEntries = useMemo<StandingEntry[]>(
     () =>
       standings.map((roster) => ({
@@ -85,7 +86,13 @@ export function HomePage() {
     [standings, users.data],
   )
 
-  const storylines = useMemo(() => {
+  // Computed highlights (highest score, biggest margin, closest game) --
+  // distinct from the authored RecapStorylines act above: this is derived
+  // live from Sleeper's numbers, not written copy, and was renamed from
+  // "Storylines" to "Week Highlights" (PLAN.md Phase 12 reorder) so it no
+  // longer shares a name with the authored act while the two sit far
+  // apart in the new scroll order.
+  const weekHighlights = useMemo(() => {
     if (!hasResults) return null
     const allEntries = pairs.flat().filter((m) => m.points > 0)
     if (allEntries.length === 0) return null
@@ -125,26 +132,8 @@ export function HomePage() {
         </div>
       </header>
 
-      {/* The live standings wall (PLAN.md pivot: this replaced the old
-          static trophy gallery, which moved to League History -- see
-          three/WeeklySummaryScene.tsx). Held off until standings/avatars
-          are actually loaded rather than mounting with an empty roster
-          list, since unlike the trophy room this scene has nothing
-          generic to show while data is missing. Same sticky-track-inside-
-          a-taller-wrapper pattern as History's TrophyRoomCanvas -- see
-          three/ScrollCameraRig.tsx. */}
-      {!isLoading && (
-        <div aria-hidden="true" id="weekly-summary-scroll-track" className="h-[230vh] sm:h-[260vh]">
-          <div className="sticky top-0 h-[58vh] min-h-[380px] w-full sm:h-[68vh]">
-            <ChunkErrorBoundary>
-              <Suspense fallback={null}>
-                <WeeklySummaryCanvas standings={standingEntries} />
-              </Suspense>
-            </ChunkErrorBoundary>
-          </div>
-        </div>
-      )}
-
+      {/* Act 1 -- Storylines: the recap's authored "what the hell just
+          happened" openers (PLAN.md Phase 12). */}
       {recap.content && (
         <Reveal sound>
           <RecapStorylines
@@ -154,9 +143,11 @@ export function HomePage() {
         </Reveal>
       )}
 
-      {/* The week's six games, walked one at a time. Sits where the
-          recap puts it -- after the storylines, before everything that
-          sums the week up. */}
+      {/* Act 2 -- the six-station skycam journey. Its own sticky scroll
+          track and camera rig (three/JourneyCanvas.tsx) are entirely
+          self-contained -- no Reveal wrapper here or anywhere inside it,
+          since a transform on an ancestor of a `position: sticky` element
+          breaks the stickiness (see PLAN.md Phase 12's reorder-risk note). */}
       <WeeklyJourney
         week={recap.week}
         games={recap.games}
@@ -165,60 +156,47 @@ export function HomePage() {
         avatarFor={(userId) => (userId ? teamAvatarIdForUser(userId, users.data ?? []) : null)}
       />
 
-      {isLoading && <p className="text-charcoal-soft mt-14 text-center">Loading the room…</p>}
+      {/* Act 3 -- Awards. */}
+      {recap.content?.awards && (
+        <Reveal>
+          <RecapAwards
+            title={recap.content.awardsTitle}
+            awards={recap.content.awards}
+            nameFor={(userId) => teamNameForUser(userId, users.data ?? [])}
+            avatarFor={(userId) => teamAvatarIdForUser(userId, users.data ?? [])}
+          />
+        </Reveal>
+      )}
 
-      {!isLoading && storylines && (
+      {/* Act 4 -- actual-vs-perfect efficiency chart. Pure computation,
+          needs no authored copy. */}
+      {recap.teams.length > 0 && (
         <Reveal sound>
-          <section className="mt-14 md:mt-20" aria-labelledby="storylines-heading">
-            <SectionKicker>Week {resultsWeek}</SectionKicker>
-            <h2 id="storylines-heading" className="font-display text-charcoal mt-1 text-3xl">
-              Storylines
+          <section className="mt-12 md:mt-16" aria-labelledby="efficiency-heading">
+            <SectionKicker>Week {recap.week}</SectionKicker>
+            <h2 id="efficiency-heading" className="font-display text-charcoal mt-1 text-3xl">
+              What you scored vs what you had
             </h2>
-
-            <div className="gallery-card mt-6 p-6 sm:p-8">
-              <div className="border-charcoal/10 flex items-center gap-4 border-b pb-6">
-                <TeamAvatar
-                  avatarId={teamAvatarId(storylines.highScore.roster_id)}
-                  name={teamName(storylines.highScore.roster_id)}
-                  size="md"
-                />
-                <div className="min-w-0">
-                  <SectionKicker>High score</SectionKicker>
-                  <p className="text-gold-metal font-sans text-5xl leading-tight font-semibold lining-nums tabular-nums">
-                    <StatCountUp value={storylines.highScore.points} />
-                  </p>
-                  <p className="text-charcoal-soft truncate text-sm">
-                    {teamName(storylines.highScore.roster_id)}
-                  </p>
-                </div>
-              </div>
-
-              <div className="mt-6 grid grid-cols-2 gap-6 sm:grid-cols-[3fr_2fr]">
-                <div className="min-w-0">
-                  <SectionKicker>Biggest margin</SectionKicker>
-                  <p className="text-charcoal mt-1 font-sans text-2xl font-semibold lining-nums tabular-nums">
-                    +<StatCountUp value={storylines.biggestMargin.margin} />
-                  </p>
-                  <p className="text-charcoal-soft truncate text-sm">
-                    {teamName(storylines.biggestMargin.winner.roster_id)} def.{' '}
-                    {teamName(storylines.biggestMargin.loser.roster_id)}
-                  </p>
-                </div>
-                <div className="min-w-0">
-                  <SectionKicker>Closest game</SectionKicker>
-                  <p className="text-charcoal mt-1 font-sans text-2xl font-semibold lining-nums tabular-nums">
-                    <StatCountUp value={storylines.closestGame.margin} />
-                  </p>
-                  <p className="text-charcoal-soft truncate text-sm">
-                    {teamName(storylines.closestGame.winner.roster_id)} def.{' '}
-                    {teamName(storylines.closestGame.loser.roster_id)}
-                  </p>
-                </div>
-              </div>
-            </div>
+            <EfficiencyChart teams={recap.teams} nameFor={(team) => teamName(team.rosterId)} />
           </section>
         </Reveal>
       )}
+
+      {/* Act 5 -- power rankings + closing piece (PLAN.md Phase 12).
+          Reserved slot: the data model (content/recaps/types.ts'
+          RankingNote/closing) exists but no component/content does yet.
+          Deliberately not built here -- next up after this reorder lands
+          and gets verified, not part of it. */}
+
+      {isLoading && <p className="text-charcoal-soft mt-14 text-center">Loading the room…</p>}
+
+      {/* Standings finale cluster -- "then standings, still reachable
+          below" (PLAN.md Phase 12): the journey ends and the page settles
+          back into the marble gallery's live numbers. Marquee as the
+          transition beat, this week's box scores and highlights, then the
+          3D wall and the season standings table as the last thing on the
+          page (Layout.tsx has no footer, so this is genuinely the end). */}
+      {!isLoading && <Marquee text="Twelve teams. One trophy." className="mt-16 md:mt-24" />}
 
       {!isLoading && hasResults && (
         <Reveal>
@@ -308,7 +286,80 @@ export function HomePage() {
         </Reveal>
       )}
 
-      {!isLoading && <Marquee text="Twelve teams. One trophy." className="mt-16 md:mt-24" />}
+      {!isLoading && weekHighlights && (
+        <Reveal sound>
+          <section className="mt-14 md:mt-20" aria-labelledby="week-highlights-heading">
+            <SectionKicker>Week {resultsWeek}</SectionKicker>
+            <h2 id="week-highlights-heading" className="font-display text-charcoal mt-1 text-3xl">
+              Week Highlights
+            </h2>
+
+            <div className="gallery-card mt-6 p-6 sm:p-8">
+              <div className="border-charcoal/10 flex items-center gap-4 border-b pb-6">
+                <TeamAvatar
+                  avatarId={teamAvatarId(weekHighlights.highScore.roster_id)}
+                  name={teamName(weekHighlights.highScore.roster_id)}
+                  size="md"
+                />
+                <div className="min-w-0">
+                  <SectionKicker>High score</SectionKicker>
+                  <p className="text-gold-metal font-sans text-5xl leading-tight font-semibold lining-nums tabular-nums">
+                    <StatCountUp value={weekHighlights.highScore.points} />
+                  </p>
+                  <p className="text-charcoal-soft truncate text-sm">
+                    {teamName(weekHighlights.highScore.roster_id)}
+                  </p>
+                </div>
+              </div>
+
+              <div className="mt-6 grid grid-cols-2 gap-6 sm:grid-cols-[3fr_2fr]">
+                <div className="min-w-0">
+                  <SectionKicker>Biggest margin</SectionKicker>
+                  <p className="text-charcoal mt-1 font-sans text-2xl font-semibold lining-nums tabular-nums">
+                    +<StatCountUp value={weekHighlights.biggestMargin.margin} />
+                  </p>
+                  <p className="text-charcoal-soft truncate text-sm">
+                    {teamName(weekHighlights.biggestMargin.winner.roster_id)} def.{' '}
+                    {teamName(weekHighlights.biggestMargin.loser.roster_id)}
+                  </p>
+                </div>
+                <div className="min-w-0">
+                  <SectionKicker>Closest game</SectionKicker>
+                  <p className="text-charcoal mt-1 font-sans text-2xl font-semibold lining-nums tabular-nums">
+                    <StatCountUp value={weekHighlights.closestGame.margin} />
+                  </p>
+                  <p className="text-charcoal-soft truncate text-sm">
+                    {teamName(weekHighlights.closestGame.winner.roster_id)} def.{' '}
+                    {teamName(weekHighlights.closestGame.loser.roster_id)}
+                  </p>
+                </div>
+              </div>
+            </div>
+          </section>
+        </Reveal>
+      )}
+
+      {/* The live standings wall (PLAN.md pivot: this replaced the old
+          static trophy gallery, which moved to League History -- see
+          three/WeeklySummaryScene.tsx). Held off until standings/avatars
+          are actually loaded rather than mounting with an empty roster
+          list, since unlike the trophy room this scene has nothing
+          generic to show while data is missing. Same sticky-track-inside-
+          a-taller-wrapper pattern as History's TrophyRoomCanvas -- see
+          three/ScrollCameraRig.tsx. Deliberately NOT wrapped in <Reveal>:
+          a transform on an ancestor of a `position: sticky` element
+          breaks the stickiness. */}
+      {!isLoading && (
+        <div aria-hidden="true" id="weekly-summary-scroll-track" className="h-[230vh] sm:h-[260vh]">
+          <div className="sticky top-0 h-[58vh] min-h-[380px] w-full sm:h-[68vh]">
+            <ChunkErrorBoundary>
+              <Suspense fallback={null}>
+                <WeeklySummaryCanvas standings={standingEntries} />
+              </Suspense>
+            </ChunkErrorBoundary>
+          </div>
+        </div>
+      )}
 
       {!isLoading && (
         <Reveal sound>
@@ -369,29 +420,6 @@ export function HomePage() {
                 className="from-ivory pointer-events-none absolute inset-y-0 right-0 w-10 rounded-r-2xl bg-gradient-to-l to-transparent"
               />
             </div>
-          </section>
-        </Reveal>
-      )}
-
-      {recap.content?.awards && (
-        <Reveal>
-          <RecapAwards
-            title={recap.content.awardsTitle}
-            awards={recap.content.awards}
-            nameFor={(userId) => teamNameForUser(userId, users.data ?? [])}
-            avatarFor={(userId) => teamAvatarIdForUser(userId, users.data ?? [])}
-          />
-        </Reveal>
-      )}
-
-      {recap.teams.length > 0 && (
-        <Reveal sound>
-          <section className="mt-12 md:mt-16" aria-labelledby="efficiency-heading">
-            <SectionKicker>Week {recap.week}</SectionKicker>
-            <h2 id="efficiency-heading" className="font-display text-charcoal mt-1 text-3xl">
-              What you scored vs what you had
-            </h2>
-            <EfficiencyChart teams={recap.teams} nameFor={(team) => teamName(team.rosterId)} />
           </section>
         </Reveal>
       )}
