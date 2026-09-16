@@ -83,7 +83,7 @@ export function WeeklyJourney({
 
   return (
     <section id={TRACK_ID} className="relative mt-16 md:mt-24" aria-label={`Week ${week} matchups`}>
-      <div className="pointer-events-none sticky top-0 h-svh w-full overflow-hidden bg-[#0b0b0c]">
+      <div className="pointer-events-none sticky top-0 h-svh w-full overflow-hidden bg-[#2B2926]">
         <ChunkErrorBoundary>
           <Suspense fallback={null}>
             <JourneyCanvas stations={stations} trackId={TRACK_ID} timings={timings} />
@@ -102,7 +102,22 @@ export function WeeklyJourney({
               className="flex flex-col justify-center px-6 sm:px-10"
               style={{ height: `${heightFractions[i] * totalSvh}svh` }}
             >
-              <div className="mx-auto w-full max-w-3xl">
+              {/* A scrim, not a card: the reskinned floor (MARBLE_MATERIAL_PROPS,
+                  JourneyScene.tsx) is bright where the earlier all-dark scene
+                  wasn't, and this text was tuned for a uniformly dark backdrop --
+                  the loser-side tones especially (#8d877c) washed out badly
+                  against the lit marble lower in a tall panel, confirmed live
+                  before adding this, not assumed.
+                  A first attempt at 55% opacity made it *worse* in one spot,
+                  also confirmed live rather than assumed away: blended over
+                  the bright floor, that gray landed almost exactly on
+                  #8d877c's own tone, erasing the contrast rather than
+                  restoring it. A translucent wash isn't reliable when what's
+                  behind it varies by station and by scroll position within a
+                  station -- 90% is close enough to opaque that the result is
+                  consistently dark regardless, at the cost of the 3D scene
+                  barely showing through the card anymore. */}
+              <div className="mx-auto w-full max-w-3xl rounded-2xl bg-[#2B2926]/90 px-5 py-7 sm:px-8 sm:py-9">
                 {/* Broadcast-style title card, entering as this station
                     arrives. Plain team names, not a personalized "YOU
                     vs." -- the site has no per-visitor identity to draw

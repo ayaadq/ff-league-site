@@ -4,7 +4,6 @@ import { STATION_GAP, stationZ, type JourneyStation } from './journeyLayout'
 import { GOLD_MATERIAL_PROPS, MARBLE_MATERIAL_PROPS } from './materials'
 import { Portrait } from './Portrait'
 
-const DARK_FLOOR = '#0e0e10'
 const IGNITED_GOLD = '#a6845c'
 
 /** Archway geometry -- see TunnelArches below. Half-width is wide
@@ -103,14 +102,20 @@ function TunnelArches({ stationCount }: { stationCount: number }) {
   )
 }
 
-/** The weekly journey's world: a dark field with the week's matchups
- * standing along it, lit one at a time.
+/** The weekly journey's world: a marble floor with the week's matchups
+ * standing along it, lit one at a time, fading into a dark warm fog
+ * rather than the bright open marble the other two scenes use --
+ * SceneLighting plus MARBLE_MATERIAL_PROPS (JourneyCanvas.tsx) give the
+ * floor the same lit-stone read as the rest of the site, while the
+ * surrounding fog stays dark enough for WeeklyJourney's DOM text to
+ * keep working. A lit floor fading into real darkness reads as its own
+ * place, not just a dimmer copy of the gallery.
  *
- * Deliberately sparse. Everything here exists to give the camera
- * somewhere to travel and to put the two faces of each game in front of
- * you; the scoreboard, the headline and the roast are DOM text layered
- * over the top, where they stay crisp, selectable and readable by a
- * screen reader. */
+ * Deliberately sparse otherwise. Everything here exists to give the
+ * camera somewhere to travel and to put the two faces of each game in
+ * front of you; the scoreboard, the headline and the roast are DOM text
+ * layered over the top, where they stay crisp, selectable and readable
+ * by a screen reader. */
 export function JourneyScene({ stations }: { stations: JourneyStation[] }) {
   const depth = Math.max(stations.length, 1) * STATION_GAP + 40
 
@@ -120,7 +125,7 @@ export function JourneyScene({ stations }: { stations: JourneyStation[] }) {
           is what ends the world. */}
       <mesh position={[0, 0, -depth / 2 + 20]} rotation={[-Math.PI / 2, 0, 0]}>
         <planeGeometry args={[70, depth]} />
-        <meshStandardMaterial color={DARK_FLOOR} roughness={0.92} metalness={0.05} />
+        <meshPhysicalMaterial {...MARBLE_MATERIAL_PROPS} roughness={0.55} />
       </mesh>
 
       <TunnelArches stationCount={stations.length} />
