@@ -448,9 +448,24 @@ and at phone aspect the camera moves to z 16.1 with the trophy room
 inside ±0.33 and the podium scene inside ±0.80 — previously outside ±1,
 which is what the cropping was.
 
-Still open in this phase: the accessibility re-pass, the real-device
-performance and reduced-quality-tier checks, HDRI/texture sizing, and
-the cross-browser smoke test.
+The accessibility re-pass is done and clean, measured on the deployed
+site rather than locally: no text below 24px rendered in gold or brass
+(SPEC §5.1's own rule), no WCAG AA contrast failures anywhere on Home or
+a team page, proper `<th scope="col">` on the standings table, alt text
+on all 37 images, correct landmarks and heading order, and a properly
+labelled gate form. Also confirmed the dual mobile/desktop markup in the
+result rows renders only one copy, so screen readers don't hear every
+matchup twice.
+
+Known issue, reported from a real phone and deliberately deferred: the
+standings table on Home is stretched at phone width, and scrolling it
+across to the PF column leaves that column looking faded and clipped
+rather than fully revealed. The horizontal scroll container and its edge
+gradient are the place to look. The user is handling this one.
+
+Still open in this phase: the real-device performance and
+reduced-quality-tier checks, HDRI/texture sizing, and the cross-browser
+smoke test.
 
 - Full accessibility re-pass now that 3D/motion is in place: contrast
   still holds, keyboard/reduced-motion paths still work, focus states
@@ -490,3 +505,57 @@ files directly.
   `previous_league_id` chain should pick it up automatically once the
   league ID env var/config is updated for the new season) and how to add
   lore content.
+
+## Phase 11 — Sound and scroll choreography
+
+**Status: Home built and verified locally, pending deploy. League History
+and team pages not yet done.**
+
+Direction taken from a reference the user chose, leoparpeix.com — an
+interactive designer's portfolio whose palette (cream, soft light,
+refined serif) already sits close to this site's, so this is motion and
+sound layered onto the existing visual system rather than a redesign.
+Three decisions framed it, all the user's:
+
+- Sound is a stadium ambience bed plus interaction one-shots, always
+  opt-in.
+- Motion is layered on; it never gates the data. The reference is a
+  portfolio someone visits once, this is a scoreboard someone checks
+  every week, and an opening sequence that is delightful on visit one is
+  an obstacle on visit thirty.
+- Home first, then the rest.
+
+Audio is synthesised rather than sampled (`scratchpad/make-audio.py` in
+the session that built it; regenerable from the recipe in this note).
+Distant crowd noise is broadband noise band-passed to roughly 120 Hz -
+1.8 kHz — the top end is what "distance" removes — shaped by two slow
+random envelopes plus a few gaussian swells, then crossfaded head over
+tail so the loop seam has no discontinuity. That reads as a venue
+without ever resolving into anything recognisable, which is what lets it
+loop under a scoreboard without becoming irritating. No sampled audio
+means no third-party licensing attached to the site. Total ~150 KB,
+fetched only if someone turns sound on.
+
+What was built:
+
+- `src/audio/` — a Web Audio provider that constructs nothing until the
+  user opts in, a gapless looping bed with real fade curves, rate-limited
+  one-shots, session-scoped preference, and a header toggle so sound can
+  always be turned off from anywhere.
+- `src/motion/Reveal.tsx` — scroll-triggered entrance for content blocks,
+  `once: true` (an arrival, not a state), layout effect so nothing
+  flashes before it hides, and a plain pass-through under
+  `prefers-reduced-motion`.
+- `src/components/Marquee.tsx` — travelling display type, content
+  duplicated and translated -50% so the wrap needs no measurement.
+- `src/components/ScrollCue.tsx` — hero "keep going" hint that retires
+  itself once the visitor has scrolled.
+- Keyframes in `index.css` as theme animations, each one disabled under
+  `prefers-reduced-motion` individually rather than by a blanket kill —
+  the sound bars still show state, they just hold still.
+
+Cost: initial JS went 422 kB to 429 kB (gzip 142 to 144). The audio is
+in `public/`, so it is never bundled.
+
+Remaining: deploy and check on a real phone, then roll the same
+treatment across League History and the team pages.

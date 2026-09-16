@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { NavLink } from 'react-router'
 import { useCurrentSeason, useUsers } from '../api/hooks'
+import { SoundToggle } from '../audio/SoundToggle'
+import { useSound } from '../audio/soundContext'
 
 const overlayLinkClass = ({ isActive }: { isActive: boolean }) =>
   `block py-3 font-display text-2xl transition-colors duration-300 ${
@@ -82,6 +84,7 @@ function NavOverlay({ onClose }: { onClose: () => void }) {
 
 export function Layout({ children }: { children: ReactNode }) {
   const [menuOpen, setMenuOpen] = useState(false)
+  const { play } = useSound()
 
   return (
     <div className="marble-surface text-charcoal min-h-svh">
@@ -89,15 +92,21 @@ export function Layout({ children }: { children: ReactNode }) {
         <NavLink to="/" className="font-display text-charcoal text-lg">
           Trophy Room
         </NavLink>
-        <button
-          type="button"
-          aria-expanded={menuOpen}
-          aria-controls="site-nav-overlay"
-          onClick={() => setMenuOpen(true)}
-          className="text-charcoal flex min-h-11 min-w-11 items-center justify-center text-sm tracking-widest uppercase"
-        >
-          Menu
-        </button>
+        <div className="flex items-center gap-4">
+          <SoundToggle />
+          <button
+            type="button"
+            aria-expanded={menuOpen}
+            aria-controls="site-nav-overlay"
+            onClick={() => {
+              play('click')
+              setMenuOpen(true)
+            }}
+            className="text-charcoal flex min-h-11 min-w-11 items-center justify-center text-sm tracking-widest uppercase"
+          >
+            Menu
+          </button>
+        </div>
       </header>
 
       {menuOpen && <NavOverlay onClose={() => setMenuOpen(false)} />}
