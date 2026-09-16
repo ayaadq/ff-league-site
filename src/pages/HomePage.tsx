@@ -13,6 +13,7 @@ import { useWeekRecap } from '../api/useWeekRecap'
 import { EnableSoundPrompt } from '../audio/EnableSoundPrompt'
 import { EfficiencyChart } from '../components/EfficiencyChart'
 import { RecapAwards } from '../components/RecapAwards'
+import { RecapRankings } from '../components/RecapRankings'
 import { RecapStorylines } from '../components/RecapStorylines'
 import { WeeklyJourney } from '../components/WeeklyJourney'
 import { Marquee } from '../components/Marquee'
@@ -183,10 +184,23 @@ export function HomePage() {
       )}
 
       {/* Act 5 -- power rankings + closing piece (PLAN.md Phase 12).
-          Reserved slot: the data model (content/recaps/types.ts'
-          RankingNote/closing) exists but no component/content does yet.
-          Deliberately not built here -- next up after this reorder lands
-          and gets verified, not part of it. */}
+          Renders nothing when unauthored, same as RecapStorylines/
+          RecapAwards -- Week 1's content file has no rankings/closing
+          yet, and that's the normal state most weeks, not a gap to
+          placeholder over (see RecapRankings.tsx and PLAN.md's own "a
+          week with no authored recap must render as pure data"). */}
+      {recap.content && (
+        <Reveal>
+          <RecapRankings
+            title={recap.content.rankingsTitle}
+            intro={recap.content.rankingsIntro}
+            rankings={recap.content.rankings}
+            closing={recap.content.closing}
+            nameFor={(userId) => teamNameForUser(userId, users.data ?? [])}
+            avatarFor={(userId) => teamAvatarIdForUser(userId, users.data ?? [])}
+          />
+        </Reveal>
+      )}
 
       {isLoading && <p className="text-charcoal-soft mt-14 text-center">Loading the room…</p>}
 
