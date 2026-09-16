@@ -25,6 +25,7 @@ import { allEvents, rivalries } from '../content/lore'
 import { EnableSoundPrompt } from '../audio/EnableSoundPrompt'
 import { Marquee } from '../components/Marquee'
 import { ScrollCue } from '../components/ScrollCue'
+import { ChunkErrorBoundary } from '../components/ChunkErrorBoundary'
 import { Reveal } from '../motion/Reveal'
 import { useSound } from '../audio/soundContext'
 /** three + r3f + drei + gsap are by far the largest thing in the bundle
@@ -153,9 +154,11 @@ export function HistoryPage() {
           and camera framing so this page doesn't need to supply either. */}
       <div aria-hidden="true" id="trophy-room-scroll-track" className="h-[230vh] sm:h-[260vh]">
         <div className="sticky top-0 h-[58vh] min-h-[380px] w-full sm:h-[68vh]">
-          <Suspense fallback={null}>
-            <TrophyRoomCanvas />
-          </Suspense>
+          <ChunkErrorBoundary>
+            <Suspense fallback={null}>
+              <TrophyRoomCanvas />
+            </Suspense>
+          </ChunkErrorBoundary>
         </div>
       </div>
 

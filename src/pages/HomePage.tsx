@@ -12,6 +12,7 @@ import { EnableSoundPrompt } from '../audio/EnableSoundPrompt'
 import { EfficiencyChart } from '../components/EfficiencyChart'
 import { Marquee } from '../components/Marquee'
 import { ScrollCue } from '../components/ScrollCue'
+import { ChunkErrorBoundary } from '../components/ChunkErrorBoundary'
 import { Reveal } from '../motion/Reveal'
 import { SectionKicker } from '../components/SectionKicker'
 import { TeamAvatar } from '../components/TeamAvatar'
@@ -130,9 +131,11 @@ export function HomePage() {
       {!isLoading && (
         <div aria-hidden="true" id="weekly-summary-scroll-track" className="h-[230vh] sm:h-[260vh]">
           <div className="sticky top-0 h-[58vh] min-h-[380px] w-full sm:h-[68vh]">
-            <Suspense fallback={null}>
-              <WeeklySummaryCanvas standings={podiumStandings} />
-            </Suspense>
+            <ChunkErrorBoundary>
+              <Suspense fallback={null}>
+                <WeeklySummaryCanvas standings={podiumStandings} />
+              </Suspense>
+            </ChunkErrorBoundary>
           </div>
         </div>
       )}
