@@ -33,12 +33,16 @@ export function JourneyCanvas({
   stations,
   trackId,
   timings,
+  onStationDwellStart,
 }: {
   stations: JourneyStation[]
   trackId: string
   /** Per-station dwell/travel shares (journeyLayout.ts). Optional --
    * JourneyCameraRig falls back to uniformTiming when omitted. */
   timings?: StationTiming[]
+  /** Passed straight through to JourneyCameraRig -- see its own prop
+   * comment for why the camera rig, not this canvas, owns firing it. */
+  onStationDwellStart?: (index: number) => void
 }) {
   return (
     <Canvas
@@ -51,7 +55,12 @@ export function JourneyCanvas({
       <Suspense fallback={null}>
         <SceneLighting />
         <JourneyScene stations={stations} />
-        <JourneyCameraRig trackId={trackId} stationCount={stations.length} timings={timings} />
+        <JourneyCameraRig
+          trackId={trackId}
+          stationCount={stations.length}
+          timings={timings}
+          onStationDwellStart={onStationDwellStart}
+        />
       </Suspense>
     </Canvas>
   )

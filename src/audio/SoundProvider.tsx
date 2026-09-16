@@ -205,7 +205,7 @@ export function SoundProvider({ children }: { children: ReactNode }) {
     }
   }, [enable])
 
-  const play = useCallback((name: SoundName) => {
+  const play = useCallback((name: SoundName, options?: { gain?: number }) => {
     const current = loaded.current
     if (!current || current.ctx.state !== 'running') return
     const now = performance.now()
@@ -213,11 +213,41 @@ export function SoundProvider({ children }: { children: ReactNode }) {
     lastOneShot.current = now
     const node = current.ctx.createBufferSource()
     node.buffer = current.buffers[name]
-    node.connect(current.uiGain)
+    // Same graph as before (node straight to uiGain) when gain is 1 or
+    // omitted -- every existing call site (click/whoosh, no options
+    // argument) keeps exactly today's routing rather than gaining an
+    // extra always-unity node in its path.
+    const gain = options?.gain ?? 1
+    if (gain === 1) {
+      node.connect(current.uiGain)
+    } else {
+      const perCallGain = current.ctx.createGain()
+      perCallGain.gain.value = gain
+      node.connect(perCallGain)
+      perCallGain.connect(current.uiGain)
+    }
     node.start()
   }, [])
 
-  const value = useMemo(() => ({ enabled, ready, toggle, play }), [enabled, ready, toggle, play])
+  const duck = useCallback((depth: number, duration: number) => {
+    const current = loaded.current
+    if (!current || current.ctx.state !== 'running') return
+    const { ctx, ambienceGain } = current
+    const now = ctx.currentTime
+    const half = duration / 2
+    // Same cancel/setValueAtTime/ramp shape start()/stop() already use
+    // on this same node -- one scheduled envelope at a time, whichever
+    // was requested most recently wins outright rather than stacking.
+    ambienceGain.gain.cancelScheduledValues(now)
+    ambienceGain.gain.setValueAtTime(ambienceGain.gain.value, now)
+    ambienceGain.gain.linearRampToValueAtTime(AMBIENCE_LEVEL * depth, now + half)
+    ambienceGain.gain.linearRampToValueAtTime(AMBIENCE_LEVEL, now + duration)
+  }, [])
+
+  const value = useMemo(
+    () => ({ enabled, ready, toggle, play, duck }),
+    [enabled, ready, toggle, play, duck],
+  )
 
   return <SoundContext.Provider value={value}>{children}</SoundContext.Provider>
 }

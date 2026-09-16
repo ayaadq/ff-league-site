@@ -162,18 +162,19 @@ export function stationHeightFractions(timings: StationTiming[]): number[] {
 const MIN_DWELL = 0.3
 const MAX_DWELL = 1.4
 
-/** Per-station dwell weighted by how close each game was, closest
- * relative to the *other five* this week -- not an absolute margin
- * threshold, matching how weekAwards' own "closest game"/"biggest
- * margin" are already relative-to-the-week stats, not fixed cutoffs.
- * Travel shares stay uniform (`uniformTiming`'s 1 between every pair) --
- * only how long the camera lingers at a station changes, not how long
- * it takes to get there. A tie is the closest possible outcome
- * regardless of its (zero) margin value. */
-export function closenessTiming(games: Array<{ margin: number; tied: boolean }>): StationTiming[] {
-  const n = games.length
-  if (n === 0) return []
-
+/** How close each game was, relative to the *other five* this week --
+ * not an absolute margin threshold, matching how weekAwards' own
+ * "closest game"/"biggest margin" are already relative-to-the-week
+ * stats, not fixed cutoffs. 0 is this week's biggest margin, 1 is its
+ * closest game (a tie is the closest possible outcome regardless of
+ * its own zero margin).
+ *
+ * Exported on its own, not just inlined into closenessTiming below, so
+ * a second consumer (WeeklyJourney's audio ducking -- bigger roar for a
+ * blowout, hush-then-eruption for a close one) reads the identical
+ * number rather than re-deriving its own margin normalization that
+ * could quietly drift from this one. */
+export function closenessOf(games: Array<{ margin: number; tied: boolean }>): number[] {
   const values = games.map((g) => (g.tied ? 0 : g.margin))
   const minMargin = Math.min(...values)
   const maxMargin = Math.max(...values)
@@ -182,12 +183,41 @@ export function closenessTiming(games: Array<{ margin: number; tied: boolean }>)
   return games.map((_, i) => {
     // spread === 0 means every game this week was equally close (or
     // there's only one game) -- nothing to weight against, so every
-    // station gets the same middle-of-the-road dwell.
+    // game gets the same middle-of-the-road closeness.
     const normalized = spread > 0 ? (values[i] - minMargin) / spread : 0.5
-    const closeness = 1 - normalized
-    return {
-      dwell: MIN_DWELL + (MAX_DWELL - MIN_DWELL) * closeness,
-      travel: i < n - 1 ? 1 : 0,
-    }
+    return 1 - normalized
   })
+}
+
+/** Per-station dwell weighted by closenessOf -- the closest game of the
+ * week gets the longest beat (capped at MAX_DWELL), a blowout still
+ * gets a real one (never below MIN_DWELL, a flash). Travel shares stay
+ * uniform (`uniformTiming`'s 1 between every pair) -- only how long the
+ * camera lingers at a station changes, not how long it takes to get
+ * there. */
+export function closenessTiming(games: Array<{ margin: number; tied: boolean }>): StationTiming[] {
+  const n = games.length
+  if (n === 0) return []
+
+  const closeness = closenessOf(games)
+  return games.map((_, i) => ({
+    dwell: MIN_DWELL + (MAX_DWELL - MIN_DWELL) * closeness[i],
+    travel: i < n - 1 ? 1 : 0,
+  }))
+}
+
+/** Which station's dwell window a given overall progress falls inside,
+ * or -1 during a travel window (between two stations, or before the
+ * first/after the last). Shares `bounds` with zAtProgress rather than
+ * re-deriving its own progress-to-station mapping -- used by
+ * JourneyCameraRig to fire a callback exactly once per station, at the
+ * same eased/scrubbed progress the camera itself is already reading,
+ * not off raw scroll position (which runs ahead of the scrubbed camera
+ * by the scrub's own smoothing lag). */
+export function dwellIndexAtProgress(progress: number, bounds: StationBounds[]): number {
+  const clamped = Math.min(Math.max(progress, 0), 1)
+  for (let i = 0; i < bounds.length; i++) {
+    if (clamped >= bounds[i].dwellStart && clamped <= bounds[i].dwellEnd) return i
+  }
+  return -1
 }

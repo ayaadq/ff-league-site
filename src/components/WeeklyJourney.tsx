@@ -1,9 +1,11 @@
 import { lazy, Suspense } from 'react'
 import type { MatchupRecap } from '../api/weeklyRecap'
+import { useSound } from '../audio/soundContext'
 import { matchupNoteFor, type WeekRecapContent } from '../content/recaps'
 import { Reveal } from '../motion/Reveal'
 import { StatCountUp } from '../motion/StatCountUp'
 import {
+  closenessOf,
   closenessTiming,
   stationHeightFractions,
   type JourneyStation,
@@ -16,6 +18,22 @@ const JourneyCanvas = lazy(() =>
 )
 
 const TRACK_ID = 'weekly-journey-track'
+
+/** Outcome-swell shaping -- how closenessOf's 0 (blowout) .. 1 (closest
+ * game/tie) becomes a sound. A blowout gets a bigger roar and barely
+ * any hush first (closeness 0 -> depth near 1, no real dip); the
+ * closest game of the week gets the deepest, longest hush before its
+ * roar lands, so the roar reads as an eruption breaking out of the
+ * tension rather than just a louder version of the blowout's swell.
+ * ROAR_MAX_GAIN stays at 1 or below deliberately -- the roar buffer is
+ * already mixed hot (SoundProvider's own ROAR_LEVEL), so "bigger" comes
+ * from the hush's contrast, not from pushing the one-shot past unity
+ * and risking clipping. */
+const ROAR_MIN_GAIN = 0.4
+const ROAR_MAX_GAIN = 1
+const DUCK_MAX_DEPTH_DROP = 0.65
+const DUCK_MIN_DURATION = 0.6
+const DUCK_MAX_DURATION = 2.2
 
 /** The week's six games, walked one at a time.
  *
@@ -49,7 +67,37 @@ export function WeeklyJourney({
    * useAllPlayers() call the whole page shares). */
   playerNameFor: (playerId: string) => string
 }) {
+  const { play, duck } = useSound()
+
   if (games.length === 0) return null
+
+  // Bigger roar for a blowout, hush-then-eruption for a close one --
+  // the same closeness number closenessTiming below already weights
+  // dwell by, not a second margin normalization that could drift from
+  // it (closenessOf's own comment).
+  const closeness = closenessOf(games.map((g) => ({ margin: g.margin, tied: g.tied })))
+
+  // Fires once per station, exactly when JourneyCameraRig's own scrubbed
+  // progress enters that station's dwell window -- see its prop comment
+  // for why the camera rig is the one calling this rather than a second,
+  // independent scroll listener here. duck()/play() are both no-ops
+  // before sound is enabled and running (SoundProvider's own guards), so
+  // this costs nothing for a visitor who never touches the sound toggle.
+  const handleStationDwellStart = (index: number) => {
+    const c = closeness[index]
+    if (c === undefined) return
+    const gain = ROAR_MIN_GAIN + (ROAR_MAX_GAIN - ROAR_MIN_GAIN) * (1 - c)
+    const depth = 1 - DUCK_MAX_DEPTH_DROP * c
+    const duration = DUCK_MIN_DURATION + (DUCK_MAX_DURATION - DUCK_MIN_DURATION) * c
+    duck(depth, duration)
+    // Timed to land the roar at the bottom of the dip, not at its start --
+    // an eruption breaking out of the hush, not a sound racing the fade
+    // down. Wall-clock rather than audio-clock scheduling: duck()/play()
+    // are the only surface SoundApi exposes to a caller outside
+    // SoundProvider, and a few ms of setTimeout jitter is inaudible on an
+    // envelope this loose (the crowd doesn't clap on a beat).
+    window.setTimeout(() => play('roar', { gain }), (duration / 2) * 1000)
+  }
 
   const stations: JourneyStation[] = games.map((game, i) => ({
     id: `${game.matchupId ?? i}`,
@@ -87,7 +135,12 @@ export function WeeklyJourney({
       <div className="pointer-events-none sticky top-0 h-svh w-full overflow-hidden bg-[#2B2926]">
         <ChunkErrorBoundary>
           <Suspense fallback={null}>
-            <JourneyCanvas stations={stations} trackId={TRACK_ID} timings={timings} />
+            <JourneyCanvas
+              stations={stations}
+              trackId={TRACK_ID}
+              timings={timings}
+              onStationDwellStart={handleStationDwellStart}
+            />
           </Suspense>
         </ChunkErrorBoundary>
       </div>

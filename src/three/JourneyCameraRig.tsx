@@ -1,11 +1,12 @@
 import { useThree } from '@react-three/fiber'
 import { gsap } from 'gsap'
-import { useEffect } from 'react'
+import { useEffect, useRef } from 'react'
 import { useReducedMotion } from '../motion/reducedMotionContext'
 import { setupGsap } from '../motion/gsapSetup'
 import {
   BASE_STANDOFF,
   cameraPullback,
+  dwellIndexAtProgress,
   stationBounds,
   uniformTiming,
   zAtProgress,
@@ -44,6 +45,7 @@ export function JourneyCameraRig({
   trackId,
   stationCount,
   timings,
+  onStationDwellStart,
 }: {
   trackId: string
   stationCount: number
@@ -51,10 +53,27 @@ export function JourneyCameraRig({
    * `uniformTiming(stationCount)` -- zero dwell, even travel spacing,
    * today's plain glide. No caller passes anything else yet. */
   timings?: StationTiming[]
+  /** Fires once, with a station's index, the moment the scrubbed
+   * progress this rig is already reading enters that station's dwell
+   * window -- WeeklyJourney's audio ducking hangs its game-outcome
+   * swell off this rather than its own separate scroll listener, so
+   * the sound and the camera's actual arrival can't drift apart the
+   * way a second independent trigger source eventually would (see
+   * dwellIndexAtProgress's own comment). Kept in a ref rather than the
+   * effect's dependency array below -- WeeklyJourney passes a new
+   * closure every render (it captures `games`), and re-running this
+   * effect on every one of those would tear down and rebuild the
+   * ScrollTrigger for no camera-relevant reason, losing the "last
+   * fired" bookkeeping that keeps this a once-per-arrival callback. */
+  onStationDwellStart?: (index: number) => void
 }) {
   const { camera, size } = useThree()
   const prefersReducedMotion = useReducedMotion()
   const aspect = size.width / size.height
+  const onStationDwellStartRef = useRef(onStationDwellStart)
+  useEffect(() => {
+    onStationDwellStartRef.current = onStationDwellStart
+  })
 
   useEffect(() => {
     setupGsap()
@@ -83,6 +102,14 @@ export function JourneyCameraRig({
     const track = document.getElementById(trackId)
     if (prefersReducedMotion || !track) return
 
+    // -1: no station's dwell window has fired yet. Distinct from every
+    // real index (including 0) so the first genuine dwell entry always
+    // fires, without also firing for the synchronous place(0) call
+    // above -- that call only frames the opening shot before any
+    // scrolling has happened, not a real "arrival" at station 0, and
+    // onStationDwellStart lives inside onUpdate below rather than
+    // inside place() itself specifically so place(0) never touches it.
+    let lastDwellIndex = -1
     const state = { progress: 0 }
     const tween = gsap.to(state, {
       progress: 1,
@@ -100,7 +127,14 @@ export function JourneyCameraRig({
       // scrollY in [trackTop, trackTop + trackHeight] exactly, the same
       // denominator the panel heights already assume.
       scrollTrigger: { trigger: track, start: 'top top', end: 'bottom top', scrub: 1.1 },
-      onUpdate: () => place(state.progress),
+      onUpdate: () => {
+        place(state.progress)
+        const dwellIndex = dwellIndexAtProgress(state.progress, bounds)
+        if (dwellIndex !== -1 && dwellIndex !== lastDwellIndex) {
+          lastDwellIndex = dwellIndex
+          onStationDwellStartRef.current?.(dwellIndex)
+        }
+      },
     })
 
     return () => {
