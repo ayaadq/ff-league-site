@@ -89,7 +89,19 @@ export function JourneyCameraRig({
     const tween = gsap.to(state, {
       progress: 1,
       ease: 'none', // the scrub supplies the weight, not the ease
-      scrollTrigger: { trigger: track, start: 'top top', end: 'bottom bottom', scrub: 1.1 },
+      // 'bottom top', not 'bottom bottom' -- matching ScrollCameraRig's
+      // own convention, and for the same underlying reason it matters
+      // more here now: 'bottom bottom' maps progress over
+      // (trackHeight - viewportHeight), while WeeklyJourney's panel
+      // heights (stationHeightFractions) are plain fractions of
+      // trackHeight itself. Those two denominators differ by a full
+      // viewport's worth of pixels, growing with scroll depth -- with
+      // 'bottom bottom' the camera would run measurably ahead of the
+      // DOM by the last couple of stations, exactly the drift this
+      // rework exists to remove. 'bottom top' makes progress span
+      // scrollY in [trackTop, trackTop + trackHeight] exactly, the same
+      // denominator the panel heights already assume.
+      scrollTrigger: { trigger: track, start: 'top top', end: 'bottom top', scrub: 1.1 },
       onUpdate: () => place(state.progress),
     })
 

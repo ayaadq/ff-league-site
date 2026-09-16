@@ -96,6 +96,31 @@ export function zAtProgress(progress: number, bounds: StationBounds[]): number {
   return stationZ(n - 1)
 }
 
+/** Each station's share of the journey's total DOM height, as a
+ * fraction of 1 -- station i's own dwell plus the travel immediately
+ * following it, i.e. exactly the progress range
+ * `[dwellStart_i, dwellStart_(i+1))` (or `[dwellStart_last, 1]` for the
+ * last station, which has no travel to inherit).
+ *
+ * This is *derived from* stationBounds, not a second formula computed
+ * alongside it: `dwellStart_(i+1)` is, by construction, the same number
+ * as `bounds[i].travelEnd` (stationBounds accumulates dwell then travel
+ * per station, so one station's travel-end is literally the next
+ * station's dwell-start). Sizing WeeklyJourney's panels off these
+ * fractions is what guarantees a panel's on-screen window and the
+ * camera's dwell window are the same interval by construction --
+ * whenever a panel is showing, the camera has not yet reached full
+ * dwell at the *next* station, because that only begins exactly where
+ * the next panel begins. Keeping two independently-tuned formulas in
+ * sync by hand is exactly how they'd eventually drift again. */
+export function stationHeightFractions(timings: StationTiming[]): number[] {
+  const bounds = stationBounds(timings)
+  return bounds.map((b, i) => {
+    const windowEnd = i < bounds.length - 1 ? bounds[i + 1].dwellStart : 1
+    return windowEnd - b.dwellStart
+  })
+}
+
 /** Dwell share at the two ends of the closeness range -- a blowout
  * still gets a real beat (never below MIN_DWELL, a flash), the
  * closest game of the week doesn't consume the whole scrub (capped at

@@ -3,7 +3,11 @@ import type { MatchupRecap } from '../api/weeklyRecap'
 import { matchupNoteFor, type WeekRecapContent } from '../content/recaps'
 import { Reveal } from '../motion/Reveal'
 import { StatCountUp } from '../motion/StatCountUp'
-import { closenessTiming, type JourneyStation } from '../three/journeyLayout'
+import {
+  closenessTiming,
+  stationHeightFractions,
+  type JourneyStation,
+} from '../three/journeyLayout'
 import { ChunkErrorBoundary } from './ChunkErrorBoundary'
 import { PlayerHeadshot } from './PlayerHeadshot'
 
@@ -59,6 +63,24 @@ export function WeeklyJourney({
   // each render, not state that needs to survive one.
   const timings = closenessTiming(games.map((g) => ({ margin: g.margin, tied: g.tied })))
 
+  // Panel heights come from the SAME timings driving the camera
+  // (stationHeightFractions reads stationBounds, not a parallel
+  // formula) -- this is what keeps a panel's on-screen window and the
+  // camera's dwell window the same interval by construction, rather
+  // than two numbers someone has to remember to keep in sync. Total
+  // height is kept at "one screen per station" in aggregate (unchanged
+  // from before pacing existed), just redistributed among the six
+  // instead of split evenly.
+  //
+  // Known tail risk, not solved here: MIN_DWELL (journeyLayout.ts) sets
+  // a floor on a station's *share*, not on its rendered height in
+  // pixels. A blowout landing in the last slot (no trailing travel to
+  // inherit height from) gets the smallest panel on the page -- fine
+  // for this week's real data, worth watching once other weeks are
+  // authored.
+  const heightFractions = stationHeightFractions(timings)
+  const totalSvh = games.length * 100
+
   return (
     <section id={TRACK_ID} className="relative mt-16 md:mt-24" aria-label={`Week ${week} matchups`}>
       <div className="pointer-events-none sticky top-0 h-svh w-full overflow-hidden bg-[#0b0b0c]">
@@ -77,7 +99,8 @@ export function WeeklyJourney({
           return (
             <article
               key={game.matchupId ?? i}
-              className="flex h-svh flex-col justify-center px-6 sm:px-10"
+              className="flex flex-col justify-center px-6 sm:px-10"
+              style={{ height: `${heightFractions[i] * totalSvh}svh` }}
             >
               <div className="mx-auto w-full max-w-3xl">
                 {/* Broadcast-style title card, entering as this station
