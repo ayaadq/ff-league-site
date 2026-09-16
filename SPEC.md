@@ -176,7 +176,7 @@ and used throughout, not confined to the home page hero.
 - **Scroll-driven camera movement through 3D space** is a core
   interaction pattern, not just a hero moment: scrolling Home and League
   History each move a real r3f camera through that page's own scene
-  (Home's live standings podium; League History's trophy-room gallery of
+  (Home's live standings wall; League History's trophy-room gallery of
   plinths, portraits, trophies), not just fade 2D sections in/out.
   Whether team pages get the same treatment is still open (PLAN.md
   Phase 7).
