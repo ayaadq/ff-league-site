@@ -73,10 +73,10 @@ export function HomePage() {
 
   const standings = useMemo(() => sortStandings(rosters.data ?? []), [rosters.data])
 
-  // Feeds the 3D standings podium below (three/WeeklySummaryScene.tsx) --
+  // Feeds the 3D standings wall below (three/WeeklySummaryScene.tsx) --
   // same rank order as the Standings table further down the page, just
   // reduced to what the 3D scene actually needs (roster id + avatar).
-  const podiumStandings = useMemo<StandingEntry[]>(
+  const standingEntries = useMemo<StandingEntry[]>(
     () =>
       standings.map((roster) => ({
         rosterId: roster.roster_id,
@@ -125,7 +125,7 @@ export function HomePage() {
         </div>
       </header>
 
-      {/* The live standings podium (PLAN.md pivot: this replaced the old
+      {/* The live standings wall (PLAN.md pivot: this replaced the old
           static trophy gallery, which moved to League History -- see
           three/WeeklySummaryScene.tsx). Held off until standings/avatars
           are actually loaded rather than mounting with an empty roster
@@ -138,7 +138,7 @@ export function HomePage() {
           <div className="sticky top-0 h-[58vh] min-h-[380px] w-full sm:h-[68vh]">
             <ChunkErrorBoundary>
               <Suspense fallback={null}>
-                <WeeklySummaryCanvas standings={podiumStandings} />
+                <WeeklySummaryCanvas standings={standingEntries} />
               </Suspense>
             </ChunkErrorBoundary>
           </div>

@@ -39,8 +39,9 @@ function AvatarPanel({ avatarId }: { avatarId: string }) {
   // curved arc) blurs heavily, which is what "pixelated and blurry"
   // turned out to be. Sleeper's avatars are a fixed 400x400 regardless,
   // so this is a filtering fix, not a fix for the source image itself --
-  // very close/large portraits (the podium) will still look softer than
-  // a native-res photo would, that's a real ceiling, not a bug.
+  // very close/large portraits (the journey's face-off pair, see
+  // JourneyScene.tsx) will still look softer than a native-res photo
+  // would, that's a real ceiling, not a bug.
   // Mutates the texture useTexture() returns rather than configuring it
   // at construction, since drei's useTexture doesn't expose a way to do
   // that -- safe here because useTexture caches one Texture instance per

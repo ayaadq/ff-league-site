@@ -8,7 +8,7 @@ const REST_POSITION = { x: 0, y: 1.85, z: 9.4 }
 const SCROLLED_POSITION = { x: 1.4, y: 2.6, z: 6.2 }
 const LOOK_TARGET: [number, number, number] = [0, 1.4, -1]
 
-/** Home's 3D backdrop (PLAN.md pivot) — a live standings podium built
+/** Home's 3D backdrop (PLAN.md pivot) — a live standings wall built
  * from real Sleeper avatar photos (WeeklySummaryScene.tsx), replacing
  * the static trophy gallery that used to live here (now on League
  * History, see TrophyRoomCanvas.tsx). Same self-contained-canvas shape

@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import type { TeamWeek } from '../api/weeklyRecap'
+import { useSound } from '../audio/soundContext'
 
 /** Fill colours, set as custom properties so the journey can re-theme the
  * chart for its dark stadium section by overriding them on a wrapper
@@ -40,7 +41,15 @@ export function EfficiencyChart({
   teams: TeamWeek[]
   nameFor: (team: TeamWeek) => string
 }) {
-  const [hovered, setHovered] = useState<number | null>(null)
+  // Desktop can reveal the detail box on hover, but a phone has no hover
+  // event -- this was mouse-only until a real device turned up nothing
+  // tappable here (the row-expand pattern elsewhere, TeamPage.tsx's
+  // week-by-week `<details>`, uses onClick/onToggle for exactly this
+  // reason). `openId` is click/tap-driven and is what actually gates the
+  // box below; hover still sets it too, so desktop keeps working exactly
+  // as before.
+  const [openId, setOpenId] = useState<number | null>(null)
+  const { play } = useSound()
   if (teams.length === 0) return null
 
   const ranked = [...teams].sort((a, b) => b.actual - a.actual)
@@ -75,13 +84,17 @@ export function EfficiencyChart({
         {ranked.map((team, i) => {
           const scoredWidth = (team.actual / ceiling) * 100
           const shortfallWidth = (team.leftOnBench / ceiling) * 100
-          const active = hovered === team.rosterId
+          const active = openId === team.rosterId
           return (
             <li
               key={team.rosterId}
-              onMouseEnter={() => setHovered(team.rosterId)}
-              onMouseLeave={() => setHovered(null)}
-              className="relative"
+              onMouseEnter={() => setOpenId(team.rosterId)}
+              onMouseLeave={() => setOpenId(null)}
+              onClick={() => {
+                play('click')
+                setOpenId((current) => (current === team.rosterId ? null : team.rosterId))
+              }}
+              className="relative cursor-pointer"
             >
               <div className="flex items-baseline justify-between gap-3">
                 <span className="text-charcoal truncate text-sm">
@@ -100,7 +113,7 @@ export function EfficiencyChart({
                     style={{
                       width: `${scoredWidth}%`,
                       background: 'var(--chart-scored)',
-                      opacity: hovered === null || active ? 1 : 0.55,
+                      opacity: openId === null || active ? 1 : 0.55,
                     }}
                   />
                   {/* 2px of surface between the fills so the boundary reads as
@@ -113,7 +126,7 @@ export function EfficiencyChart({
                         style={{
                           width: `${shortfallWidth}%`,
                           background: 'var(--chart-shortfall)',
-                          opacity: hovered === null || active ? 1 : 0.55,
+                          opacity: openId === null || active ? 1 : 0.55,
                         }}
                       />
                     </>

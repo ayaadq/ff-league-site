@@ -616,3 +616,41 @@ Things to get right, learned the hard way earlier in this build:
 Known issue carried forward: the standings table on Home is stretched at
 phone width and the PF column looks faded and clipped when scrolled to.
 The user is handling that one.
+
+**Update — podium removed, efficiency rows made tappable, crowd audio
+re-synthesized.** Three items closed out of this phase's known issues.
+
+- `WeeklySummaryScene.tsx`'s `StandingsPodium` (three literal marble
+  podium blocks, ranks 1-3 raised above and reveal-staged separately from
+  the rest) is gone. Every standings entry, including the top 3, now sits
+  on one `StandingsWall` — the same `arcSlots` radius/height/spread
+  `TrophyRoomScene`'s portrait wall uses, same frame, same left-to-right
+  `steps(6)` reveal. `SceneFloor`, `Portrait`'s texture handling, and
+  `SceneLighting` were untouched. SPEC.md §4 and §5.4 updated to match —
+  they described the podium as a fixed part of the design, not a
+  since-removed detail.
+- The "What you scored vs what you had" efficiency rows
+  (`EfficiencyChart.tsx`) opened their per-team detail box on
+  `onMouseEnter` only — a real gap on a mobile-first site, since a phone
+  has no hover event and nothing there was tappable. Fixed by driving the
+  same box off a click/tap-toggled `openId` state (hover still sets it
+  too, so desktop is unchanged), firing the same `play('click')` the
+  `TeamPage.tsx` week-row `<details>` uses on toggle, for the same feel.
+  Left `aria-hidden` as-is: the row markup is decorative, a real
+  `<table className="sr-only">` already carries this data for screen
+  readers, so no new focusable element was added there.
+- Crowd audio was re-synthesized with `scripts/audio/make-crowd.py`
+  ("take three" of the synthesis approach noted above) to fix a crest
+  factor of ~33 dB that made the bed and roar sound like isolated
+  firecracker claps rather than a stadium — the new script convolves a
+  synthesised room impulse response into the applause so claps smear and
+  fuse the way a real crowd does. Measured on this run: ambience 13.7 dB
+  crest (target ≤16), roar 16.9 dB (0.9 dB over target, nowhere near the
+  ~33 dB failure mode this was fixed for). The script writes `.wav`;
+  since there's no `ffmpeg`/encoder in this environment normally, they
+  were re-encoded to `.mp3` with a one-off `lamejs`-based script (not a
+  project dependency) to stay in the same size class as the other audio
+  assets (`public/audio/ambience.mp3` 288 KB → 189 KB, `roar.mp3` 110 KB
+  → 124 KB) rather than shipping raw 16-bit PCM. `SoundProvider.tsx` was
+  already wired to `/audio/ambience.mp3` and `/audio/roar.mp3` from
+  Phase 11 — only the asset files changed, no code.

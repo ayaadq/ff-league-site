@@ -45,9 +45,11 @@ Two things it must do well:
 - **Entry / Gate** — password screen.
 - **Home ("Scoreboard")** — front page. Weekly pulse of the league:
   most recent week's results, big storylines (score gaps, upsets, lore
-  callouts), a live 3D standings podium (top 3 on their own medal-stand
-  blocks, the rest on a portrait-wall arc, real team photos throughout —
-  see §5.4). This is the "broadcast intro" moment, but it is not the
+  callouts), a live 3D standings wall (every rank on the same
+  portrait-wall arc, real team photos throughout — see §5.4; the top 3
+  originally got their own raised medal-stand podium blocks, removed in
+  favor of one consistent treatment for every rank, PLAN.md Phase 12).
+  This is the "broadcast intro" moment, but it is not the
   _only_ 3D/motion investment — see §5.5: scroll-driven camera movement
   and animated view transitions run throughout the site. (Originally
   named "The Gallery" and built around the same static trophy-room scene
@@ -143,19 +145,21 @@ tabular-nums`.
   shared everywhere (PLAN.md Phase 7): League History keeps the original
   static trophy-room gallery (trophies on plinths, a portrait wall, a
   marble podium), while Home has its own live scene built from real
-  standings (a podium of the top 3, the rest on the same portrait-wall
-  style) — the two pages' content differs enough (permanent record vs.
+  standings (every rank on the same portrait-wall arc style — the top 3
+  originally sat on their own raised podium blocks, since removed, see
+  PLAN.md Phase 12) — the two pages' content differs enough (permanent
+  record vs.
   changes weekly) that one shared scene didn't serve either well.
   Whether team pages get a scene of their own is still an open question.
 - Performance: because 3D/motion is used ambitiously and throughout, this
   needs real attention — reuse/instance geometry and materials within a
-  scene, share a canvas/renderer across routes that show the *same*
+  scene, share a canvas/renderer across routes that show the _same_
   scene rather than remounting it, use LOD or simplified geometry for
   background objects, and always provide a static-fallback/poster degrade
   path on low-end devices or `prefers-reduced-motion`. (Two pages with
   genuinely different scenes each getting their own canvas is fine and
   is what Home/League History do now, PLAN.md Phase 7 — the thing to
-  avoid is remounting/rebuilding the *same* scene's GL context on every
+  avoid is remounting/rebuilding the _same_ scene's GL context on every
   navigation.)
 
 ### 5.5 Motion
