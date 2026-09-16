@@ -3,6 +3,7 @@ import { SoundContext, type SoundName } from './soundContext'
 
 const SOURCES = {
   ambience: '/audio/ambience.mp3',
+  roar: '/audio/roar.mp3',
   click: '/audio/click.mp3',
   whoosh: '/audio/whoosh.mp3',
 } as const
@@ -14,8 +15,14 @@ const SOURCES = {
 const PREF_KEY = 'trophy-room-sound'
 
 const AMBIENCE_LEVEL = 0.55
-const FADE_IN = 1.6
+/** Slow on purpose: the bed emerges underneath the roar as the roar
+ * decays, so enabling sound is one continuous event rather than two
+ * things starting at once. */
+const FADE_IN = 4.5
 const FADE_OUT = 0.7
+/** The roar is already mixed hotter than the bed and builds its own
+ * swell over ~3s, so it needs no envelope from this end. */
+const ROAR_LEVEL = 1.0
 
 /** Skip the first and last moments of the decoded bed when looping. MP3
  * encoders pad the start and end of a file, and looping across that
@@ -97,6 +104,18 @@ export function SoundProvider({ children }: { children: ReactNode }) {
       source.start(0, LOOP_TRIM)
 
       ambienceGain.gain.linearRampToValueAtTime(AMBIENCE_LEVEL, ctx.currentTime + FADE_IN)
+
+      // Turning sound on is a touchdown: the crowd goes up, then settles
+      // into the bed. The roar file starts near-silent and takes about
+      // three seconds to peak, so this fires at full level and still
+      // arrives as a build rather than a blast.
+      const roar = ctx.createBufferSource()
+      roar.buffer = buffers.roar
+      const roarGain = ctx.createGain()
+      roarGain.gain.value = ROAR_LEVEL
+      roarGain.connect(ctx.destination)
+      roar.connect(roarGain)
+      roar.start()
 
       loaded.current = { ctx, buffers, ambienceGain, uiGain, source }
       setReady(true)
