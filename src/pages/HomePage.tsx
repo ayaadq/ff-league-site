@@ -14,6 +14,7 @@ import { EnableSoundPrompt } from '../audio/EnableSoundPrompt'
 import { EfficiencyChart } from '../components/EfficiencyChart'
 import { RecapAwards } from '../components/RecapAwards'
 import { RecapStorylines } from '../components/RecapStorylines'
+import { WeeklyJourney } from '../components/WeeklyJourney'
 import { Marquee } from '../components/Marquee'
 import { ScrollCue } from '../components/ScrollCue'
 import { ChunkErrorBoundary } from '../components/ChunkErrorBoundary'
@@ -152,6 +153,17 @@ export function HomePage() {
           />
         </Reveal>
       )}
+
+      {/* The week's six games, walked one at a time. Sits where the
+          recap puts it -- after the storylines, before everything that
+          sums the week up. */}
+      <WeeklyJourney
+        week={recap.week}
+        games={recap.games}
+        content={recap.content}
+        nameFor={(userId) => (userId ? teamNameForUser(userId, users.data ?? []) : 'Unknown')}
+        avatarFor={(userId) => (userId ? teamAvatarIdForUser(userId, users.data ?? []) : null)}
+      />
 
       {isLoading && <p className="text-charcoal-soft mt-14 text-center">Loading the room…</p>}
 
