@@ -1,4 +1,5 @@
 import type { MatchupNote, RankingNote, WeekRecapContent } from './types'
+import { week as week2026x1 } from './2026-week-1'
 
 export type {
   AwardNote,
@@ -62,7 +63,7 @@ export type {
  *
  * The manager → user_id table lives in README.md so it is in one place
  * rather than duplicated in code that would drift. */
-export const recaps: WeekRecapContent[] = []
+export const recaps: WeekRecapContent[] = [week2026x1]
 
 export function recapFor(
   season: string | undefined,

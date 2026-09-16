@@ -4,12 +4,16 @@ import { pairMatchups } from '../api/matchups'
 import {
   sortStandings,
   teamAvatarIdForRoster,
+  teamAvatarIdForUser,
   teamNameForRoster,
+  teamNameForUser,
   totalPoints,
 } from '../api/standings'
 import { useWeekRecap } from '../api/useWeekRecap'
 import { EnableSoundPrompt } from '../audio/EnableSoundPrompt'
 import { EfficiencyChart } from '../components/EfficiencyChart'
+import { RecapAwards } from '../components/RecapAwards'
+import { RecapStorylines } from '../components/RecapStorylines'
 import { Marquee } from '../components/Marquee'
 import { ScrollCue } from '../components/ScrollCue'
 import { ChunkErrorBoundary } from '../components/ChunkErrorBoundary'
@@ -138,6 +142,15 @@ export function HomePage() {
             </ChunkErrorBoundary>
           </div>
         </div>
+      )}
+
+      {recap.content && (
+        <Reveal sound>
+          <RecapStorylines
+            title={recap.content.storylinesTitle}
+            storylines={recap.content.storylines}
+          />
+        </Reveal>
       )}
 
       {isLoading && <p className="text-charcoal-soft mt-14 text-center">Loading the room…</p>}
@@ -345,6 +358,17 @@ export function HomePage() {
               />
             </div>
           </section>
+        </Reveal>
+      )}
+
+      {recap.content?.awards && (
+        <Reveal>
+          <RecapAwards
+            title={recap.content.awardsTitle}
+            awards={recap.content.awards}
+            nameFor={(userId) => teamNameForUser(userId, users.data ?? [])}
+            avatarFor={(userId) => teamAvatarIdForUser(userId, users.data ?? [])}
+          />
         </Reveal>
       )}
 
