@@ -9,6 +9,11 @@
 export interface JourneyStation {
   id: string
   winnerAvatarId: string | null
+  /** Sleeper user_id of the winner, distinct from winnerAvatarId (a CDN
+   * asset id) -- needed to look up the manager's accent color
+   * (content/teamColors.ts), which is keyed by user_id like every other
+   * durable identity in this project. */
+  winnerUserId: string | null
   loserAvatarId: string | null
 }
 

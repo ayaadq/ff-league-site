@@ -54,6 +54,7 @@ export function WeeklyJourney({
   const stations: JourneyStation[] = games.map((game, i) => ({
     id: `${game.matchupId ?? i}`,
     winnerAvatarId: avatarFor(game.winner.userId),
+    winnerUserId: game.winner.userId,
     loserAvatarId: avatarFor(game.loser.userId),
   }))
 

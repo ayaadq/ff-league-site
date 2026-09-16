@@ -1,7 +1,8 @@
 import { Instance, Instances } from '@react-three/drei'
 import { useFrame } from '@react-three/fiber'
 import { useMemo, useRef } from 'react'
-import { Color, type Mesh, type MeshBasicMaterial } from 'three'
+import { Color, type Mesh, type MeshBasicMaterial, type PointLight } from 'three'
+import { teamColorFor } from '../content/teamColors'
 import { useEffectsTier } from '../motion/effectsTierContext'
 import { useReducedMotion } from '../motion/reducedMotionContext'
 import {
@@ -48,6 +49,27 @@ const IGNITED_GOLD = '#a6845c'
  * copied from JourneyCameraRig. */
 const IGNITE_RADIUS = 10
 const MIN_INTENSITY = 0.08
+
+/** Team-color accent lighting -- see AccentLighting below. ACCENT_MIX is
+ * how much of a manager's assigned hue (content/teamColors.ts) survives
+ * once blended toward ACCENT_WARM_BASE: CLAUDE.md's "gold/brass is
+ * decorative only, never a flood" rule, generalized from text color to
+ * scene-scale lighting -- 0.35 reads as a tint the eye can attribute to
+ * "this team," not a colored spotlight. ACCENT_WARM_BASE is the site's
+ * one existing accent hue (GOLD_MATERIAL_PROPS' own tone), so an
+ * unauthored/neutral-toned team color still lands somewhere warm rather
+ * than washing out to grey.
+ *
+ * ACCENT_RADIUS/MAX_INTENSITY use the same distance-falloff shape as
+ * IGNITE_RADIUS/MIN_INTENSITY above, but are separate constants and
+ * deliberately have no intensity floor -- unlike the winner's plane
+ * (which should never read as fully dark), the ambient light is meant
+ * to fully fade between stations, not ember at a minimum. */
+const ACCENT_WARM_BASE = '#a6845c'
+const ACCENT_MIX = 0.35
+const ACCENT_RADIUS = 12
+const ACCENT_MAX_INTENSITY = 0.45
+const ACCENT_HEIGHT = 4
 
 /** Archway geometry -- see TunnelArches below. Half-width is wide
  * enough to clear the camera's lateral sway (currently 0.7, well under
@@ -137,6 +159,59 @@ function Station({ station, index }: { station: JourneyStation; index: number })
   )
 }
 
+/** A single, low point light tinted toward whichever station's winner
+ * the camera currently favors -- the "team color lighting" beat of the
+ * stadium plan.
+ *
+ * One light total, not one per station: SceneLighting already spends
+ * three fills plus an HDRI (SPEC 7.2's mobile light-count budget), and a
+ * discrete light per station would multiply that by the station count
+ * for no visual gain, since only one station is ever the subject at a
+ * time. Its position and color are rewritten every frame to sit at
+ * whichever station is nearest the camera's actual look target --
+ * recovered the same way Station's ignite effect does (see the comment
+ * above IGNITE_RADIUS for why raw camera.z can't be compared to a
+ * station's z directly), reduced here to a direct index rather than
+ * scanning every station's distance since stations sit at a fixed,
+ * known spacing (STATION_GAP) -- nearest index is just
+ * `-targetZ / STATION_GAP`, rounded and clamped.
+ *
+ * Full quality tier only, same gate as ignite: reduced tier renders no
+ * light at all rather than a cheaper version of this one, so the mobile
+ * light count stays exactly what SceneLighting already budgets for --
+ * "reduced" means no added per-frame work, not a dimmer light. */
+function AccentLighting({ stations }: { stations: JourneyStation[] }) {
+  const effectsTier = useEffectsTier()
+  const prefersReducedMotion = useReducedMotion()
+  const enabled = effectsTier === 'full' && !prefersReducedMotion && stations.length > 0
+  const lightRef = useRef<PointLight>(null)
+
+  // Cheap derived array, recomputed each render rather than memoized --
+  // matching WeeklyJourney's own stations/timings, a handful of Color
+  // allocations on a component re-render (props/resize), not a
+  // per-frame cost.
+  const accentColors = stations.map((station) =>
+    new Color(teamColorFor(station.winnerUserId)).lerp(new Color(ACCENT_WARM_BASE), 1 - ACCENT_MIX),
+  )
+
+  useFrame(({ camera, size }) => {
+    if (!enabled || !lightRef.current) return
+    const standoff = BASE_STANDOFF * cameraPullback(size.width / size.height)
+    const targetZ = camera.position.z - standoff
+    const nearest = Math.min(Math.max(Math.round(-targetZ / STATION_GAP), 0), stations.length - 1)
+    const nearestZ = stationZ(nearest)
+    const distance = Math.abs(targetZ - nearestZ)
+    const intensity = Math.max(0, 1 - distance / ACCENT_RADIUS) * ACCENT_MAX_INTENSITY
+    lightRef.current.position.set(0, ACCENT_HEIGHT, nearestZ)
+    lightRef.current.color.copy(accentColors[nearest])
+    lightRef.current.intensity = intensity
+  })
+
+  if (!enabled) return null
+
+  return <pointLight ref={lightRef} intensity={0} distance={STATION_GAP * 1.6} decay={2} />
+}
+
 /** Marble-and-gold archways between stations -- the "tunnel" transition,
  * built from the same shared PBR presets TrophyRoomScene and the
  * standings wall use (materials.ts), not new materials invented for
@@ -213,6 +288,7 @@ export function JourneyScene({ stations }: { stations: JourneyStation[] }) {
       </mesh>
 
       <TunnelArches stationCount={stations.length} />
+      <AccentLighting stations={stations} />
 
       {stations.map((station, i) => (
         <Station key={station.id} station={station} index={i} />
