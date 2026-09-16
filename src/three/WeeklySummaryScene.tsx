@@ -1,24 +1,12 @@
-import { useTexture } from '@react-three/drei'
-import { useThree } from '@react-three/fiber'
 import { gsap } from 'gsap'
-import {
-  Component,
-  Suspense,
-  useEffect,
-  useLayoutEffect,
-  useMemo,
-  useRef,
-  type ReactNode,
-  type RefObject,
-} from 'react'
-import { SRGBColorSpace } from 'three'
+import { useLayoutEffect, useMemo, useRef, type RefObject } from 'react'
 import type { Group } from 'three'
-import { avatarUrl } from '../api/cdn'
 import { useReducedMotion } from '../motion/reducedMotionContext'
 import { setupGsap } from '../motion/gsapSetup'
 import { arcSlots } from './arcLayout'
 import { SceneFloor } from './SceneFloor'
-import { GOLD_MATERIAL_PROPS, IVORY_MATERIAL_PROPS, MARBLE_MATERIAL_PROPS } from './materials'
+import { GOLD_MATERIAL_PROPS, MARBLE_MATERIAL_PROPS } from './materials'
+import { Portrait } from './Portrait'
 
 /** One team's rank going into the scene — deliberately minimal (just
  * enough to place and texture a portrait). Callers (HomePage.tsx) derive
@@ -29,12 +17,6 @@ export interface StandingEntry {
   rosterId: number
   avatarId: string | null
 }
-
-const FRAME_WIDTH = 0.92
-const FRAME_HEIGHT = 1.18
-const FRAME_DEPTH = 0.07
-const CANVAS_WIDTH = 0.76
-const CANVAS_HEIGHT = 1
 
 /** The top three ranks get their own literal podium blocks (1st tallest
  * and centered, 2nd/3rd flanking, shorter) — an actual medal-stand
@@ -58,109 +40,6 @@ const PODIUM_LAYOUT: Array<{ x: number; height: number }> = [
  * finishes filling and the winner arrives on the same beat. */
 const WALL_REVEAL_STEP = 0.045
 const PODIUM_REVEAL_STEP = 0.18
-
-/** A team's real Sleeper avatar, textured onto a portrait panel. Verified
- * against a live Sleeper avatar URL in a real browser before building
- * this (a canvas-taint check with crossOrigin: 'anonymous', the same
- * failure mode three.js's TextureLoader hits) — Sleeper's avatar CDN
- * sends proper CORS headers, so this is safe to load directly rather
- * than needing a proxy. */
-function AvatarPanel({ avatarId }: { avatarId: string }) {
-  const texture = useTexture(avatarUrl(avatarId))
-  const { gl } = useThree()
-
-  // useTexture/TextureLoader leaves color space and anisotropy at their
-  // (wrong-for-photos) defaults. Without sRGB decoding the photo reads
-  // washed out; without anisotropic filtering, every portrait *except*
-  // ones facing the camera dead-on (i.e. most of them -- these sit on a
-  // curved arc) blurs heavily, which is what "pixelated and blurry"
-  // turned out to be. Sleeper's avatars are a fixed 400x400 regardless,
-  // so this is a filtering fix, not a fix for the source image itself --
-  // very close/large portraits (the podium) will still look softer than
-  // a native-res photo would, that's a real ceiling, not a bug.
-  // Mutates the texture useTexture() returns rather than configuring it
-  // at construction, since drei's useTexture doesn't expose a way to do
-  // that -- safe here because useTexture caches one Texture instance per
-  // URL and this always sets the same two values for that same instance,
-  // so repeat runs (route changes, re-renders) are idempotent, not a
-  // growing pile of side effects on a shared object.
-  useEffect(() => {
-    texture.colorSpace = SRGBColorSpace
-    texture.anisotropy = gl.capabilities.getMaxAnisotropy()
-    texture.needsUpdate = true
-  }, [texture, gl])
-
-  return (
-    <mesh position={[0, 0, FRAME_DEPTH / 2 + 0.001]}>
-      <planeGeometry args={[CANVAS_WIDTH, CANVAS_HEIGHT]} />
-      <meshBasicMaterial map={texture} toneMapped={false} />
-    </mesh>
-  )
-}
-
-/** Untextured fallback — TrophyRoomScene's blank-ivory-canvas treatment —
- * shown while a photo is loading or if it fails to load, so one slow or
- * broken avatar URL never blanks out the rest of the scene. */
-function BlankCanvas() {
-  return (
-    <mesh position={[0, 0, FRAME_DEPTH / 2 + 0.001]}>
-      <planeGeometry args={[CANVAS_WIDTH, CANVAS_HEIGHT]} />
-      <meshPhysicalMaterial {...IVORY_MATERIAL_PROPS} />
-    </mesh>
-  )
-}
-
-/** Catches a failed avatar texture load (bad/missing avatar id, network
- * error, a future CORS regression on Sleeper's CDN) and falls back to
- * BlankCanvas instead of taking down the whole scene. Avatar URLs are
- * third-party and can fail independently of the CORS check above. */
-class PanelErrorBoundary extends Component<{ children: ReactNode }, { hasError: boolean }> {
-  state = { hasError: false }
-  static getDerivedStateFromError() {
-    return { hasError: true }
-  }
-  render() {
-    return this.state.hasError ? <BlankCanvas /> : this.props.children
-  }
-}
-
-/** A gold-framed portrait, sized/positioned/rotated like TrophyRoomScene's
- * portrait wall, but showing the team's real photo (or the blank-canvas
- * fallback) instead of an always-untextured panel. */
-function Portrait({
-  avatarId,
-  position,
-  rotationY,
-  groupRef,
-}: {
-  avatarId: string | null
-  position: [number, number, number]
-  rotationY: number
-  /** Optional handle on the portrait's own <group>, so a parent can run
-   * the entrance tween in usePortraitReveal against it. A callback ref
-   * rather than forwardRef: each caller collects these into an indexed
-   * array (matching TrophyToppers' `ref={(el) => { refs.current[i] = el }}`
-   * pattern), which a forwarded ref object can't express as cleanly. */
-  groupRef?: (el: Group | null) => void
-}) {
-  return (
-    <group ref={groupRef} position={position} rotation={[0, rotationY, 0]}>
-      <mesh>
-        <boxGeometry args={[FRAME_WIDTH, FRAME_HEIGHT, FRAME_DEPTH]} />
-        <meshStandardMaterial {...GOLD_MATERIAL_PROPS} />
-      </mesh>
-      {avatarId ? (
-        <PanelErrorBoundary>
-          <Suspense fallback={<BlankCanvas />}>
-            <AvatarPanel avatarId={avatarId} />
-          </Suspense>
-        </PanelErrorBoundary>
-      ) : (
-        <BlankCanvas />
-      )}
-    </group>
-  )
-}
 
 /** Same stepped "click into place" entrance TrophyRoomScene's
  * TrophyToppers uses (PLAN.md Phase 6, SPEC.md §5.5) — scales a list of
