@@ -1,9 +1,11 @@
 import { lazy, Suspense } from 'react'
 import type { MatchupRecap } from '../api/weeklyRecap'
 import { matchupNoteFor, type WeekRecapContent } from '../content/recaps'
+import { Reveal } from '../motion/Reveal'
 import { StatCountUp } from '../motion/StatCountUp'
 import type { JourneyStation } from '../three/journeyLayout'
 import { ChunkErrorBoundary } from './ChunkErrorBoundary'
+import { PlayerHeadshot } from './PlayerHeadshot'
 
 const JourneyCanvas = lazy(() =>
   import('../three/JourneyCanvas').then((m) => ({ default: m.JourneyCanvas })),
@@ -29,12 +31,19 @@ export function WeeklyJourney({
   content,
   nameFor,
   avatarFor,
+  playerNameFor,
 }: {
   week: number
   games: MatchupRecap[]
   content: WeekRecapContent | undefined
   nameFor: (userId: string | null) => string
   avatarFor: (userId: string | null) => string | null
+  /** Resolves a Sleeper player_id to a display name for the standout-
+   * player headshot cards below. Same shape as nameFor/avatarFor --
+   * a resolver passed in rather than a raw players map, so this
+   * component stays presentational (HomePage.tsx owns the one
+   * useAllPlayers() call the whole page shares). */
+  playerNameFor: (playerId: string) => string
 }) {
   if (games.length === 0) return null
 
@@ -86,6 +95,33 @@ export function WeeklyJourney({
                         {sideIndex === 0 ? 'Winner' : 'Loser'} · {side.possible.toFixed(1)} possible
                         · {Math.round(side.efficiency * 100)}%
                       </p>
+
+                      {/* The week's standout player, per side -- the
+                          highest-scoring player each team actually
+                          started (TeamWeek.topStarter, already computed
+                          in api/weeklyRecap.ts). Real headshots, first
+                          use of PlayerHeadshot inside the journey. */}
+                      {side.topStarter && (
+                        <Reveal className="mt-4">
+                          <div className="flex items-center gap-2">
+                            <PlayerHeadshot
+                              playerId={side.topStarter.playerId}
+                              name={playerNameFor(side.topStarter.playerId)}
+                            />
+                            <div className="min-w-0">
+                              <p className="truncate text-[0.65rem] tracking-[0.2em] text-[#8d877c] uppercase">
+                                Top starter
+                              </p>
+                              <p className="truncate text-sm text-[#d9c7a8]">
+                                {playerNameFor(side.topStarter.playerId)}{' '}
+                                <span className="lining-nums tabular-nums">
+                                  · {side.topStarter.points.toFixed(1)}
+                                </span>
+                              </p>
+                            </div>
+                          </div>
+                        </Reveal>
+                      )}
                     </div>
                   ))}
                 </div>

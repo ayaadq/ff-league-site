@@ -1,6 +1,14 @@
 import { lazy, Suspense, useMemo } from 'react'
-import { useCurrentSeason, useMatchups, useNflState, useRosters, useUsers } from '../api/hooks'
+import {
+  useAllPlayers,
+  useCurrentSeason,
+  useMatchups,
+  useNflState,
+  useRosters,
+  useUsers,
+} from '../api/hooks'
 import { pairMatchups } from '../api/matchups'
+import { playerDisplayName } from '../api/players'
 import {
   sortStandings,
   teamAvatarIdForRoster,
@@ -43,6 +51,12 @@ export function HomePage() {
   const { leagueId, season } = useCurrentSeason()
   const rosters = useRosters(leagueId)
   const users = useUsers(leagueId)
+  // Same query useWeekRecap() already makes internally (queryKey
+  // ['players']) -- TanStack Query dedupes by key, so this is the
+  // cached result, not a second ~5MB fetch. Needed here too since
+  // WeeklyJourney's standout-player headshots resolve names from raw
+  // player_ids and useWeekRecap doesn't expose the players map itself.
+  const players = useAllPlayers()
   const nflState = useNflState()
   // Computed from the raw API: best legal lineup, efficiency, points
   // left on the bench. See api/weeklyRecap.ts -- verified against the
@@ -155,6 +169,7 @@ export function HomePage() {
         content={recap.content}
         nameFor={(userId) => (userId ? teamNameForUser(userId, users.data ?? []) : 'Unknown')}
         avatarFor={(userId) => (userId ? teamAvatarIdForUser(userId, users.data ?? []) : null)}
+        playerNameFor={(playerId) => playerDisplayName(players.data?.[playerId], playerId)}
       />
 
       {/* Act 3 -- Awards. */}
