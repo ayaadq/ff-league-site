@@ -7,7 +7,9 @@ import {
   teamNameForRoster,
   totalPoints,
 } from '../api/standings'
+import { useWeekRecap } from '../api/useWeekRecap'
 import { EnableSoundPrompt } from '../audio/EnableSoundPrompt'
+import { EfficiencyChart } from '../components/EfficiencyChart'
 import { Marquee } from '../components/Marquee'
 import { ScrollCue } from '../components/ScrollCue'
 import { Reveal } from '../motion/Reveal'
@@ -35,6 +37,10 @@ export function HomePage() {
   const rosters = useRosters(leagueId)
   const users = useUsers(leagueId)
   const nflState = useNflState()
+  // Computed from the raw API: best legal lineup, efficiency, points
+  // left on the bench. See api/weeklyRecap.ts -- verified against the
+  // league's own published Week 1 numbers.
+  const recap = useWeekRecap()
 
   const week = nflState.data?.week ?? 1
   const previousWeek = Math.max(1, week - 1)
@@ -335,6 +341,18 @@ export function HomePage() {
                 className="from-ivory pointer-events-none absolute inset-y-0 right-0 w-10 rounded-r-2xl bg-gradient-to-l to-transparent"
               />
             </div>
+          </section>
+        </Reveal>
+      )}
+
+      {recap.teams.length > 0 && (
+        <Reveal sound>
+          <section className="mt-12 md:mt-16" aria-labelledby="efficiency-heading">
+            <SectionKicker>Week {recap.week}</SectionKicker>
+            <h2 id="efficiency-heading" className="font-display text-charcoal mt-1 text-3xl">
+              What you scored vs what you had
+            </h2>
+            <EfficiencyChart teams={recap.teams} nameFor={(team) => teamName(team.rosterId)} />
           </section>
         </Reveal>
       )}
