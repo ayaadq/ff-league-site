@@ -1,4 +1,4 @@
-import { lazy, Suspense, useMemo } from 'react'
+import { useMemo } from 'react'
 import {
   useAllPlayers,
   useCurrentSeason,
@@ -38,32 +38,16 @@ import { SeasonLeadersSection } from '../components/SeasonLeadersSection'
 import { SmackTalkFeed } from '../components/SmackTalkFeed'
 import { WeeklyJourney } from '../components/WeeklyJourney'
 import { Marquee } from '../components/Marquee'
-import { ChunkErrorBoundary } from '../components/ChunkErrorBoundary'
 import { Reveal } from '../motion/Reveal'
 import { SectionKicker } from '../components/SectionKicker'
 import { TeamAvatar } from '../components/TeamAvatar'
 import { StatCountUp } from '../motion/StatCountUp'
-import type { StandingEntry } from '../three/WeeklySummaryScene'
 
 /** How many trailing weeks of transactions feed the activity list — a
  * recent-activity read, not a season archive (that's what a future
  * per-team page would be for). */
 const ACTIVITY_WEEKS = 3
 const ACTIVITY_LIMIT = 8
-
-/** three + r3f + drei + gsap are by far the largest thing in the bundle
- * and none of it is needed to render this page's 2D content, so the
- * canvas is split into its own chunk and loaded after the page paints
- * (PLAN.md Phase 9 performance pass, SPEC.md §7.2's mobile budget).
- *
- * `fallback={null}` rather than a placeholder: the scroll track wrapping
- * the canvas has a fixed height, so the space is already reserved and a
- * spinner would just flash in a decorative, aria-hidden region. Nothing
- * shifts when the chunk lands, which also keeps ScrollTrigger from
- * measuring a moving target. */
-const WeeklySummaryCanvas = lazy(() =>
-  import('../three/WeeklySummaryCanvas').then((m) => ({ default: m.WeeklySummaryCanvas })),
-)
 
 export function HomePage() {
   const { leagueId, season } = useCurrentSeason()
@@ -158,19 +142,6 @@ export function HomePage() {
         .sort((a, b) => b.created - a.created)
         .slice(0, ACTIVITY_LIMIT),
     [activityWeeksTransactions, activityWeekRefs, players.data],
-  )
-
-  // Feeds the 3D standings wall in the finale cluster below
-  // (three/WeeklySummaryScene.tsx) -- same rank order as the Standings
-  // table further down the page, just reduced to what the 3D scene
-  // actually needs (roster id + avatar).
-  const standingEntries = useMemo<StandingEntry[]>(
-    () =>
-      standings.map((roster) => ({
-        rosterId: roster.roster_id,
-        avatarId: teamAvatarIdForRoster(roster, users.data ?? []),
-      })),
-    [standings, users.data],
   )
 
   // Computed highlights (highest score, biggest margin, closest game) --
@@ -447,32 +418,6 @@ export function HomePage() {
               </div>
             </section>
           </Reveal>
-        )}
-
-        {/* The live standings wall (PLAN.md pivot: this replaced the old
-          static trophy gallery, which moved to League History -- see
-          three/WeeklySummaryScene.tsx). Held off until standings/avatars
-          are actually loaded rather than mounting with an empty roster
-          list, since unlike the trophy room this scene has nothing
-          generic to show while data is missing. Same sticky-track-inside-
-          a-taller-wrapper pattern as History's TrophyRoomCanvas -- see
-          three/ScrollCameraRig.tsx. Deliberately NOT wrapped in <Reveal>:
-          a transform on an ancestor of a `position: sticky` element
-          breaks the stickiness. */}
-        {!isLoading && (
-          <div
-            aria-hidden="true"
-            id="weekly-summary-scroll-track"
-            className="h-[230vh] sm:h-[260vh]"
-          >
-            <div className="sticky top-0 h-[58vh] min-h-[380px] w-full sm:h-[68vh]">
-              <ChunkErrorBoundary>
-                <Suspense fallback={null}>
-                  <WeeklySummaryCanvas standings={standingEntries} />
-                </Suspense>
-              </ChunkErrorBoundary>
-            </div>
-          </div>
         )}
 
         <NextWeekPreview />

@@ -1400,24 +1400,33 @@ journey, none touching the camera/scroll math itself.
    origin so the burst reads as filling the screen rather than only
    raining downward.
 
-A fifth item in the original report — "a leftover white box with avatar
-icons near the trading-card preview" — could not be located: every
-avatar-rendering spot in `src/` was checked (`WeeklyJourney.tsx`,
-`JourneyScene.tsx`, `NextWeekPreview.tsx`, the Standings table, Results,
-Week Highlights, `ActivityFeed.tsx`, `WeeklySummaryScene.tsx`) and each is
-either already avatar-free (the journey, post-Phase-H) or is currently
-wired to real, current-design data, not a dead component. No browser tool
-was available this session to load the live page and see the box
-directly. Confirmed with the user this is genuinely unresolved rather
-than silently skipped — holding for a screenshot before touching anything
-here, since a guess-and-delete on a page section is not worth the risk of
-removing something real.
+5. **Removed the 3D "standings wall" section.** The fifth item in the
+   original report — "a leftover white box with avatar icons" — turned out
+   to be `three/WeeklySummaryScene.tsx` + `WeeklySummaryCanvas.tsx`: a live
+   standings wall showing all 12 teams' avatars as textured portrait panels
+   along a left-to-right arc, rendered inside a canvas with a flat
+   `#f5f3ee` (paper) background, mounted directly above `NextWeekPreview`.
+   This wasn't dead code — it was the intentional "live standings wall"
+   from the earlier marble/gold-era pivot (PLAN.md's own notes describe it
+   as replacing the old static trophy gallery) — but the user confirmed
+   after two rounds of narrowing down its location that they want it gone
+   regardless, most likely because it duplicates the Standings table
+   immediately below it and reads as an out-of-place plain white panel
+   against the ink/paper redesign. Both files deleted outright (nothing
+   else imports them — `arcLayout.ts`, `SceneFloor.tsx`, and `Portrait.tsx`
+   are shared with `TrophyRoomScene.tsx` on League History and stay).
+   `HomePage.tsx` had its `WeeklySummaryCanvas` lazy import, the
+   `standingEntries` memo, the `StandingEntry` type import, and the sticky
+   scroll-track JSX block all removed; `lazy`/`Suspense`/
+   `ChunkErrorBoundary` dropped from its own imports once nothing in the
+   file used them anymore. The production build's chunk list confirms the
+   `WeeklySummaryCanvas` chunk is gone entirely, not just unreferenced.
 
 **Verified:** `tsc -b`, `oxlint` (same eight pre-existing warnings, zero
-new), `prettier --write` (no files needed reformatting), and a production
-`vite build` all pass.
+new, confirming the deletion left nothing dangling), `prettier --write`
+(no files needed reformatting), and a production `vite build` all pass,
+both right after fixes 1-4 and again after the section 5 deletion.
 
-**Not done:** real-device check of all four fixes (this environment still
+**Not done:** real-device check of all five fixes (this environment still
 has no way to load the live Vercel URL or a real phone) — same
-carried-forward gap as every phase since the redesign began. The avatar
-box (item 5) is tracked above as blocked on a screenshot, not fixed.
+carried-forward gap as every phase since the redesign began.
