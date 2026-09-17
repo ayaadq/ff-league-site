@@ -1544,3 +1544,51 @@ had one browser-specific surprise in this exact area), and whether the
 climax zoom's magnitude feels right rather than jarring, are all
 real-device/visual judgment calls this environment can't make — same
 carried-forward gap as every phase since the redesign began.
+
+## Phase H.4 — Pre-Sleeper league history (2020-2023)
+
+The league predates its Sleeper league (which starts at the 2024 season
+in the existing season chain); 2020-2023's champions/runners-up have no
+API to pull from. New `src/content/leagueHistory/preSleeperArchive.ts`
+hand-authors those four seasons as plain `{ season, championName,
+runnerUpName }` rows — no `index.ts` read-surface module the way
+`content/lore`/`content/banter` have, since there's no per-`user_id`
+matching or merge logic here to centralize (unlike lore/banter, which are
+keyed by Sleeper identity); `HistoryPage.tsx` reads the file directly.
+
+Deliberately keyed by plain name strings, not `user_id` — CLAUDE.md's own
+rule is to use Sleeper `user_id` as the durable identity key, but these
+seasons predate anyone in this league having a Sleeper account, and
+guessing which current `user_id` a name like "Nidhish" maps to would risk
+silently attributing someone else's championship to the wrong person.
+These four rows render as plain text with no avatar; only the Sleeper-era
+rows (2024+) resolve a `user_id` to a real team avatar/name.
+
+New `championshipsBySeason()` in `api/leagueRecords.ts` — each season's
+championship bracket match (`p: 1`), both `w` (winner) and `l` (loser)
+resolved to their roster's `owner_id`. This is the per-year complement to
+the existing `championsByUser()`, which only ever aggregated a title
+*count* per manager and was left completely untouched (still Sleeper-only,
+still feeding the existing "Championships" tally section as before).
+
+`HistoryPage.tsx` merges `preSleeperArchive` (2020-2023) with
+`championshipsBySeason(seasonData)` (2024+, the same season-chain data
+every other record on this page already reads) into one
+`ChampionshipHistoryRow[]` — a discriminated union (`kind: 'archive'` vs.
+`kind: 'sleeper'`) rather than optional fields on one shape, so the render
+code can never reach for a `user_id` that an archive row doesn't have, or
+a plain name a Sleeper row doesn't have. Sorted oldest-first by
+`Number(season)`. Rendered as a new "Championship History" section,
+placed directly after the existing aggregate "Championships" tally —
+additive, not a replacement of it.
+
+**Verified:** `tsc -b`, `oxlint` (same eight pre-existing warnings, zero
+new), `prettier --write`, and a production `vite build` all pass.
+
+**Not done:** real-device/visual check of the new section's layout next
+to the existing Championships tally (this environment has no way to load
+the live Vercel URL or a real phone) — same carried-forward gap as every
+phase since the redesign began. Also worth a look once the current
+2026 season concludes: this list will show a `season` for it as soon as
+its bracket resolves, same as every other season-chain-driven record on
+this page — nothing specific to this feature, just noting it's live data.

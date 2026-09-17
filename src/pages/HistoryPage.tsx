@@ -3,6 +3,7 @@ import {
   bestSingleWeek,
   buildGameResults,
   championsByUser,
+  championshipsBySeason,
   headToHeadFor,
   longestWinStreak,
   type SeasonData,
@@ -21,6 +22,7 @@ import type { SeasonChainEntry } from '../api/seasonChain'
 import { SectionKicker } from '../components/SectionKicker'
 import { TeamAvatar } from '../components/TeamAvatar'
 import { allEvents, rivalries } from '../content/lore'
+import { preSleeperArchive } from '../content/leagueHistory/preSleeperArchive'
 
 import { EnableSoundPrompt } from '../audio/EnableSoundPrompt'
 import { Marquee } from '../components/Marquee'
@@ -43,6 +45,15 @@ const TrophyRoomCanvas = lazy(() =>
 )
 
 const NO_SEASONS: SeasonChainEntry[] = []
+
+/** One row of the year-by-year championship list (PLAN.md Phase H.4) --
+ * a discriminated union rather than optional fields on one shape, since
+ * an archive row genuinely has no `user_id` to resolve and a sleeper row
+ * genuinely has no plain name to fall back to; this keeps the render
+ * code from ever reaching for a field that isn't there for that kind. */
+type ChampionshipHistoryRow =
+  | { season: string; kind: 'archive'; championName: string; runnerUpName: string }
+  | { season: string; kind: 'sleeper'; championUserId: string; runnerUpUserId: string }
 
 export function HistoryPage() {
   const { play } = useSound()
@@ -132,6 +143,30 @@ export function HistoryPage() {
     [champions],
   )
 
+  // Year-by-year championship history (PLAN.md Phase H.4) -- distinct
+  // from `championRows` above, which is an aggregate title *count* per
+  // manager. Pre-Sleeper seasons (2020-2023) come from the hand-authored
+  // archive and render as plain names (no Sleeper user_id exists for
+  // them to resolve an avatar from); 2024+ is computed live from each
+  // season's bracket, same source championRows itself already uses.
+  const championshipHistory = useMemo<ChampionshipHistoryRow[]>(() => {
+    const archiveRows: ChampionshipHistoryRow[] = preSleeperArchive.map((entry) => ({
+      season: entry.season,
+      kind: 'archive',
+      championName: entry.championName,
+      runnerUpName: entry.runnerUpName,
+    }))
+    const sleeperRows: ChampionshipHistoryRow[] = championshipsBySeason(seasonData).map(
+      (entry) => ({
+        season: entry.season,
+        kind: 'sleeper',
+        championUserId: entry.championUserId,
+        runnerUpUserId: entry.runnerUpUserId,
+      }),
+    )
+    return [...archiveRows, ...sleeperRows].sort((a, b) => Number(a.season) - Number(b.season))
+  }, [seasonData])
+
   return (
     <section className="mx-auto max-w-3xl">
       <header className="text-center">
@@ -189,6 +224,56 @@ export function HistoryPage() {
                         <span className="text-charcoal lining-nums tabular-nums">
                           {count} {count === 1 ? 'title' : 'titles'}
                         </span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              </section>
+            </Reveal>
+          )}
+
+          {championshipHistory.length > 0 && (
+            <Reveal sound>
+              <section className="mt-14" aria-labelledby="championship-history-heading">
+                <h2
+                  id="championship-history-heading"
+                  className="font-display text-charcoal text-3xl"
+                >
+                  Championship History
+                </h2>
+                <div className="gallery-card mt-6 p-2 sm:p-3">
+                  <ul className="divide-charcoal/10 divide-y">
+                    {championshipHistory.map((row) => (
+                      <li
+                        key={row.season}
+                        className="flex items-center gap-3 px-3 py-3 text-sm sm:px-4"
+                      >
+                        <span className="text-charcoal-soft w-12 shrink-0 lining-nums tabular-nums">
+                          {row.season}
+                        </span>
+                        {row.kind === 'sleeper' ? (
+                          <>
+                            <TeamAvatar
+                              avatarId={teamAvatarIdForUser(row.championUserId, allUsers)}
+                              name={teamNameForUser(row.championUserId, allUsers)}
+                            />
+                            <span className="text-charcoal flex-1 truncate">
+                              {teamNameForUser(row.championUserId, allUsers)}
+                            </span>
+                            <span className="text-charcoal-soft shrink-0 truncate text-xs">
+                              def. {teamNameForUser(row.runnerUpUserId, allUsers)}
+                            </span>
+                          </>
+                        ) : (
+                          <>
+                            <span className="text-charcoal flex-1 truncate">
+                              {row.championName}
+                            </span>
+                            <span className="text-charcoal-soft shrink-0 truncate text-xs">
+                              def. {row.runnerUpName}
+                            </span>
+                          </>
+                        )}
                       </li>
                     ))}
                   </ul>

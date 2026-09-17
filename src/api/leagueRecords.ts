@@ -118,6 +118,33 @@ export function championsByUser(seasons: SeasonData[]): Map<string, number> {
   return counts
 }
 
+export interface SeasonChampionship {
+  season: string
+  championUserId: string
+  runnerUpUserId: string
+}
+
+/** Each season's championship game (bracket match `p: 1`), both sides
+ * resolved to their owner — the per-year complement to `championsByUser`'s
+ * aggregate title count, for a chronological "year by year" list
+ * (PLAN.md Phase H.4). */
+export function championshipsBySeason(seasons: SeasonData[]): SeasonChampionship[] {
+  const result: SeasonChampionship[] = []
+  for (const season of seasons) {
+    const championshipMatch = season.bracket.find((match) => match.p === 1)
+    if (championshipMatch?.w == null || championshipMatch?.l == null) continue
+    const champion = season.rosters.find((r) => r.roster_id === championshipMatch.w)
+    const runnerUp = season.rosters.find((r) => r.roster_id === championshipMatch.l)
+    if (!champion?.owner_id || !runnerUp?.owner_id) continue
+    result.push({
+      season: season.season,
+      championUserId: champion.owner_id,
+      runnerUpUserId: runnerUp.owner_id,
+    })
+  }
+  return result
+}
+
 export interface HeadToHeadRecord {
   opponentUserId: string
   wins: number
