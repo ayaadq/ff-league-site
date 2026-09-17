@@ -1242,3 +1242,116 @@ the two bugs above were fixed.
 feel, actual pinch-to-zoom behavior on real iOS/Android) — the same gap
 every phase since the redesign began has carried, still not achievable
 from this environment.
+
+## Phase H — Football kick journey: complete redesign
+
+The journey's third full rewrite (Phase G replaced the marble/gold
+stadium with play diagrams; this phase replaces play diagrams with a
+single continuous sky-cam football kick). Deleted entirely: the old
+per-station glide-and-dwell camera system, `Portrait`-based 3D avatar
+frames in the journey specifically (the shared `Portrait.tsx` component
+itself stays — `WeeklySummaryScene.tsx` still uses it), and Phase G's
+play-diagram texture system (`playDiagramTexture.ts` deleted). What's
+new: `three/Football.tsx` (a shared, "dumb" football mesh — no
+position/rotation props, callers mutate a wrapping `<group>` ref
+directly — used by both the hero and the journey so the two don't
+maintain separate copies), a completely rewritten `three/journeyLayout.ts`
+(quadratic-Bezier ball arc, lerped camera pose, equal per-matchup scroll
+segments — replacing every dwell/closeness/GOTW-weighting export except
+`closenessOf`, kept because `WeeklyJourney.tsx`'s audio duck/roar shaping
+still reads it), and a rewritten `JourneyCameraRig.tsx` that drives both
+the ball's flight and the camera's pose from one shared scroll-scrubbed
+progress value into a single ref, so "camera stays centered on the ball"
+is true by construction rather than two independently-computed
+approximations of it.
+
+**Hero:** `HeroScene.tsx` dropped from three footballs (Phase G) to one,
+centered behind "Scoreboard," with a new scroll-scrubbed vertical drop
+paired with the existing rotation — both driven off the same hero scroll
+track so they can't drift out of sync with each other regardless of
+scroll speed. The "drops into the journey" effect is a same-canvas
+illusion (the ball falls out of the hero's own frame right as its sticky
+section releases into the journey below) — the two are separate WebGL
+canvases with no way to literally hand off geometry between them.
+
+**Two real bugs found via a debug console readout, not fixed on
+assumption:**
+
+- **The football was roughly double the size assumed.** `Football.tsx`'s
+  body is a unit sphere scaled `[1.55, 0.88, 0.88]` — a ~3.1-unit-long
+  object (diameter, not the ~1.5 "radius-as-if-it-were-height" this
+  phase's own camera-distance math was first written against). At the
+  journey's much larger scale (a 20-unit field, goalposts ~3.6 units
+  apart) that made the ball swell to fill most of the frame barely a
+  tenth of the way through the flight — confirmed by a temporary
+  `console.log` of the actual live camera-to-ball distance and fov
+  reading `dist: 7.88, fov: 39.7`, working out to the ball occupying
+  roughly half the frame height, not the eyeballed screenshot alone.
+  Fixed with a `scale={0.35}` wrapper around the shared `Football` in
+  `JourneyScene.tsx` specifically (the hero's own football, at its own
+  much closer camera distance, was already correctly sized and untouched).
+- **The end camera pose was geometrically wrong, not just mistimed.** The
+  first version placed `END_CAM` at `z: -1` — a point the ball itself
+  flies _past_ en route to the uprights (`UPRIGHT_POSITION.z: -15`), so
+  easing the camera toward it moved the camera _into_ the ball's own
+  flight path rather than pulling back from the whole arc. Tightening the
+  camera's own easing curve (a `Math.sqrt(flightT)` front-load, still
+  kept, since it's independently a reasonable "opens up faster than the
+  ball's own physically-motivated arc" choice) didn't fix this, because
+  the destination itself was wrong, not merely reached too slowly — moving
+  `END_CAM` to sit high above the field's own midpoint (`{x:0, y:12, z:0}`)
+  is what actually reads as "pulled back," confirmed by re-running the
+  same debug readout at the same scroll position afterward and seeing a
+  proportionate ball again.
+
+**Confetti:** the existing per-matchup `ConfettiLayer.burst()` (Phase G)
+stays, fired from the same `onMatchupChange` callback (renamed from
+`onStationDwellStart`) with the same velocity-scaled intensity and
+roster-id-comparison bias. New: `ConfettiLayer.finaleBurst()`, fired once
+from `JourneyCameraRig`'s new `onFinale` callback the instant the ball's
+flight reaches the uprights — spawns from six origin points spread across
+the top of the screen rather than one center point (confirmed live: this
+is what actually reads as "fills the screen" instead of one bigger single
+firework), alongside a `playPassThrough()` flourish (the ball keeps
+flying past the posts and shrinks away over 0.3s) and a deep duck into a
+full-gain roar, all landing on the same instant.
+
+**Scorecard/DOM:** `WeeklyJourney.tsx`'s panel content is largely
+unchanged (team names, scores, top-starter headshots, authored
+headline/chips/body) — the brief's own "scorecard stays centered, large,
+hero element, same as before." What changed: panel heights are now a
+flat `100svh` each (equal per-matchup segments, matching "divide total
+scroll by matchup count") rather than closeness-weighted fractions, and
+the `gotwIndex`/`applyGotwDwell` machinery is gone — the game of the week
+gets no special camera treatment anymore (`GameOfTheWeekHero.tsx`'s own
+promotion is its only spotlight now, not a supplement to one the journey
+was already doing).
+
+**Verified:** `tsc -b`, `oxlint` (same eight pre-existing warnings this
+project has carried since the redesign began, zero new), `prettier
+--write`, and a production `vite build` all pass (the journey's own lazy
+chunk shrank from ~5.5KB to ~3.7KB with the stadium/texture code gone).
+Checked live in the dev server at 390×844 and 1440×900: the hero's single
+ball renders centered and clear of surrounding UI, the drop-on-scroll
+fades the ball out in step with the text; the journey's matchup 1 (ball
+grounded, camera static), mid-flight (ball proportionate, yard lines
+converging with real depth), and finale (ball rising into a shrinking
+pass-through, confetti spreading across the full viewport including
+content below the journey) all confirmed correct after the two bugs
+above were fixed; `prefers-reduced-motion` parks the ball at kickoff and
+the camera at its start pose, confirmed by scrolling deep into the track
+and finding zero position change and zero console errors; zero horizontal
+overflow at 1440px. Every check showed zero console errors once the two
+bugs were fixed.
+
+**Not done:** real-device verification (actual frame rate for the
+continuous ball-plus-camera update, whether the kick reads as "a real NFL
+broadcast" on a phone screen specifically, touch-scroll feel for the
+flight) — the same gap every phase since the redesign began has carried,
+still not achievable from this environment. Also worth a real-device
+look once available: the goalposts themselves were not confirmed
+clearly visible in every frame of the flight in this pass's screenshots
+(the ball and yard lines were the most consistently visible elements) —
+functionally harmless (the celebration reads fine without them being
+prominent), but worth a closer look on a real screen rather than
+assuming the framing is optimal.

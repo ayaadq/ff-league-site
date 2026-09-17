@@ -6,13 +6,15 @@ import { StatCountUp } from '../motion/StatCountUp'
 import { SectionKicker } from './SectionKicker'
 
 /** Game of the week, promoted to its own moment (PLAN.md Phase 13D)
- * rather than staying text-only inside the matchup journey's stations —
- * a dedicated 2D+GSAP section, not a second WebGL scene: JourneyCameraRig
- * already weights camera dwell time toward this game
- * (journeyLayout.ts's applyGotwDwell), so the missing piece was visual
- * promotion, not more 3D. Protects the mobile frame budget — the
- * redesign's "new 3D" allowance went to the rotating player cards
- * instead (SeasonLeadersSection.tsx).
+ * rather than staying text-only inside the matchup journey — a dedicated
+ * 2D+GSAP section, not a second WebGL scene, protecting the mobile frame
+ * budget (the redesign's "new 3D" allowance went to the rotating player
+ * cards instead, SeasonLeadersSection.tsx). The journey itself no longer
+ * gives this game any special camera treatment either (PLAN.md Phase H
+ * replaced the old per-station camera-dwell weighting with one equal-
+ * segment sky-cam kick shared by every matchup) — this section is now
+ * the game of the week's only promotion, not a supplement to one the
+ * journey was already doing.
  *
  * The blob behind the copy is the concrete "liquid motion graphics"
  * technique from the redesign (index.css's `--animate-blob` keyframe),

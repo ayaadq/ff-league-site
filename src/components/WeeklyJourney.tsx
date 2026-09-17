@@ -4,13 +4,7 @@ import { useSound } from '../audio/soundContext'
 import { matchupNoteFor, type WeekRecapContent } from '../content/recaps'
 import { Reveal } from '../motion/Reveal'
 import { StatCountUp } from '../motion/StatCountUp'
-import {
-  applyGotwDwell,
-  closenessOf,
-  closenessTiming,
-  stationHeightFractions,
-  type JourneyStation,
-} from '../three/journeyLayout'
+import { closenessOf } from '../three/journeyLayout'
 import { ChunkErrorBoundary } from './ChunkErrorBoundary'
 import { ConfettiLayer, type ConfettiHandle } from './ConfettiLayer'
 import { PlayerHeadshot } from './PlayerHeadshot'
@@ -36,6 +30,13 @@ const ROAR_MAX_GAIN = 1
 const DUCK_MAX_DEPTH_DROP = 0.65
 const DUCK_MIN_DURATION = 0.6
 const DUCK_MAX_DURATION = 2.2
+/** The finale's own roar is the biggest sound this journey makes, so it
+ * gets the deepest hush of any beat, sound and confetti landing on the
+ * same instant (JourneyCameraRig's onFinale, not scaled by closeness --
+ * every week's field goal is the same size celebration regardless of
+ * how close any individual game was). */
+const FINALE_DUCK_DEPTH = 0.2
+const FINALE_DUCK_DURATION = 1.4
 
 /** Scroll speed (px/sec, from JourneyCameraRig's own ScrollTrigger) that
  * maps to a full-intensity confetti burst — a fast deliberate flick, not
@@ -45,33 +46,36 @@ const DUCK_MAX_DURATION = 2.2
  * not an arbitrary round figure. */
 const CONFETTI_VELOCITY_FOR_MAX_INTENSITY = 2800
 
-/** The week's six games, walked one at a time.
+/** The week's games, walked one at a time as a single continuous
+ * sky-cam football kick (PLAN.md Phase H) — the ball launches on the
+ * second matchup and flies one parabolic arc toward the uprights,
+ * reaching them exactly as the last matchup ends. Scroll is divided
+ * into equal per-matchup segments (no more closeness-weighted dwell,
+ * which belonged to the previous per-station camera this replaces).
  *
  * The canvas is sticky and the panels scroll over it, both driven by the
- * same scroll position — so the camera arriving at a station and the
- * panel for that game coming into view are the same event, with nothing
- * to keep in sync by hand.
+ * same scroll position — so the camera/ball's progress and the panel for
+ * that game coming into view are the same event, with nothing to keep in
+ * sync by hand.
  *
  * Every word is DOM. Rendering type in three.js would mean shipping font
  * geometry, and it would be unselectable, invisible to a screen reader,
  * and soft at distance. Keeping it here also means the reduced-motion
- * path costs nothing: the camera simply doesn't travel, and all six
- * games are still read top to bottom exactly as written. */
+ * path costs nothing: the camera/ball simply don't move, and every game
+ * is still read top to bottom exactly as written. */
 export function WeeklyJourney({
   week,
   games,
   content,
   nameFor,
-  avatarFor,
   playerNameFor,
 }: {
   week: number
   games: MatchupRecap[]
   content: WeekRecapContent | undefined
   nameFor: (userId: string | null) => string
-  avatarFor: (userId: string | null) => string | null
   /** Resolves a Sleeper player_id to a display name for the standout-
-   * player headshot cards below. Same shape as nameFor/avatarFor --
+   * player headshot cards below. Same shape as nameFor --
    * a resolver passed in rather than a raw players map, so this
    * component stays presentational (HomePage.tsx owns the one
    * useAllPlayers() call the whole page shares). */
@@ -83,18 +87,17 @@ export function WeeklyJourney({
   if (games.length === 0) return null
 
   // Bigger roar for a blowout, hush-then-eruption for a close one --
-  // the same closeness number closenessTiming below already weights
-  // dwell by, not a second margin normalization that could drift from
-  // it (closenessOf's own comment).
+  // read once per matchup change, not re-derived per frame.
   const closeness = closenessOf(games.map((g) => ({ margin: g.margin, tied: g.tied })))
 
-  // Fires once per station, exactly when JourneyCameraRig's own scrubbed
-  // progress enters that station's dwell window -- see its prop comment
-  // for why the camera rig is the one calling this rather than a second,
-  // independent scroll listener here. duck()/play() are both no-ops
-  // before sound is enabled and running (SoundProvider's own guards), so
-  // this costs nothing for a visitor who never touches the sound toggle.
-  const handleStationDwellStart = (index: number, velocity: number) => {
+  // Fires once per matchup, exactly when JourneyCameraRig's own scrubbed
+  // progress enters that matchup's equal-width segment -- see its prop
+  // comment for why the camera rig is the one calling this rather than a
+  // second, independent scroll listener here. duck()/play() are both
+  // no-ops before sound is enabled and running (SoundProvider's own
+  // guards), so this costs nothing for a visitor who never touches the
+  // sound toggle.
+  const handleMatchupChange = (index: number, velocity: number) => {
     const c = closeness[index]
     if (c === undefined) return
     const gain = ROAR_MIN_GAIN + (ROAR_MAX_GAIN - ROAR_MIN_GAIN) * (1 - c)
@@ -109,69 +112,29 @@ export function WeeklyJourney({
     // envelope this loose (the crowd doesn't clap on a beat).
     window.setTimeout(() => play('roar', { gain }), (duration / 2) * 1000)
 
-    // Confetti (PLAN.md Phase G) -- one burst per matchup, biased toward
-    // the winner's side. `bias` reads a comparison of the two rosters'
-    // ids, not the winner's actual on-screen position: this scene always
-    // renders the winner on the left (Station's own layout, JourneyScene.tsx),
-    // so a literal "which side did the winner render on" bias would be
-    // identical every single time -- a real per-game left/right split, as
-    // the brief's "if team A wins, lean left; if team B wins, lean right"
-    // example describes, needs a stable per-matchup A/B assignment
-    // independent of who happened to win, and roster id comparison is
-    // exactly that: fixed for a given matchup, arbitrary in the sense
-    // that "A" isn't semantically anything, but stable and genuinely
-    // different from game to game.
+    // Confetti (PLAN.md Phase G, kept as the small per-matchup beat
+    // alongside Phase H's much bigger finale burst) -- biased toward a
+    // stable per-matchup A/B assignment (roster id comparison), not the
+    // winner's actual on-screen position: the ball/camera don't have a
+    // fixed "winner's side" the way the old per-station scene did, so
+    // this is just a source of genuine per-game variety now, same as it
+    // was before.
     const game = games[index]
     const bias = game.winner.rosterId < game.loser.rosterId ? -1 : 1
     const intensity = Math.min(Math.abs(velocity) / CONFETTI_VELOCITY_FOR_MAX_INTENSITY, 1)
     confettiRef.current?.burst({ bias, intensity })
   }
 
-  const stations: JourneyStation[] = games.map((game, i) => ({
-    id: `${game.matchupId ?? i}`,
-    winnerAvatarId: avatarFor(game.winner.userId),
-    winnerUserId: game.winner.userId,
-    loserAvatarId: avatarFor(game.loser.userId),
-  }))
-
-  // The one game the recap content flags gameOfTheWeek (content/recaps
-  // -- editorial, not derived from margin/closeness), if this week has
-  // one. Reuses the same matchupNoteFor lookup the panels below already
-  // do per game rather than a second way of finding "the" note.
-  const gotwGameIndex = games.findIndex(
-    (game) => matchupNoteFor(content, game.winner.userId, game.loser.userId)?.gameOfTheWeek,
-  )
-  const gotwIndex = gotwGameIndex === -1 ? null : gotwGameIndex
-
-  // Closer games hold the camera longer, relative to the other five
-  // this week (journeyLayout.ts's closenessTiming) -- not memoized,
-  // matching `stations` above: both are cheap derived arrays recomputed
-  // each render, not state that needs to survive one. The GOTW station,
-  // if there is one, then gets a dedicated longer dwell on top
-  // (applyGotwDwell) -- editorial pacing overriding the closeness-based
-  // default for that one beat, not a second timing system.
-  const timings = applyGotwDwell(
-    closenessTiming(games.map((g) => ({ margin: g.margin, tied: g.tied }))),
-    gotwIndex,
-  )
-
-  // Panel heights come from the SAME timings driving the camera
-  // (stationHeightFractions reads stationBounds, not a parallel
-  // formula) -- this is what keeps a panel's on-screen window and the
-  // camera's dwell window the same interval by construction, rather
-  // than two numbers someone has to remember to keep in sync. Total
-  // height is kept at "one screen per station" in aggregate (unchanged
-  // from before pacing existed), just redistributed among the six
-  // instead of split evenly.
-  //
-  // Known tail risk, not solved here: MIN_DWELL (journeyLayout.ts) sets
-  // a floor on a station's *share*, not on its rendered height in
-  // pixels. A blowout landing in the last slot (no trailing travel to
-  // inherit height from) gets the smallest panel on the page -- fine
-  // for this week's real data, worth watching once other weeks are
-  // authored.
-  const heightFractions = stationHeightFractions(timings)
-  const totalSvh = games.length * 100
+  // Fires exactly once, when the ball's flight reaches the uprights
+  // (JourneyCameraRig.tsx) -- the goal celebration: a deep hush into a
+  // big roar, landing on the same instant as the screen-filling confetti
+  // burst, not scaled by any individual game's closeness the way the
+  // per-matchup beats above are.
+  const handleFinale = () => {
+    duck(FINALE_DUCK_DEPTH, FINALE_DUCK_DURATION)
+    window.setTimeout(() => play('roar', { gain: 1 }), (FINALE_DUCK_DURATION / 2) * 1000)
+    confettiRef.current?.finaleBurst()
+  }
 
   return (
     <>
@@ -186,18 +149,19 @@ export function WeeklyJourney({
           <ChunkErrorBoundary>
             <Suspense fallback={null}>
               <JourneyCanvas
-                stations={stations}
                 trackId={TRACK_ID}
-                timings={timings}
-                onStationDwellStart={handleStationDwellStart}
-                gotwIndex={gotwIndex}
+                matchupCount={games.length}
+                onMatchupChange={handleMatchupChange}
+                onFinale={handleFinale}
               />
             </Suspense>
           </ChunkErrorBoundary>
         </div>
 
         {/* Pulled back up over the sticky canvas so the panels read as
-          captions on the scene rather than as a list beneath it. */}
+          captions on the scene rather than as a list beneath it -- the
+          scorecard is the foreground element, the kick plays out behind
+          and around it (PLAN.md Phase H). */}
         <div className="relative -mt-[100svh]">
           {games.map((game, i) => {
             const note = matchupNoteFor(content, game.winner.userId, game.loser.userId)
@@ -205,44 +169,29 @@ export function WeeklyJourney({
               <article
                 key={game.matchupId ?? i}
                 className="flex flex-col justify-center px-6 sm:px-10"
-                style={{ height: `${heightFractions[i] * totalSvh}svh` }}
+                // Equal shares now (PLAN.md Phase H) -- every matchup is
+                // exactly one screen tall, matching the "divide total
+                // scroll by matchup count" brief. No more per-station
+                // weighting to keep in sync with a camera-dwell formula.
+                style={{ height: '100svh' }}
               >
-                {/* A scrim, not a card: the reskinned floor (MARBLE_MATERIAL_PROPS,
-                  JourneyScene.tsx) is bright where the earlier all-dark scene
-                  wasn't, and this text was tuned for a uniformly dark backdrop --
-                  the loser-side tones especially (#8d877c) washed out badly
-                  against the lit marble lower in a tall panel, confirmed live
-                  before adding this, not assumed.
-                  A first attempt at 55% opacity made it *worse* in one spot,
-                  also confirmed live rather than assumed away: blended over
-                  the bright floor, that gray landed almost exactly on
-                  #8d877c's own tone, erasing the contrast rather than
-                  restoring it. A translucent wash isn't reliable when what's
-                  behind it varies by station and by scroll position within a
-                  station -- 90% is close enough to opaque that the result is
-                  consistently dark regardless, at the cost of the 3D scene
-                  barely showing through the card anymore.
-
-                  max-w-2xl, narrowed from max-w-3xl once DWELL_FOV
-                  (journeyLayout.ts) widened the camera enough to actually
-                  put the stadium stands inside the frustum during dwell --
-                  the panel was free to cover most of the canvas width
-                  before that, since nothing back there was visible either
-                  way; now the extra ~96px of freed side margin is what
-                  actually lets the wider shot read on screen, not just
-                  exist in the 3D scene. Verified live that the panel's own
-                  content (longest line: the title, two-column stat grid)
-                  still reads fine at the new width before keeping it. */}
+                {/* A scrim, not a card -- this text was tuned for a
+                  uniformly dark backdrop and stays legible regardless of
+                  where the ball/camera currently are behind it. 90%
+                  opacity rather than a lighter wash: a translucent scrim
+                  isn't reliable when what's behind it varies by scroll
+                  position within a matchup (the kick's own sky
+                  brightening as the camera rises), confirmed live in the
+                  previous journey redesigns this project has already
+                  been through -- 90% is close enough to opaque that the
+                  result stays consistently dark regardless. */}
                 <div className="bg-charcoal/90 mx-auto w-full max-w-2xl rounded-2xl px-5 py-7 sm:px-8 sm:py-9">
-                  {/* Broadcast-style title card, entering as this station
-                    arrives. Plain team names, not a personalized "YOU
-                    vs." -- the site has no per-visitor identity to draw
-                    on (single shared password, SPEC.md §8 puts accounts
-                    out of scope), so team names are the honest version
-                    of this. A larger y-offset than Reveal's default
-                    (28px) is what gives it the bigger "flies in" feel
-                    the brief asked for -- still the same trigger and
-                    tween every other beat in this file already uses. */}
+                  {/* Broadcast-style title card, entering as this
+                    matchup arrives. Plain team names, not a personalized
+                    "YOU vs." -- the site has no per-visitor identity to
+                    draw on (single shared password, SPEC.md §8 puts
+                    accounts out of scope), so team names are the honest
+                    version of this. */}
                   <Reveal y={56}>
                     <p className="font-display text-marble text-2xl tracking-wide uppercase sm:text-3xl">
                       Week {week} — {nameFor(game.winner.userId)} vs. {nameFor(game.loser.userId)}
@@ -273,8 +222,7 @@ export function WeeklyJourney({
                         {/* The week's standout player, per side -- the
                           highest-scoring player each team actually
                           started (TeamWeek.topStarter, already computed
-                          in api/weeklyRecap.ts). Real headshots, first
-                          use of PlayerHeadshot inside the journey. */}
+                          in api/weeklyRecap.ts). */}
                         {side.topStarter && (
                           <Reveal className="mt-4">
                             <div className="flex items-center gap-2">
@@ -341,27 +289,12 @@ export function WeeklyJourney({
           fact this placement leans on: the canvas's natural, un-stuck
           flow position ends exactly where the section above ends, so
           whatever sits directly after it in the document is what
-          continued scrolling reveals during that release). Without this,
-          that reveal was the page's plain marble background with no
-          hand-off at all -- a hard cut regardless of scroll speed, and
-          the faster the scroll the less of it registered before the cut
-          landed.
+          continued scrolling reveals during that release).
 
           A static CSS gradient, not a scroll-triggered JS tween: the
           fade is driven by scroll POSITION within this block, never by
           wall-clock time, so it can't desync or read as abrupt no matter
-          how fast someone scrolls through it -- every scroll position
-          this block occupies has a well-defined color, correct on
-          whatever frame the browser happens to next paint, the same
-          "motion never gates the data" reasoning PLAN.md Phase 12 already
-          applies to the camera's own scrub (`ease: 'none'`, no clamp on
-          scroll speed).
-
-          Solid #2B2926 for the first third, not a fade starting at the
-          very top -- the canvas's own last visible frame is uniformly
-          dark, so this needs to continue that with no visible seam before
-          it starts dissolving, or the transition would read as starting
-          before the canvas has actually finished clearing. */}
+          how fast someone scrolls through it. */}
       <div
         aria-hidden="true"
         className="h-[45svh] w-full bg-[linear-gradient(to_bottom,#0B0B0E_0%,#0B0B0E_35%,transparent_100%)]"

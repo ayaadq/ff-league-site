@@ -227,17 +227,17 @@ export function HomePage() {
           nameFor={(userId) => (userId ? teamNameForUser(userId, users.data ?? []) : 'Unknown')}
         />
 
-        {/* Act 2 -- the six-station skycam journey. Its own sticky scroll
-          track and camera rig (three/JourneyCanvas.tsx) are entirely
-          self-contained -- no Reveal wrapper here or anywhere inside it,
-          since a transform on an ancestor of a `position: sticky` element
-          breaks the stickiness (see PLAN.md Phase 12's reorder-risk note). */}
+        {/* Act 2 -- the sky-cam football-kick journey (PLAN.md Phase H).
+          Its own sticky scroll track and camera rig (three/JourneyCanvas.tsx)
+          are entirely self-contained -- no Reveal wrapper here or
+          anywhere inside it, since a transform on an ancestor of a
+          `position: sticky` element breaks the stickiness (see PLAN.md
+          Phase 12's reorder-risk note). */}
         <WeeklyJourney
           week={recap.week}
           games={recap.games}
           content={recap.content}
           nameFor={(userId) => (userId ? teamNameForUser(userId, users.data ?? []) : 'Unknown')}
-          avatarFor={(userId) => (userId ? teamAvatarIdForUser(userId, users.data ?? []) : null)}
           playerNameFor={(playerId) => playerDisplayName(players.data?.[playerId], playerId)}
         />
 

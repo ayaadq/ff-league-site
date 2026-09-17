@@ -9,16 +9,20 @@ const REST_POSITION = { x: 0, y: 0.4, z: 5.5 }
 const SCROLLED_POSITION = { x: -0.6, y: 0.05, z: 8.6 }
 const LOOK_TARGET: [number, number, number] = [0, 0.1, -2]
 
-/** Home's hero backdrop (PLAN.md Phase G) — rotating footballs
- * (HeroScene.tsx) behind the hero copy. Same self-contained-canvas shape
- * as the other scenes (WeeklySummaryCanvas, TrophyRoomCanvas): owns its
- * own scroll-track id and camera framing, mounted inside
- * HeroSection.tsx's sticky track.
+/** Home's hero backdrop (PLAN.md Phase H) — one centered, rotating
+ * football behind the hero copy that drops away as the hero scroll track
+ * releases, handing off to the journey below (HeroScene.tsx). Same
+ * self-contained-canvas shape as the other scenes (WeeklySummaryCanvas,
+ * TrophyRoomCanvas): owns its own scroll-track id and camera framing,
+ * mounted inside HeroSection.tsx's sticky track.
  *
  * Mobile performance (SPEC.md §7.2): capped devicePixelRatio, no
  * post-processing, the shared three-light SceneLighting rig rather than
- * per-scene lights, and HeroScene itself drops from three blobs to one
- * under the reduced effects tier. */
+ * per-scene lights. The fog range (9-18) happens to also fade the ball
+ * out as it nears the bottom of its drop, once the camera's own scroll
+ * dolly (ScrollCameraRig below) has pulled back far enough to push it
+ * past the near fog boundary — a happy consequence of the two already
+ * sharing one scroll track, not something separately tuned. */
 export function HeroCanvas() {
   return (
     <Canvas

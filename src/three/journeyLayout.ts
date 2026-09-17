@@ -1,179 +1,151 @@
-/** Where the weekly journey's matchup stations sit, and how far apart.
+/** Sky-cam football-kick journey layout math (PLAN.md Phase H) —
+ * replaces the old multi-station glide-and-dwell system entirely (this
+ * project's second full journey rewrite; the first, Phase G, replaced
+ * the stadium with play diagrams but kept the per-station camera glide).
+ * One continuous kick now: the first matchup's share of scroll is a
+ * static pre-kick beat (the brief's "sky cam has NOT started rising
+ * yet"), every matchup after it drives one continuous parabolic flight
+ * toward the uprights, ending exactly at the last matchup's end.
  *
- * Separate from the scene component for the same reason arcLayout.ts is:
- * layout maths is shared by the scene and the camera rig, and a file that
- * exports both components and constants breaks Fast Refresh. */
+ * Separate from the scene/camera-rig components for the same reason the
+ * old file was: pure layout math shared by both, and a file that exports
+ * both components and constants breaks Fast Refresh. */
 
-/** One matchup, reduced to what the 3D scene needs. Names, scores and
- * commentary live in the DOM layer above the canvas. */
-export interface JourneyStation {
-  id: string
-  winnerAvatarId: string | null
-  /** Sleeper user_id of the winner, distinct from winnerAvatarId (a CDN
-   * asset id) -- needed to look up the manager's accent color
-   * (content/teamColors.ts), which is keyed by user_id like every other
-   * durable identity in this project. */
-  winnerUserId: string | null
-  loserAvatarId: string | null
+export interface Vec3 {
+  x: number
+  y: number
+  z: number
 }
 
-/** Spacing along the camera's path. Wide enough that only one station is
- * ever the subject, close enough that the next is already visible in the
- * fog — which is what makes it read as a journey rather than a
- * slideshow. */
-export const STATION_GAP = 15
+/** Kick setup (ground, pre-launch) position — center-left of frame, on a
+ * tee. */
+export const KICK_POSITION: Vec3 = { x: -1.6, y: 0.18, z: 5 }
+/** Where the ball ends up: dead center between the uprights, above the
+ * crossbar (see GoalPosts in JourneyScene.tsx — crossbar sits at y≈2.2,
+ * uprights run to y≈5.2, so 3.1 is a real "through the gap" height, not
+ * an arbitrary number). */
+export const UPRIGHT_POSITION: Vec3 = { x: 0, y: 3.1, z: -15 }
+/** The quadratic Bezier control point's height — not the arc's own peak
+ * (a Bezier curve doesn't reach its control point when the two endpoints
+ * differ), pulled well above both KICK_POSITION.y and UPRIGHT_POSITION.y
+ * so the resulting arc actually reads as a kick's rise-and-carry, not a
+ * straight ramp between the two. */
+const ARC_CONTROL_HEIGHT = 8
 
-export const stationZ = (index: number) => -index * STATION_GAP
+/** The ball's position at a given point in its flight (0 = still on the
+ * tee, 1 = at the uprights). X and Z are plain lerps (the kick travels
+ * in a straight line downfield while centering under the posts); Y is a
+ * quadratic Bezier through KICK_POSITION.y → ARC_CONTROL_HEIGHT →
+ * UPRIGHT_POSITION.y, which is what actually reads as an arc rather than
+ * a ramp. */
+export function ballPositionAtFlightT(t: number): Vec3 {
+  const clamped = Math.min(Math.max(t, 0), 1)
+  const oneMinusT = 1 - clamped
+  const quadBezier = (p0: number, p1: number, p2: number) =>
+    oneMinusT * oneMinusT * p0 + 2 * oneMinusT * clamped * p1 + clamped * clamped * p2
+  return {
+    x: KICK_POSITION.x + (UPRIGHT_POSITION.x - KICK_POSITION.x) * clamped,
+    y: quadBezier(KICK_POSITION.y, ARC_CONTROL_HEIGHT, UPRIGHT_POSITION.y),
+    z: KICK_POSITION.z + (UPRIGHT_POSITION.z - KICK_POSITION.z) * clamped,
+  }
+}
 
-/** How far behind a station's own Z the camera sits, at the reference
- * aspect JourneyCameraRig frames for (FRAMED_FOR_ASPECT below) --
- * cameraPullback scales this up on narrower-than-that canvases. Shared
- * here, not defined once in JourneyCameraRig.tsx and duplicated in
- * JourneyScene.tsx, because a camera-to-station "distance" only means
- * what either file expects it to mean once both agree the camera never
- * actually reaches a station's own Z -- it always stops this far short. */
-export const BASE_STANDOFF = 9
+/** Extra tumble (radians) the ball carries mid-flight, layered on top of
+ * whatever base rotation it already had at kickoff — purely cosmetic, so
+ * it visibly spins rather than gliding stiffly along the arc. */
+export function ballSpinAtFlightT(t: number): number {
+  return Math.min(Math.max(t, 0), 1) * Math.PI * 6
+}
 
-/** The aspect the framing was tuned at, and the cap on how far a
- * narrower canvas may pull the camera back -- see JourneyCameraRig.tsx
- * for the full rationale (fov is vertical, so a taller-than-that canvas
- * needs to dolly back to keep both portraits in frame). Shared for the
- * same reason as BASE_STANDOFF: caught live, not assumed, that the
- * journey's canvas is capped by HomePage's own `max-w-4xl` content
- * column, so its aspect is often narrower than 1.14 even on a wide
- * desktop viewport -- "pullback is basically always 1 on desktop" was
- * the wrong assumption an earlier version of this file's own comment
- * made, and BASE_STANDOFF alone measurably undershot the true standoff
- * as a result. One pullback formula, not a second copy that could
- * silently stop matching the first. */
-const FRAMED_FOR_ASPECT = 1.14
+export interface CameraPose {
+  position: Vec3
+  fov: number
+}
+
+/** Sideline-low and tight at kickoff — watching from close to the field,
+ * off to the side of the kicking tee. */
+const START_CAM: CameraPose = { position: { x: 3.4, y: 1.1, z: 7.5 }, fov: 32 }
+/** Elevated sky-cam and wide once the ball reaches the uprights.
+ *
+ * Positioned high *above* the uprights (roughly z=0, the field's own
+ * midpoint between KICK_POSITION.z=5 and UPRIGHT_POSITION.z=-15) rather
+ * than downfield past them — a real bug caught live, not assumed: an
+ * earlier version placed this at z=-1, which is a point the *ball itself*
+ * flies past en route to the uprights, so easing the camera toward it
+ * moved the camera *toward* the ball's own flight path rather than
+ * pulling back from the whole arc, and the ball swelled to fill most of
+ * the frame partway through instead of shrinking into a wide establishing
+ * shot. Sitting above the field's midpoint and looking down/across it
+ * (via `camera.lookAt` tracking the ball, JourneyCameraRig.tsx) is what
+ * actually reads as "pulled back," regardless of where along Z the ball
+ * currently is. */
+const END_CAM: CameraPose = { position: { x: 0, y: 12, z: 0 }, fov: 55 }
+
+/** The camera's pose across the flight — a plain lerp between the two
+ * poses above. The camera rig (JourneyCameraRig.tsx) is the one that
+ * actually points this at the ball every frame (`camera.lookAt`); this
+ * function only answers "where does the camera sit," not "what does it
+ * look at." */
+export function cameraPoseAtFlightT(t: number): CameraPose {
+  const clamped = Math.min(Math.max(t, 0), 1)
+  return {
+    position: {
+      x: START_CAM.position.x + (END_CAM.position.x - START_CAM.position.x) * clamped,
+      y: START_CAM.position.y + (END_CAM.position.y - START_CAM.position.y) * clamped,
+      z: START_CAM.position.z + (END_CAM.position.z - START_CAM.position.z) * clamped,
+    },
+    fov: START_CAM.fov + (END_CAM.fov - START_CAM.fov) * clamped,
+  }
+}
+
+/** The aspect the two poses above were framed at, and the pullback cap
+ * for narrower canvases — same "fov is vertical, a portrait viewport
+ * needs to dolly back or it crops" mechanism this journey has used since
+ * Phase 9, applied to the new poses instead of the old per-station ones.
+ * Pulls the camera back along its own look-direction-adjacent axis by
+ * scaling its offset from the current look target, same as
+ * ScrollCameraRig's own `fitToViewport`. */
+const FRAMED_FOR_ASPECT = 1.5
 const MAX_PULLBACK = 2.2
 
 export function cameraPullback(aspect: number): number {
   return Math.min(Math.max(FRAMED_FOR_ASPECT / aspect, 1), MAX_PULLBACK)
 }
 
-/** Per-station scrub timing, as a share of the *whole* journey's
- * progress (0..1) -- not seconds, not pixels. `dwell` is how much of
- * that budget the camera holds still at this station's Z; `travel` is
- * how much is spent moving on to the next station (ignored on the last
- * station, which has nowhere left to travel to).
- *
- * This is the foundation for variable per-station pacing (game
- * closeness, a longer game-of-week replay beat, etc.) -- none of that
- * is wired up yet. This step only introduces the mechanism and proves
- * it reproduces today's plain glide exactly when every station asks
- * for zero dwell. */
-export interface StationTiming {
-  dwell: number
-  travel: number
+/** Overall scroll progress (0..1 across the whole track) to flight
+ * progress (0..1 across the kick+flight only) — the first matchup's
+ * share is a static pre-kick beat, per the brief's "Matchup 1: sky cam
+ * has NOT started rising yet." Every matchup after it shares the
+ * remaining budget equally ("divide total scroll by matchup count"). */
+export function flightProgress(rawProgress: number, matchupCount: number): number {
+  if (matchupCount <= 1) return Math.min(Math.max(rawProgress, 0), 1)
+  const kickStart = 1 / matchupCount
+  if (rawProgress <= kickStart) return 0
+  return Math.min(Math.max((rawProgress - kickStart) / (1 - kickStart), 0), 1)
 }
 
-/** Zero dwell everywhere, uniform travel between every pair of
- * stations -- the default, and (see zAtProgress) mathematically
- * identical to the single top-level lerp this replaces, not an
- * approximation of it. */
-export function uniformTiming(stationCount: number): StationTiming[] {
-  return Array.from({ length: stationCount }, (_, i) => ({
-    dwell: 0,
-    travel: i < stationCount - 1 ? 1 : 0,
-  }))
+/** Which matchup's equal-width segment a given overall progress falls
+ * in. */
+export function matchupIndexAtProgress(rawProgress: number, matchupCount: number): number {
+  if (matchupCount <= 0) return 0
+  const clamped = Math.min(Math.max(rawProgress, 0), 1 - 1e-6)
+  return Math.min(matchupCount - 1, Math.floor(clamped * matchupCount))
 }
 
-/** Where each station's dwell and travel windows fall in overall 0..1
- * progress, as cumulative fractions of the total dwell+travel budget
- * across every station. */
-export interface StationBounds {
-  dwellStart: number
-  dwellEnd: number
-  travelEnd: number
-}
-
-export function stationBounds(timings: StationTiming[]): StationBounds[] {
-  const total = timings.reduce((sum, t) => sum + t.dwell + t.travel, 0) || 1
-  let cursor = 0
-  return timings.map((t) => {
-    const dwellStart = cursor / total
-    cursor += t.dwell
-    const dwellEnd = cursor / total
-    cursor += t.travel
-    const travelEnd = cursor / total
-    return { dwellStart, dwellEnd, travelEnd }
-  })
-}
-
-/** The camera's Z position for a given overall scrub progress: holds at
- * `stationZ(i)` through station i's dwell window, interpolates linearly
- * toward `stationZ(i + 1)` through its travel window. With
- * `uniformTiming` (every dwell is 0), every window collapses to a
- * single arrival instant and this reduces exactly to
- * `firstZ + (lastZ - firstZ) * progress` -- the same formula
- * JourneyCameraRig used before this existed, algebraically, not just
- * visually close to it. */
-export function zAtProgress(progress: number, bounds: StationBounds[]): number {
-  const n = bounds.length
-  if (n === 0) return 0
-  const clamped = Math.min(Math.max(progress, 0), 1)
-
-  for (let i = 0; i < n; i++) {
-    const b = bounds[i]
-    if (clamped <= b.dwellEnd || i === n - 1) {
-      return stationZ(i)
-    }
-    if (clamped <= b.travelEnd) {
-      const span = b.travelEnd - b.dwellEnd
-      const localT = span > 0 ? (clamped - b.dwellEnd) / span : 1
-      return stationZ(i) + (stationZ(i + 1) - stationZ(i)) * localT
-    }
-  }
-  return stationZ(n - 1)
-}
-
-/** Each station's share of the journey's total DOM height, as a
- * fraction of 1 -- station i's own dwell plus the travel immediately
- * following it, i.e. exactly the progress range
- * `[dwellStart_i, dwellStart_(i+1))` (or `[dwellStart_last, 1]` for the
- * last station, which has no travel to inherit).
- *
- * This is *derived from* stationBounds, not a second formula computed
- * alongside it: `dwellStart_(i+1)` is, by construction, the same number
- * as `bounds[i].travelEnd` (stationBounds accumulates dwell then travel
- * per station, so one station's travel-end is literally the next
- * station's dwell-start). Sizing WeeklyJourney's panels off these
- * fractions is what guarantees a panel's on-screen window and the
- * camera's dwell window are the same interval by construction --
- * whenever a panel is showing, the camera has not yet reached full
- * dwell at the *next* station, because that only begins exactly where
- * the next panel begins. Keeping two independently-tuned formulas in
- * sync by hand is exactly how they'd eventually drift again. */
-export function stationHeightFractions(timings: StationTiming[]): number[] {
-  const bounds = stationBounds(timings)
-  return bounds.map((b, i) => {
-    const windowEnd = i < bounds.length - 1 ? bounds[i + 1].dwellStart : 1
-    return windowEnd - b.dwellStart
-  })
-}
-
-/** Dwell share at the two ends of the closeness range -- a blowout
- * still gets a real beat (never below MIN_DWELL, a flash), the
- * closest game of the week doesn't consume the whole scrub (capped at
- * MAX_DWELL). Tuned by feel once this is live; not derived from
- * anything physical. */
-const MIN_DWELL = 0.3
-const MAX_DWELL = 1.4
-
-/** How close each game was, relative to the *other five* this week --
+/** How close each game was, relative to the *other* games this week —
  * not an absolute margin threshold, matching how weekAwards' own
  * "closest game"/"biggest margin" are already relative-to-the-week
  * stats, not fixed cutoffs. 0 is this week's biggest margin, 1 is its
- * closest game (a tie is the closest possible outcome regardless of
- * its own zero margin).
+ * closest game (a tie is the closest possible outcome regardless of its
+ * own zero margin).
  *
- * Exported on its own, not just inlined into closenessTiming below, so
- * a second consumer (WeeklyJourney's audio ducking -- bigger roar for a
- * blowout, hush-then-eruption for a close one) reads the identical
- * number rather than re-deriving its own margin normalization that
- * could quietly drift from this one. */
+ * Carried over from this journey's previous camera-dwell system (which
+ * used it to weight how long the camera lingered per station) — that
+ * consumer is gone (PLAN.md Phase H's equal-segment kick), but
+ * WeeklyJourney.tsx's audio duck/roar shaping (bigger roar for a
+ * blowout, hush-then-eruption for a close one) still reads this same
+ * number, so it stays here rather than being deleted along with the
+ * camera code that originally motivated it. */
 export function closenessOf(games: Array<{ margin: number; tied: boolean }>): number[] {
   const values = games.map((g) => (g.tied ? 0 : g.margin))
   const minMargin = Math.min(...values)
@@ -187,133 +159,4 @@ export function closenessOf(games: Array<{ margin: number; tied: boolean }>): nu
     const normalized = spread > 0 ? (values[i] - minMargin) / spread : 0.5
     return 1 - normalized
   })
-}
-
-/** Per-station dwell weighted by closenessOf -- the closest game of the
- * week gets the longest beat (capped at MAX_DWELL), a blowout still
- * gets a real one (never below MIN_DWELL, a flash). Travel shares stay
- * uniform (`uniformTiming`'s 1 between every pair) -- only how long the
- * camera lingers at a station changes, not how long it takes to get
- * there. */
-export function closenessTiming(games: Array<{ margin: number; tied: boolean }>): StationTiming[] {
-  const n = games.length
-  if (n === 0) return []
-
-  const closeness = closenessOf(games)
-  return games.map((_, i) => ({
-    dwell: MIN_DWELL + (MAX_DWELL - MIN_DWELL) * closeness[i],
-    travel: i < n - 1 ? 1 : 0,
-  }))
-}
-
-/** Deliberately past closenessTiming's own MAX_DWELL -- the "game of the
- * week" is an editorial flag (content/recaps), not a margin/closeness
- * outcome, so its beat is meant to read as longer than even the
- * closest game of the week gets on closeness alone. */
-const GOTW_DWELL = 2.2
-
-/** Overrides one station's dwell to GOTW_DWELL, leaving every other
- * station's timing (and that station's own travel share) untouched --
- * still the same StationTiming[] every other piecewise function here
- * already consumes, not a second camera-control mechanism layered on
- * top. `gotwIndex` is null on a week with no game flagged, in which
- * case this is a no-op and `timings` is returned as given. */
-export function applyGotwDwell(
-  timings: StationTiming[],
-  gotwIndex: number | null,
-): StationTiming[] {
-  if (gotwIndex === null || !timings[gotwIndex]) return timings
-  return timings.map((t, i) => (i === gotwIndex ? { ...t, dwell: GOTW_DWELL } : t))
-}
-
-/** The camera's field of view at an ordinary station's own dwell --
- * also the <Canvas> camera prop's own static default (JourneyCanvas.tsx),
- * so the first painted frame already matches what place(0) is about to
- * set rather than flashing a different value first.
- *
- * Widened from an original 45 after live screenshots (stadium step 2's
- * own verification) showed the tiered stands sitting entirely outside
- * the dwell frustum: at typical desktop pullback, the visible world
- * half-width at a station's own depth was ~4.25 units at 45 degrees,
- * while the stands start at WING_INNER_X=6 (JourneyScene.tsx) -- not a
- * tuning gap, the geometry was provably outside the cone regardless of
- * the DOM panel covering it. 60 degrees brings that to roughly 5.7-6.5
- * depending on pullback, just past WING_INNER_X, at a real and
- * deliberate cost: the two portraits, which sit at the same depth as
- * the stands, read at roughly 65-75% of their previous screen size.
- * Revealing more at a fixed depth and preserving what's already framed
- * at that same depth are the same trigonometric lever pointed in
- * opposite directions, not two independent knobs -- confirmed by
- * working the actual numbers before picking 60, not guessing at a
- * value and eyeballing it after. */
-export const DWELL_FOV = 60
-const GOTW_MIN_FOV = 34
-
-function stationTargetFov(index: number, gotwIndex: number | null): number {
-  return index === gotwIndex ? GOTW_MIN_FOV : DWELL_FOV
-}
-
-/** The camera's field of view at a given progress -- DWELL_FOV through
- * every ordinary station's own dwell, easing to GOTW_MIN_FOV through
- * the one "game of the week" station's dwell and the travel on both
- * sides of it, back to DWELL_FOV once clear. Travel between two
- * ordinary stations holds at a constant DWELL_FOV throughout (both
- * ends of the ease are equal) -- there's no separate "neutral baseline"
- * distinct from an ordinary station's own target anymore; DWELL_FOV
- * *is* that baseline. Same piecewise hold-then-ease shape as
- * zAtProgress above, not a second shape invented for FOV specifically.
- * Linear, not eased with a curve -- matching this file's own "the
- * scrub supplies the weight, not the ease" convention (JourneyCameraRig's
- * scrollTrigger comment).
- *
- * A tighter GOTW frame via FOV rather than a closer physical standoff is
- * deliberate: JourneyScene's ignite plane and accent light both recover
- * the camera's look target by inverting camera.position.z against a
- * FIXED standoff (BASE_STANDOFF * cameraPullback), decoupled from
- * JourneyCameraRig by design (Station's own comment, glow/ignite). A
- * standoff that varied per-station would break that inversion exactly
- * during the one station meant to look its best, unless JourneyScene
- * also knew the same per-progress scale -- reopening the standoff/
- * pullback duplication this project has already paid to fix twice. FOV
- * plays no part in either effect's distance math, so easing it here
- * can't touch them at all. */
-export function fovAtProgress(
-  progress: number,
-  bounds: StationBounds[],
-  gotwIndex: number | null,
-): number {
-  const n = bounds.length
-  if (n === 0) return DWELL_FOV
-  const clamped = Math.min(Math.max(progress, 0), 1)
-
-  for (let i = 0; i < n; i++) {
-    const b = bounds[i]
-    if (clamped <= b.dwellEnd || i === n - 1) {
-      return stationTargetFov(i, gotwIndex)
-    }
-    if (clamped <= b.travelEnd) {
-      const span = b.travelEnd - b.dwellEnd
-      const t = span > 0 ? (clamped - b.dwellEnd) / span : 1
-      const fromFov = stationTargetFov(i, gotwIndex)
-      const toFov = stationTargetFov(i + 1, gotwIndex)
-      return fromFov + (toFov - fromFov) * t
-    }
-  }
-  return stationTargetFov(n - 1, gotwIndex)
-}
-
-/** Which station's dwell window a given overall progress falls inside,
- * or -1 during a travel window (between two stations, or before the
- * first/after the last). Shares `bounds` with zAtProgress rather than
- * re-deriving its own progress-to-station mapping -- used by
- * JourneyCameraRig to fire a callback exactly once per station, at the
- * same eased/scrubbed progress the camera itself is already reading,
- * not off raw scroll position (which runs ahead of the scrubbed camera
- * by the scrub's own smoothing lag). */
-export function dwellIndexAtProgress(progress: number, bounds: StationBounds[]): number {
-  const clamped = Math.min(Math.max(progress, 0), 1)
-  for (let i = 0; i < bounds.length; i++) {
-    if (clamped >= bounds[i].dwellStart && clamped <= bounds[i].dwellEnd) return i
-  }
-  return -1
 }

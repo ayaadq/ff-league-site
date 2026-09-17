@@ -1,260 +1,127 @@
-import { useFrame } from '@react-three/fiber'
-import { useEffect, useMemo, useRef } from 'react'
-import { Color, type Mesh, type MeshBasicMaterial } from 'three'
-import { useEffectsTier } from '../motion/effectsTierContext'
-import { useReducedMotion } from '../motion/reducedMotionContext'
-import {
-  BASE_STANDOFF,
-  cameraPullback,
-  STATION_GAP,
-  stationZ,
-  type JourneyStation,
-} from './journeyLayout'
-import { Portrait } from './Portrait'
-import { createPlayDiagramTexture, PLAY_DIAGRAM_VARIANT_COUNT } from './playDiagramTexture'
+import { useMemo, type RefObject } from 'react'
+import type { Group } from 'three'
+import { Football } from './Football'
+import { KICK_POSITION, UPRIGHT_POSITION } from './journeyLayout'
 
-const IGNITED_GOLD = '#ff5a36'
+const IGNITE = '#ff5a36'
+const CURRENT = '#2ee6d6'
+const FIELD_COLOR = '#111116'
+const POST_COLOR = IGNITE
 
-/** Ignite falloff -- see the winner's glow plane in Station below. At
- * distance 0 (the station currently being looked at) the plane sits at
- * full brightness; by IGNITE_RADIUS units of look-target travel away
- * it's decayed to MIN_INTENSITY, a dim ember rather than fully off, so
- * a station never reads as broken/dark before the camera actually
- * arrives. Radius is close to STATION_GAP (15) so a station is
- * essentially fully lit through its own dwell and mostly faded by the
- * time the camera reaches a neighbor, not tuned to any exact dwell
- * width (which now varies by closeness, closenessTiming).
- *
- * "Distance" went through three live-caught fixes, not one, worth
- * recording so the next per-frame camera-relative effect in this file
- * doesn't repeat them: (1) raw `camera.position.z - z` never reached 0
- * at all -- JourneyCameraRig always holds the camera
- * BASE_STANDOFF * cameraPullback(aspect) units *behind* whatever it's
- * looking at, not co-located with it. (2) Subtracting a fixed
- * BASE_STANDOFF fixed the at-rest case but not the general one: on this
- * canvas specifically pullback often isn't 1 even at desktop widths
- * (capped by HomePage's own `max-w-4xl` column), so a fixed offset
- * under- or over-corrected depending on aspect. (3) Subtracting standoff
- * from the *already-taken* absolute difference is a different
- * computation than subtracting it before -- caught by a live probe
- * showing a neighboring station spuriously reading "distance 0" while
- * the camera was merely passing near its Z mid-travel toward a
- * *different* target. The correct order is to recover what the camera
- * is actually looking at first (`camera.position.z - standoff`, since
- * that equality is exactly how JourneyCameraRig's place() constructs
- * camera.position.z in the first place), then compare each station to
- * *that* -- see the useFrame body below, not a second approximation
- * copied from JourneyCameraRig. */
-const IGNITE_RADIUS = 10
-const MIN_INTENSITY = 0.08
+/** Crossbar height and upright reach, in world units — chosen so
+ * UPRIGHT_POSITION.y (journeyLayout.ts, where the ball actually ends up)
+ * lands inside the gap between them: above the crossbar, below the top
+ * of the uprights, the same way a real successful kick clears the bar
+ * between the posts. */
+const CROSSBAR_Y = 2.2
+const UPRIGHT_TOP_Y = 5.4
+const POST_HALF_SPREAD = 1.8
+const POST_RADIUS = 0.07
 
-/** The two portraits of one matchup, facing the camera.
- *
- * The winner is lit and the loser is not — the whole station reads at a
- * glance without a word of text, which matters because the camera passes
- * through faster than anyone reads. Lighting rather than size or position
- * carries it, so both teams stay the same scale and neither is literally
- * put beneath the other.
- *
- * The winner's plane ignites as the camera arrives rather than sitting
- * lit the whole time, on the quality tier's full path only
- * (useEffectsTier, gated the same way any future heavy per-frame effect
- * should be) and skipped under prefers-reduced-motion. Reads the live
- * camera position itself via useFrame rather than JourneyCameraRig
- * threading a shared value down -- decoupled on purpose, so a bug here
- * can't touch the camera rig's own state, and vice versa. On the
- * reduced tier or under reduced motion this renders exactly as it did
- * before this existed: a static always-on plane, not a dimmer version
- * of the animated one -- "reduced" means *no extra per-frame work*,
- * not *a cheaper animation*.
- *
- * PLAN.md Phase G: the turf patch and gold ground seam that used to sit
- * under each station are gone along with the rest of the stadium (see
- * JourneyScene's own doc comment below) -- the portraits now face the
- * camera against open fog, with the play-diagram planes (PlayDiagrams,
- * this file) carrying the ambient texture instead of a literal floor. */
-function Station({ station, index }: { station: JourneyStation; index: number }) {
-  const z = stationZ(index)
-  const glowRef = useRef<Mesh>(null)
-  const effectsTier = useEffectsTier()
-  const prefersReducedMotion = useReducedMotion()
-  const igniteEnabled = effectsTier === 'full' && !prefersReducedMotion
-  const igniteColor = useMemo(() => new Color(IGNITED_GOLD), [])
-
-  useFrame(({ camera, size }) => {
-    if (!igniteEnabled) return
-    const material = glowRef.current?.material as MeshBasicMaterial | undefined
-    if (!material) return
-    const standoff = BASE_STANDOFF * cameraPullback(size.width / size.height)
-    const targetZ = camera.position.z - standoff
-    const distance = Math.abs(targetZ - z)
-    const intensity = Math.max(MIN_INTENSITY, 1 - distance / IGNITE_RADIUS)
-    material.color.copy(igniteColor).multiplyScalar(intensity)
-  })
-
+/** Simple NFL-style goalposts — one base pole to the crossbar, a
+ * crossbar, two uprights above it. Plain geometry, one material, no
+ * texture: this scene's entire GPU cost after the Phase G context-loss
+ * lesson (PLAN.md) is deliberately kept to a handful of small meshes. */
+function GoalPosts() {
+  const z = UPRIGHT_POSITION.z
   return (
     <group position={[0, 0, z]}>
-      {/* Winner: a gold plane behind the portrait, emissive so it glows
-          without costing a light. Six real lights, one per station, would
-          blow the mobile budget in SPEC 7.2 on their own. */}
-      <mesh ref={glowRef} position={[-2.7, 2.35, -0.09]}>
-        <planeGeometry args={[1.22, 1.48]} />
-        <meshBasicMaterial color={IGNITED_GOLD} toneMapped={false} />
+      <mesh position={[0, CROSSBAR_Y / 2, 0]}>
+        <cylinderGeometry args={[POST_RADIUS, POST_RADIUS, CROSSBAR_Y, 12]} />
+        <meshStandardMaterial color={POST_COLOR} roughness={0.35} metalness={0.3} />
       </mesh>
-      <Portrait avatarId={station.winnerAvatarId} position={[-2.7, 2.35, 0]} rotationY={0.13} />
-
-      <Portrait avatarId={station.loserAvatarId} position={[2.7, 2.35, 0]} rotationY={-0.13} />
+      <mesh position={[0, CROSSBAR_Y, 0]} rotation={[0, 0, Math.PI / 2]}>
+        <cylinderGeometry args={[POST_RADIUS, POST_RADIUS, POST_HALF_SPREAD * 2, 12]} />
+        <meshStandardMaterial color={POST_COLOR} roughness={0.35} metalness={0.3} />
+      </mesh>
+      {[-POST_HALF_SPREAD, POST_HALF_SPREAD].map((x, i) => (
+        <mesh key={i} position={[x, (CROSSBAR_Y + UPRIGHT_TOP_Y) / 2, 0]}>
+          <cylinderGeometry args={[POST_RADIUS, POST_RADIUS, UPRIGHT_TOP_Y - CROSSBAR_Y, 12]} />
+          <meshStandardMaterial color={POST_COLOR} roughness={0.35} metalness={0.3} />
+        </mesh>
+      ))}
     </group>
   )
 }
 
-/** One ambient play-diagram plane (PLAN.md Phase G) — an X's-and-O's
- * formation floating off to one side of a station, colored ignite for
- * the winner's side or current for the loser's, standing in for the
- * turf/stadium the journey used to be built from. Deliberately
- * transparent/unlit (`meshBasicMaterial`, `transparent`, `toneMapped:
- * false`) so it reads as flat neon line art rather than a lit surface —
- * texture, not geometry, the same register a whiteboard sketch would
- * read at.
- *
- * "Cycle/animate as you scroll" is mostly free: each plane sits at its
- * own fixed Z, and the journey's existing camera dolly (JourneyCameraRig)
- * already moves past them at different apparent rates by depth (real
- * parallax, no extra math). On top of that, the full effects tier fades
- * a plane in as the camera approaches and back out as it passes — the
- * same distance-falloff shape Station's ignite plane uses, so a
- * diagram "lights up" near its own station rather than sitting at a
- * constant, unchanging opacity the whole run. */
-function PlayDiagram({
-  position,
-  rotationY,
-  color,
-  variant,
-  centerZ,
-  animate,
-}: {
-  position: [number, number, number]
-  rotationY: number
-  color: string
-  variant: number
-  /** The Z this diagram should read as "belonging to," for the
-   * proximity fade -- usually the station it's paired with. */
-  centerZ: number
-  animate: boolean
-}) {
-  const texture = useMemo(() => createPlayDiagramTexture(color, variant), [color, variant])
-  useEffect(() => () => texture.dispose(), [texture])
-  const meshRef = useRef<Mesh>(null)
-  const baseOpacity = 0.28
-
-  useFrame(({ camera, size }) => {
-    if (!animate) return
-    const material = meshRef.current?.material as MeshBasicMaterial | undefined
-    if (!material) return
-    const standoff = BASE_STANDOFF * cameraPullback(size.width / size.height)
-    const targetZ = camera.position.z - standoff
-    const distance = Math.abs(targetZ - centerZ)
-    const proximity = Math.max(0, 1 - distance / (STATION_GAP * 1.1))
-    material.opacity = baseOpacity + proximity * 0.32
-  })
-
-  return (
-    <mesh ref={meshRef} position={position} rotation={[0, rotationY, 0]}>
-      <planeGeometry args={[3.4, 3.4]} />
-      <meshBasicMaterial
-        map={texture}
-        transparent
-        opacity={baseOpacity}
-        toneMapped={false}
-        depthWrite={false}
-      />
-    </mesh>
-  )
-}
-
-/** Ambient background for the whole journey run — two diagram planes per
- * station under the full effects tier (one per side, ignite for the
- * winner, current for the loser), one under the reduced tier with the
- * per-frame proximity fade turned off entirely (a genuinely simpler
- * scene, not this one animated less, per SPEC.md §7.2). Positioned off
- * to the sides at a shallow angle facing back toward the camera's path,
- * clear of the central portraits so they never compete with the
- * scorecards for attention. */
-function PlayDiagrams({ stations }: { stations: JourneyStation[] }) {
-  const effectsTier = useEffectsTier()
-  const prefersReducedMotion = useReducedMotion()
-  const full = effectsTier === 'full'
-  const animate = full && !prefersReducedMotion
-
-  const diagrams = useMemo(() => {
-    const items: {
-      key: string
-      position: [number, number, number]
-      rotationY: number
-      color: string
-      variant: number
-      centerZ: number
-    }[] = []
-    stations.forEach((_, i) => {
-      const z = stationZ(i)
-      items.push({
-        key: `${i}-a`,
-        position: [-6.4, 1.6, z - STATION_GAP * 0.32],
-        rotationY: 0.5,
-        color: '#ff5a36',
-        variant: i % PLAY_DIAGRAM_VARIANT_COUNT,
-        centerZ: z,
-      })
-      if (full) {
-        items.push({
-          key: `${i}-b`,
-          position: [6.4, 1.9, z + STATION_GAP * 0.32],
-          rotationY: -0.5,
-          color: '#2ee6d6',
-          variant: (i + 1) % PLAY_DIAGRAM_VARIANT_COUNT,
-          centerZ: z,
-        })
-      }
-    })
-    return items
-  }, [stations, full])
+/** A handful of faint yard-line stripes spaced along the kick's own
+ * travel distance — plain flat geometry, deliberately not a canvas
+ * texture (the previous journey redesign's play-diagram textures were
+ * exactly what triggered real WebGL context loss on mobile, PLAN.md
+ * Phase G's emergency-fix note; this scene doesn't reintroduce that
+ * risk for a background detail this minor). */
+function YardLines() {
+  const lineZs = useMemo(() => {
+    const start = KICK_POSITION.z
+    const end = UPRIGHT_POSITION.z
+    const count = 6
+    return Array.from({ length: count }, (_, i) => start + ((end - start) * (i + 1)) / (count + 1))
+  }, [])
 
   return (
     <>
-      {diagrams.map((d) => (
-        <PlayDiagram
-          key={d.key}
-          position={d.position}
-          rotationY={d.rotationY}
-          color={d.color}
-          variant={d.variant}
-          centerZ={d.centerZ}
-          animate={animate}
-        />
+      {lineZs.map((z, i) => (
+        <mesh key={i} position={[0, 0.01, z]} rotation={[-Math.PI / 2, 0, 0]}>
+          <planeGeometry args={[36, 0.08]} />
+          <meshBasicMaterial
+            color={i % 2 === 0 ? IGNITE : CURRENT}
+            transparent
+            opacity={0.22}
+            toneMapped={false}
+            depthWrite={false}
+          />
+        </mesh>
       ))}
     </>
   )
 }
 
-/** The weekly journey's world (PLAN.md Phase G) — open dark fog with a
- * portrait face-off at each station and ambient play-diagram planes
- * drifting past at the sides, replacing the turf-and-tiered-stands
- * stadium the previous redesign pass kept. The stadium carried a lot of
- * hard-won tuning (falloff radii, per-instance jitter, fog-interaction
- * fixes) that a prior pass declined to touch for exactly that reason;
- * this phase's brief explicitly asks for the rebuild anyway, so it's a
- * deliberate replacement, not a casual one. The scoreboard, headline and
- * roast stay DOM text layered over the top regardless — they stay crisp,
- * selectable and readable by a screen reader that way, which no 3D
- * geometry could offer. */
-export function JourneyScene({ stations }: { stations: JourneyStation[] }) {
+function Field() {
+  const centerZ = (KICK_POSITION.z + UPRIGHT_POSITION.z) / 2
+  const depth = Math.abs(UPRIGHT_POSITION.z - KICK_POSITION.z) + 30
+  return (
+    <mesh position={[0, 0, centerZ]} rotation={[-Math.PI / 2, 0, 0]}>
+      <planeGeometry args={[40, depth]} />
+      <meshStandardMaterial color={FIELD_COLOR} roughness={0.92} metalness={0} />
+    </mesh>
+  )
+}
+
+/** The kick journey's world (PLAN.md Phase H) — a minimal dark field, a
+ * single set of goalposts, and the football, replacing both the original
+ * tiered-stadium scene and Phase G's play-diagram rebuild of it in one
+ * pass. No portraits, no per-matchup 3D markers, no ambient texture
+ * planes — the matchup scorecards (DOM, WeeklyJourney.tsx) are the
+ * foreground content now; this scene is purely the kick itself.
+ *
+ * The ball's `<group>` is handed a ref from the caller (JourneyCanvas.tsx)
+ * rather than owning its own position/rotation state — JourneyCameraRig
+ * mutates that same ref every scroll update so the ball's flight and the
+ * camera's look-at target are always reading the literal same transform,
+ * not two independently-computed approximations of it (the class of bug
+ * this project's own camera rigs have been careful to avoid since the
+ * original journey's ignite-plane distance math, PLAN.md Phase 12). */
+export function JourneyScene({ ballRef }: { ballRef: RefObject<Group | null> }) {
   return (
     <group>
-      <PlayDiagrams stations={stations} />
-
-      {stations.map((station, i) => (
-        <Station key={station.id} station={station} index={i} />
-      ))}
+      <Field />
+      <YardLines />
+      <GoalPosts />
+      <group ref={ballRef} position={[KICK_POSITION.x, KICK_POSITION.y, KICK_POSITION.z]}>
+        {/* Football.tsx's ball is a unit sphere scaled [1.55, 0.88, 0.88]
+            -- a ~3.1-unit-long object, sized right for the hero (where the
+            camera sits a couple of units away) but wildly oversized for
+            this scene's much larger field/camera distances. Confirmed
+            live via a debug readout of the actual camera-to-ball distance
+            and fov, not assumed: the ball was filling most of the frame
+            barely a tenth of the way through the flight. 0.35 brings its
+            effective size to ~1 unit, proportionate to the goalposts
+            (POST_HALF_SPREAD*2 = 3.6 units apart) and the ~20-unit field
+            it's flying across. */}
+        <group scale={0.35}>
+          <Football accentColor={IGNITE} />
+        </group>
+      </group>
     </group>
   )
 }
