@@ -30,7 +30,8 @@ const HOLD_SCROLL_PX = 450
 const RELEASE_BUFFER_PX = 300
 const STUCK_SCROLL_PX = FLIP_SCROLL_PX + HOLD_SCROLL_PX + RELEASE_BUFFER_PX
 
-const PARTICLE_COLORS = ['#ff5a36', '#2ee6d6']
+const PIXEL_COLOR = '#ff5a36'
+const PIXEL_COUNT = 260
 
 interface CardSide {
   roster: SleeperRoster
@@ -105,24 +106,26 @@ function CardFace({
   )
 }
 
-/** Disintegration particles (PLAN.md Phase G) — a flat-screen stand-in
- * for "explodes toward the viewer": particles scale up sharply (bigger
- * reads as closer) while spreading radially outward and fading, rather
- * than true stereoscopic depth, which nothing in a 2D DOM/CSS context
- * can actually produce. Mixed ignite/current per particle, per the
- * brief. Plain DOM nodes animated directly with GSAP, same reasoning as
- * ConfettiLayer — a one-shot burst has no reason to go through React
- * state. */
-function burstParticles(container: HTMLDivElement | null) {
+/** Card destruction (PLAN.md Phase H.2) — replaces the old mixed
+ * ignite/current radial confetti with ignite-only square "pixels" that
+ * read as the card itself breaking apart rather than a generic
+ * celebration effect. Each pixel is a single keyframed tween (not a
+ * separate burst-then-fall timeline per particle): a quick outward pop
+ * — scale growth is this project's established flat-screen stand-in for
+ * "explodes toward the viewer" (same trick ConfettiLayer's finaleBurst
+ * uses, since nothing in 2D DOM/CSS can produce real stereoscopic depth)
+ * — then gravity takes over for a slower fall to fully faded. Plain DOM
+ * nodes animated directly with GSAP, same reasoning as ConfettiLayer — a
+ * one-shot burst has no reason to go through React state. */
+function pixelBurst(container: HTMLDivElement | null) {
   if (!container) return
   const rect = container.getBoundingClientRect()
   const cx = rect.width / 2
   const cy = rect.height / 2
-  const count = 36
 
-  for (let i = 0; i < count; i++) {
+  for (let i = 0; i < PIXEL_COUNT; i++) {
     const el = document.createElement('div')
-    const size = 6 + Math.random() * 10
+    const size = 4 + Math.random() * 7
     el.style.position = 'absolute'
     el.style.left = `${cx}px`
     el.style.top = `${cy}px`
@@ -130,28 +133,36 @@ function burstParticles(container: HTMLDivElement | null) {
     el.style.height = `${size}px`
     el.style.marginLeft = `${-size / 2}px`
     el.style.marginTop = `${-size / 2}px`
-    el.style.borderRadius = '2px'
-    el.style.background = PARTICLE_COLORS[i % PARTICLE_COLORS.length]
+    el.style.background = PIXEL_COLOR
     el.style.willChange = 'transform, opacity'
     container.appendChild(el)
 
+    // Burst phase (0%-20% of the tween): a quick radial pop, biased
+    // slightly upward/outward -- "toward the user" before gravity wins.
     const angle = Math.random() * Math.PI * 2
-    const distance = 140 + Math.random() * 260
-    const scale = 2.2 + Math.random() * 2.4
+    const burstDistance = 50 + Math.random() * 170
+    const burstX = Math.cos(angle) * burstDistance
+    const burstY = Math.sin(angle) * burstDistance * 0.5 - 50
+    const scale = 1.6 + Math.random() * 2
+    // Fall phase (20%-100%): gravity continues carrying the pixel down
+    // and slightly sideways from wherever the burst left it, fading out.
+    const fallDrift = (Math.random() - 0.5) * 70
+    const fallDistance = 220 + Math.random() * 320
 
-    gsap.fromTo(
-      el,
-      { x: 0, y: 0, scale: 0.4, opacity: 1 },
-      {
-        x: Math.cos(angle) * distance,
-        y: Math.sin(angle) * distance,
-        scale,
-        opacity: 0,
-        duration: 0.7 + Math.random() * 0.35,
-        ease: 'power2.out',
-        onComplete: () => el.remove(),
+    gsap.to(el, {
+      duration: 2 + Math.random(),
+      onComplete: () => el.remove(),
+      keyframes: {
+        '0%': { x: 0, y: 0, scale: 0.4, opacity: 1 },
+        '20%': { x: burstX, y: burstY, scale, opacity: 1, ease: 'power2.out' },
+        '100%': {
+          x: burstX + fallDrift,
+          y: burstY + fallDistance,
+          opacity: 0,
+          ease: 'power1.in',
+        },
       },
-    )
+    })
   }
 }
 
@@ -184,8 +195,13 @@ function MatchupCard({
   const cardRef = useRef<HTMLDivElement>(null)
   const particlesRef = useRef<HTMLDivElement>(null)
   const reducedMotion = useReducedMotion()
-  const isInk = index % 2 === 0
-  const tone: 'ink' | 'paper' = isInk ? 'ink' : 'paper'
+  // Every card is ink now (PLAN.md Phase H.2) -- Phase G alternated
+  // ink/paper per index, but CardFace/CardPanel still take a tone prop
+  // (kept generic rather than stripped, since this is the only call site
+  // and the paper branch costs nothing to leave in place) so this is the
+  // one line that changed, not a rewrite of either component.
+  const isInk = true
+  const tone: 'ink' | 'paper' = 'ink'
 
   const sideA = useMemo(() => sideFor(pair[0], rosters, users), [pair, rosters, users])
   const sideB = useMemo(() => sideFor(pair[1], rosters, users), [pair, rosters, users])
@@ -218,6 +234,16 @@ function MatchupCard({
       // forth if someone reverses scroll direction near the trigger
       // point (toggleActions' "reverse" restores the card instead, which
       // reads as correct if a reader backs up before actually leaving).
+      // `.set(rotateY: 0)` first -- the flip's own scrub tween above is
+      // already pinned at 180 by this point (its scroll range ends well
+      // before this trigger fires) and nothing else ever touches rotateY,
+      // so there's no active fight to win here; this is a deliberate
+      // override, not a race. Without it the card explodes still face-down
+      // from the flip, which read as flipping upside-down rather than
+      // disintegrating in place (PLAN.md Phase H.2). Reversing back out of
+      // this timeline (toggleActions' "reverse") naturally un-does the
+      // zero-duration set along with everything after it, so scrolling
+      // back up still shows the flipped card, not one stuck upright.
       gsap
         .timeline({
           scrollTrigger: {
@@ -226,8 +252,9 @@ function MatchupCard({
             toggleActions: 'play none none reverse',
           },
         })
+        .set(cardRef.current, { rotateY: 0 })
         .to(cardRef.current, { opacity: 0, scale: 0.82, duration: 0.5, ease: 'power2.in' })
-        .call(() => burstParticles(particlesRef.current), undefined, '<')
+        .call(() => pixelBurst(particlesRef.current), undefined, '<')
     }, cardRef)
 
     return () => ctx.revert()

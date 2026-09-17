@@ -1430,3 +1430,53 @@ both right after fixes 1-4 and again after the section 5 deletion.
 **Not done:** real-device check of all five fixes (this environment still
 has no way to load the live Vercel URL or a real phone) — same
 carried-forward gap as every phase since the redesign began.
+
+## Phase H.2 — Trading card disintegration overhaul
+
+Three fixes to `NextWeekPreview.tsx`'s flip-card matchup preview
+(`MatchupCard`), reported after a real-device pass on the trading cards.
+
+1. **Uniform black cards.** `MatchupCard` alternated `isInk`/tone by
+   index (Phase G), giving every other card a light paper background.
+   Both `isInk` and `tone` are now hardcoded to ink — `CardFace`/
+   `CardPanel` still take a `tone` prop and the paper branch is left in
+   place (it's the only call site, and stripping it would be a bigger
+   change than this fix asked for), so the diff is the two lines that
+   decide tone, not a rewrite of either component.
+2. **Card exploded still face-down from the flip.** The 3D flip
+   (`rotateY` scrubbed 0→180 over the first 300px of scroll) reaches 180
+   well before the disintegration trigger fires later in the track, and
+   nothing else ever touched `rotateY` after that — so by the time the
+   card explodes, it's still showing its back face at 180°, which read as
+   the card flipping upside-down mid-explosion rather than disintegrating
+   in place. Fixed with an explicit `.set(cardRef.current, { rotateY: 0
+   })` as the first step of the disintegration timeline, forcing the card
+   upright at the exact instant the explosion starts. This is a
+   deliberate override, not a race with the flip's own tween — the flip's
+   scroll range has long since ended by the time this trigger fires, so
+   there's nothing actively fighting it. Reversing back out of the
+   disintegration (`toggleActions`'s `reverse`) naturally un-does the
+   zero-duration set along with everything timed after it, so scrolling
+   back up still shows the flipped card rather than one stuck upright.
+3. **Confetti replaced with an ignite-only pixel burst.** The old
+   `burstParticles()` (mixed ignite/current, purely radial, no gravity)
+   read as a generic celebration effect rather than the card itself
+   breaking apart. Replaced with `pixelBurst()`: ~260 small ignite-only
+   (`#ff5a36`) square pixels, each a single GSAP percentage-keyframe tween
+   (0%→20% a quick radial "toward the viewer" pop — reusing this
+   project's established scale-growth stand-in for depth, same trick
+   ConfettiLayer's finaleBurst uses — 20%→100% gravity carrying the pixel
+   further down and fading to zero opacity), 2-3s total per pixel. One
+   keyframed tween per particle rather than a nested timeline, matching
+   this codebase's existing burst-effect style (`ConfettiLayer.tsx`)
+   rather than introducing a new pattern.
+
+**Verified:** `tsc -b`, `oxlint` (same eight pre-existing warnings, zero
+new), `prettier --write` (no files needed reformatting), and a production
+`vite build` all pass.
+
+**Not done:** real-device check on the live Vercel URL (uniform black
+cards, upright disintegration, and how the pixel burst actually reads —
+"satisfying card destruction" is a real-device/visual judgment call this
+environment can't make) — same carried-forward gap as every phase since
+the redesign began.
