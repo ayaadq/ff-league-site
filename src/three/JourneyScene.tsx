@@ -5,6 +5,7 @@ import { Color, type Mesh, type MeshBasicMaterial, type PointLight } from 'three
 import { teamColorFor } from '../content/teamColors'
 import { useEffectsTier } from '../motion/effectsTierContext'
 import { useReducedMotion } from '../motion/reducedMotionContext'
+import { createCrowdTexture } from './crowdTexture'
 import {
   BASE_STANDOFF,
   cameraPullback,
@@ -12,9 +13,9 @@ import {
   stationZ,
   type JourneyStation,
 } from './journeyLayout'
-import { GOLD_MATERIAL_PROPS, MARBLE_MATERIAL_PROPS } from './materials'
+import { GOLD_MATERIAL_PROPS } from './materials'
 import { Portrait } from './Portrait'
-import { createTurfTexture } from './turfTexture'
+import { createFieldTurfTexture, createTurfTexture } from './turfTexture'
 
 const IGNITED_GOLD = '#a6845c'
 
@@ -94,10 +95,14 @@ const ACCENT_HEIGHT = 4
  * comment), the same way a real end zone carries team color while the
  * rest of the field stays grass, rather than tinting the whole surface.
  *
- * Sized well under STATION_GAP (15) on purpose: leaves clearance at
- * both ends of a station's footprint for the tunnel archways, which
- * are compressed into the middle of each gap as of stadium step 2 --
- * see ARCH_ZONE_START/END below. */
+ * Sized well under STATION_GAP (15) on purpose: leaves a clear gap at
+ * both ends of a station's footprint before the next station's own
+ * patch begins, so the two never visually overlap. Originally sized to
+ * also clear the tunnel archways that used to run through that gap --
+ * removed entirely (marble columns didn't fit "running through stadium
+ * turf," see the connecting floor's own comment below), but the
+ * spacing itself still reads correctly without them, so it stayed
+ * as-is rather than re-tuned for its own sake. */
 const FLOOR_TINT_WIDTH = 16
 const FLOOR_TINT_DEPTH = 11
 
@@ -106,12 +111,18 @@ const FLOOR_TINT_DEPTH = 11
  * Two straight wings flanking the field (not a closed ring) -- the
  * deliberate reading of "rounded-rectangle/oval, not circular" for this
  * pass: real straight-sided stands, distinctly not a curved track-
- * stadium bowl, and it leaves both ends of a station's footprint clear
- * for the tunnel archways exactly the way FLOOR_TINT_DEPTH already does
- * (see its own comment). WING_INNER_X starts outside the archway
- * pillars (ARCH_HALF_WIDTH=4.5 plus PILLAR_SIZE) with real clearance,
- * so stand geometry can never collide with the tunnel's.
+ * stadium bowl.
  *
+ * WING_INNER_X=6 no longer has anything to clear -- it was originally
+ * sized to sit just outside the tunnel archway pillars, which are gone
+ * (removed for "reads as stadium turf, not a marble hallway," not
+ * because of this). Kept at 6 rather than pulled in now that nothing
+ * forces that value: a real change, not a leftover, would want its own
+ * live visibility check the way every other framing number in this
+ * file already got, not a value changed in passing while removing
+ * something else.
+ *
+
  * Three stacked TIER_BANDS -- lower bowl, mezzanine, upper deck -- each
  * stepped back in X *and* up in Y from the one below, with a real gap
  * in both axes (not just a Y offset) so the step-back actually reads
@@ -178,37 +189,6 @@ const FASCIA_DEPTH = 0.3
  * team-color surfaces below do). */
 const SHELL_WIDTH = 0.4
 const SHELL_HEIGHT = 2.0
-
-/** Archway geometry -- see TunnelArches below. Half-width is wide
- * enough to clear the camera's lateral sway (currently 0.7, well under
- * this even if a future pass widens it) with room to spare; height is
- * tall enough that the camera's skycam height (CAMERA_HEIGHT scaled by
- * up to MAX_PULLBACK in JourneyCameraRig.tsx, ~7.7 at its highest)
- * passes under the lintel rather than through it. */
-const ARCH_HALF_WIDTH = 4.5
-const ARCH_HEIGHT = 9
-const PILLAR_SIZE = 0.5
-/** Archways per inter-station gap -- enough that a couple are always
- * visible ahead in the fog as the camera approaches, without the
- * instance count climbing (still two Instances draw calls total,
- * regardless of station or archway count). */
-const ARCHES_PER_GAP = 3
-
-/** Compressed into a shorter middle segment of each gap rather than
- * spread across the whole thing -- mis-filed as cosmetic polish back in
- * stadium step 1, corrected here once step 2's stands (WING_HALF_DEPTH
- * below) proved it wasn't cosmetic: at the old even 0..1 spacing, three
- * archway pillars all sitting at the same X, stacked along the camera's
- * near-axial view down the Z corridor, collapsed by perspective into
- * something close to a solid wall -- occluding almost the entire bowl
- * on both sides, confirmed live, not assumed. 0.35..0.65 leaves the
- * outer ~35% of each gap on both ends clear, just past where
- * WING_HALF_DEPTH (0.333 of STATION_GAP) already ends, so pillars never
- * enter a station's own footprint and never block the sightline to it
- * either -- a real "tunnel" hub in the middle of each gap, open stadium
- * on both ends, rather than pillars smeared across the whole span. */
-const ARCH_ZONE_START = 0.35
-const ARCH_ZONE_END = 0.65
 
 /** The two portraits of one matchup, facing the camera.
  *
@@ -373,60 +353,10 @@ function AccentLighting({ stations }: { stations: JourneyStation[] }) {
   return <pointLight ref={lightRef} intensity={0} distance={STATION_GAP * 1.6} decay={2} />
 }
 
-/** Marble-and-gold archways between stations -- the "tunnel" transition,
- * built from the same shared PBR presets TrophyRoomScene and the
- * standings wall use (materials.ts), not new materials invented for
- * this. Framing rather than a modeled corridor: three freestanding
- * archways per gap, evenly spaced along the same inter-station travel
- * the camera already rides (JourneyCameraRig's piecewise place()) --
- * this adds no new camera-control path, only geometry for the existing
- * one to fly past and under.
- *
- * Two Instances groups total (pillars, lintels), matching
- * TrophyRoomScene's per-geometry-type instancing -- archway count
- * scales with station count without adding draw calls. */
-function TunnelArches({ stationCount }: { stationCount: number }) {
-  const archZs = useMemo(() => {
-    const zs: number[] = []
-    for (let gap = 0; gap < stationCount - 1; gap++) {
-      const zStart = stationZ(gap)
-      const zEnd = stationZ(gap + 1)
-      for (let a = 1; a <= ARCHES_PER_GAP; a++) {
-        const localT = a / (ARCHES_PER_GAP + 1)
-        const t = ARCH_ZONE_START + (ARCH_ZONE_END - ARCH_ZONE_START) * localT
-        zs.push(zStart + (zEnd - zStart) * t)
-      }
-    }
-    return zs
-  }, [stationCount])
-
-  if (archZs.length === 0) return null
-
-  return (
-    <>
-      <Instances limit={archZs.length * 2}>
-        <boxGeometry args={[PILLAR_SIZE, ARCH_HEIGHT, PILLAR_SIZE]} />
-        <meshPhysicalMaterial {...MARBLE_MATERIAL_PROPS} />
-        {archZs.flatMap((z, i) => [
-          <Instance key={`${i}-l`} position={[-ARCH_HALF_WIDTH, ARCH_HEIGHT / 2, z]} />,
-          <Instance key={`${i}-r`} position={[ARCH_HALF_WIDTH, ARCH_HEIGHT / 2, z]} />,
-        ])}
-      </Instances>
-      <Instances limit={archZs.length}>
-        <boxGeometry args={[ARCH_HALF_WIDTH * 2 + PILLAR_SIZE, PILLAR_SIZE, PILLAR_SIZE]} />
-        <meshStandardMaterial {...GOLD_MATERIAL_PROPS} />
-        {archZs.map((z, i) => (
-          <Instance key={i} position={[0, ARCH_HEIGHT, z]} />
-        ))}
-      </Instances>
-    </>
-  )
-}
-
 /** Full quality tier's tiered stands -- three Instances groups total
- * (seat-blocks, fascia lips, shell walls), regardless of station count,
- * same discipline as TunnelArches: one shared geometry per group,
- * instanced per station/band/wing/segment rather than unique meshes.
+ * (seat-blocks, fascia lips, shell walls), regardless of station count:
+ * one shared geometry per group, instanced per station/band/wing/
+ * segment rather than unique meshes.
  *
  * Seat-blocks and fascia lips share one unlit meshBasicMaterial: the
  * team-color accent blocks need to read as saturated (the floor patch's
@@ -434,10 +364,15 @@ function TunnelArches({ stationCount }: { stationCount: number }) {
  * lights regardless of input hue), and since <Instances> shares one
  * material across every instance in a group, the neutral seat blocks
  * have to be unlit too rather than splitting into a second material
- * group for a self-shading look. A flat dark unlit block reads fine as
- * "seating structure" without needing PBR shading to sell it -- unlike
- * the team-color surfaces, there was nothing this material choice
- * needed to fight to be visible. */
+ * group for a self-shading look.
+ *
+ * Seat-blocks additionally carry crowdTexture.ts's tileable crowd
+ * pattern -- one texture, generated once, shared by every instance
+ * regardless of team; team-vs-neutral coloring keeps coming from the
+ * same per-instance <Instance color> already in use, which multiplies
+ * against whatever the texture draws. Fascia lips and shell walls stay
+ * flat (no crowd texture) -- they're trim, not seating, and the plan's
+ * own ask was specifically for the seat-tier blocks. */
 function FullStands({ stations }: { stations: JourneyStation[] }) {
   const stationCount = stations.length
   const seatColors = stations.map((station) =>
@@ -448,10 +383,9 @@ function FullStands({ stations }: { stations: JourneyStation[] }) {
   )
 
   // Every memo below keys off stationCount (a primitive), not `stations`
-  // itself -- matching TunnelArches' own archZs -- so layout is only
-  // ever recomputed when the number of stations changes, never when
-  // team identity does (seatColors, read separately at render time,
-  // handles that instead).
+  // itself, so layout is only ever recomputed when the number of
+  // stations changes, never when team identity does (seatColors, read
+  // separately at render time, handles that instead).
   const seatBlocks = useMemo(() => {
     const items: {
       position: [number, number, number]
@@ -511,11 +445,23 @@ function FullStands({ stations }: { stations: JourneyStation[] }) {
     return items
   }, [stationCount])
 
+  // Generated once (empty deps -- colorless, so nothing about a
+  // specific station or team ever invalidates it) and reused for every
+  // seat-block instance regardless of station count. A few tiles per
+  // block is enough to read as textured rather than one giant pattern
+  // stretched thin across each block's own face.
+  const crowdTexture = useMemo(() => {
+    const texture = createCrowdTexture()
+    texture.repeat.set(3, 2)
+    return texture
+  }, [])
+  useEffect(() => () => crowdTexture.dispose(), [crowdTexture])
+
   return (
     <>
       <Instances limit={seatBlocks.length}>
         <boxGeometry args={[1, 1, 1]} />
-        <meshBasicMaterial toneMapped={false} />
+        <meshBasicMaterial map={crowdTexture} toneMapped={false} />
         {seatBlocks.map((block, i) => (
           <Instance
             key={i}
@@ -605,14 +551,36 @@ function Stands({ stations }: { stations: JourneyStation[] }) {
   )
 }
 
-/** The weekly journey's world: a marble floor with the week's matchups
- * standing along it, lit one at a time, fading into a dark warm fog
- * rather than the bright open marble the other two scenes use --
- * SceneLighting plus MARBLE_MATERIAL_PROPS (JourneyCanvas.tsx) give the
- * floor the same lit-stone read as the rest of the site, while the
- * surrounding fog stays dark enough for WeeklyJourney's DOM text to
- * keep working. A lit floor fading into real darkness reads as its own
- * place, not just a dimmer copy of the gallery.
+/** How many world units one tile of the connecting floor's turf texture
+ * covers -- matched to FLOOR_TINT_WIDTH so the connecting floor's
+ * mowing-stripe scale roughly agrees with each station's own featured
+ * patch, not a coincidence of two independently-picked numbers. */
+const FIELD_TILE_WORLD_SIZE = FLOOR_TINT_WIDTH
+
+/** The weekly journey's world: turf underfoot the whole way through,
+ * not just at each station, fading into a dark warm fog rather than
+ * the bright open marble the other two scenes use.
+ *
+ * Originally a marble floor (MARBLE_MATERIAL_PROPS, materials.ts) with
+ * columned archways marking the gaps between stations -- replaced on
+ * later direction wanting the connecting run to read as stadium turf
+ * end to end, not a marble hallway linking football pockets. The
+ * archways (TunnelArches) are gone entirely, not just retuned again;
+ * nothing else in the file depended on them (checked before removing,
+ * not assumed) -- the GOTW camera-tightening path, the camera rig's own
+ * clearance math, and the stands' own positioning are all independent
+ * of archway geometry. The one real trade named at the time: this gives
+ * up the archway's role as visual continuity with the rest of the
+ * site's marble/gold identity. Each station's own gold seam (Station's
+ * return, below) still carries a thread of that, but it's a real
+ * trade, not a free one.
+ *
+ * Unlit (meshBasicMaterial, matching the station patches' own material
+ * choice) for the same reason as always in this file: this floor needs
+ * to read as its actual green, not a lit material's desaturated take on
+ * it. createFieldTurfTexture's tile repeats via RepeatWrapping rather
+ * than needing a texture sized to the whole floor -- one small canvas,
+ * scaled by `.repeat` to the floor's own real dimensions.
  *
  * A real stadium bowl (Stands, stadium step 2) rings each station now,
  * but the scoreboard, the headline and the roast stay DOM text layered
@@ -622,16 +590,22 @@ function Stands({ stations }: { stations: JourneyStation[] }) {
 export function JourneyScene({ stations }: { stations: JourneyStation[] }) {
   const depth = Math.max(stations.length, 1) * STATION_GAP + 40
 
+  const fieldTexture = useMemo(() => {
+    const texture = createFieldTurfTexture()
+    texture.repeat.set(70 / FIELD_TILE_WORLD_SIZE, depth / FIELD_TILE_WORLD_SIZE)
+    return texture
+  }, [depth])
+  useEffect(() => () => fieldTexture.dispose(), [fieldTexture])
+
   return (
     <group>
       {/* Floor. Runs well past the last station so the fog, not an edge,
           is what ends the world. */}
       <mesh position={[0, 0, -depth / 2 + 20]} rotation={[-Math.PI / 2, 0, 0]}>
         <planeGeometry args={[70, depth]} />
-        <meshPhysicalMaterial {...MARBLE_MATERIAL_PROPS} roughness={0.55} />
+        <meshBasicMaterial map={fieldTexture} toneMapped={false} />
       </mesh>
 
-      <TunnelArches stationCount={stations.length} />
       <AccentLighting stations={stations} />
       <Stands stations={stations} />
 

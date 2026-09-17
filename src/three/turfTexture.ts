@@ -1,19 +1,25 @@
-import { CanvasTexture, SRGBColorSpace } from 'three'
+import { CanvasTexture, RepeatWrapping, SRGBColorSpace } from 'three'
 
-/** A tight aerial crop of turf -- a yard line, a pair of hash marks, and
- * a yard number -- generated on a 2D canvas rather than a sourced image
- * asset. Same reasoning as the crowd-texture call from the stadium
- * plan: zero network dependency, nothing to license or maintain, and a
- * yard line is easier to draw procedurally (a few fillRect/fillText
- * calls) than the crowd texture would have been.
- *
- * 640x440 matches JourneyScene.tsx's FLOOR_TINT_WIDTH:FLOOR_TINT_DEPTH
- * (16:11) aspect exactly, so the line and numbers don't stretch when
- * mapped onto that plane -- not imported from there directly, since a
- * canvas-drawing module has no real reason to depend on scene layout
- * constants; the relationship is documented here instead. */
+/** Generated on a 2D canvas rather than a sourced image asset, same
+ * reasoning as the crowd-texture call from the stadium plan: zero
+ * network dependency, nothing to license or maintain, and turf is
+ * easier to draw procedurally (fillRect/fillText calls) than the crowd
+ * texture would have been. */
+
+/** 640x440 matches JourneyScene.tsx's FLOOR_TINT_WIDTH:FLOOR_TINT_DEPTH
+ * (16:11) aspect exactly, so a station's own patch's line and numbers
+ * don't stretch when mapped onto that plane -- not imported from there
+ * directly, since a canvas-drawing module has no real reason to depend
+ * on scene layout constants; the relationship is documented here
+ * instead. */
 const CANVAS_WIDTH = 640
 const CANVAS_HEIGHT = 440
+
+/** The connecting floor's tile -- square, not 16:11, since it has no
+ * yard-line content that needs a specific aspect to avoid stretching;
+ * it only ever needs to tile cleanly, which paintTurfBase's own
+ * stripe-only pattern does at any aspect. */
+const FIELD_CANVAS_SIZE = 256
 
 const TURF_BASE = '#2d5a34'
 /** Mowing stripes: real turf is cut in alternating lengthwise bands,
@@ -21,6 +27,23 @@ const TURF_BASE = '#2d5a34'
  * grass without competing with the yard markings for attention. */
 const TURF_STRIPE = '#28502c'
 const LINE_WHITE = '#f2f2ec'
+
+/** Fills the base green and mowing stripes -- shared by createTurfTexture
+ * (a station's own featured patch, with yard-line detail on top) and
+ * createFieldTurfTexture (the connecting floor between stations, stripes
+ * only) so both draw from the same turf language rather than two
+ * independently-tuned green fills that could drift apart. */
+function paintTurfBase(ctx: CanvasRenderingContext2D, width: number, height: number): void {
+  ctx.fillStyle = TURF_BASE
+  ctx.fillRect(0, 0, width, height)
+
+  const stripeCount = 6
+  const stripeWidth = width / stripeCount
+  ctx.fillStyle = TURF_STRIPE
+  for (let i = 0; i < stripeCount; i += 2) {
+    ctx.fillRect(i * stripeWidth, 0, stripeWidth, height)
+  }
+}
 
 /** One patch per station, one call per unique team color -- see the
  * useMemo at the call site (JourneyScene.tsx's Station) for why this
@@ -39,15 +62,7 @@ export function createTurfTexture(accentColor: string): CanvasTexture {
   const ctx = canvas.getContext('2d')
 
   if (ctx) {
-    ctx.fillStyle = TURF_BASE
-    ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT)
-
-    const stripeCount = 6
-    const stripeWidth = CANVAS_WIDTH / stripeCount
-    ctx.fillStyle = TURF_STRIPE
-    for (let i = 0; i < stripeCount; i += 2) {
-      ctx.fillRect(i * stripeWidth, 0, stripeWidth, CANVAS_HEIGHT)
-    }
+    paintTurfBase(ctx, CANVAS_WIDTH, CANVAS_HEIGHT)
 
     // The yard line runs across the field's width (world X, canvas
     // width) at one downfield position (world Z, canvas Y) -- a
@@ -85,6 +100,36 @@ export function createTurfTexture(accentColor: string): CanvasTexture {
   // colors need sRGB decoding to render at the intended brightness,
   // not the washed-out default a texture's colorSpace otherwise falls
   // back to.
+  texture.colorSpace = SRGBColorSpace
+  return texture
+}
+
+/** The connecting floor between stations -- same turf base/stripe
+ * language as each station's own featured patch (paintTurfBase),
+ * without the yard-line/number detail, which belongs to a station's
+ * own patch, not the open run between them. "Reads as running through
+ * stadium turf, not a marble hallway" was the actual design ask this
+ * replaced a plain marble floor for -- the previous connecting floor
+ * used the site's marble material (materials.ts), which read as an
+ * open corridor with football pockets at each station rather than
+ * turf end to end.
+ *
+ * A single small tileable square, not a texture sized to the whole
+ * floor plane -- same reasoning as the crowd texture: a texture that
+ * repeats doesn't need to be sized to what it's covering. The caller
+ * (JourneyScene's own floor mesh) sets `.repeat` based on the floor's
+ * actual world dimensions, which this module has no reason to know. */
+export function createFieldTurfTexture(): CanvasTexture {
+  const canvas = document.createElement('canvas')
+  canvas.width = FIELD_CANVAS_SIZE
+  canvas.height = FIELD_CANVAS_SIZE
+  const ctx = canvas.getContext('2d')
+
+  if (ctx) paintTurfBase(ctx, FIELD_CANVAS_SIZE, FIELD_CANVAS_SIZE)
+
+  const texture = new CanvasTexture(canvas)
+  texture.wrapS = RepeatWrapping
+  texture.wrapT = RepeatWrapping
   texture.colorSpace = SRGBColorSpace
   return texture
 }
