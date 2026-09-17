@@ -1,6 +1,6 @@
 import { Instance, Instances } from '@react-three/drei'
 import { useFrame } from '@react-three/fiber'
-import { useMemo, useRef } from 'react'
+import { useEffect, useMemo, useRef } from 'react'
 import { Color, type Mesh, type MeshBasicMaterial, type PointLight } from 'three'
 import { teamColorFor } from '../content/teamColors'
 import { useEffectsTier } from '../motion/effectsTierContext'
@@ -14,6 +14,7 @@ import {
 } from './journeyLayout'
 import { GOLD_MATERIAL_PROPS, MARBLE_MATERIAL_PROPS } from './materials'
 import { Portrait } from './Portrait'
+import { createTurfTexture } from './turfTexture'
 
 const IGNITED_GOLD = '#a6845c'
 
@@ -58,8 +59,8 @@ const MIN_INTENSITY = 0.08
  * stadiums read as nearly identical -- a light this diluted, shining on
  * neutral marble, structurally can't carry team identity on its own
  * (light modulates a surface's existing color, it doesn't override it).
- * The real fix is FLOOR_TINT_MIX below: the *surface* is now the
- * primary color carrier, at far less dilution, and this light is
+ * The real fix is the floor patch below: the *surface* is now the
+ * primary color carrier, and this light is
  * explicitly a secondary/ambient contributor on top of that -- still
  * generalizing CLAUDE.md's "gold/brass is decorative only, never a
  * flood" rule, just no longer trying to make one diluted light do both
@@ -76,29 +77,29 @@ const ACCENT_RADIUS = 12
 const ACCENT_MAX_INTENSITY = 0.55
 const ACCENT_HEIGHT = 4
 
-/** Stadium step 1: a saturated team-color floor patch under each
- * station -- the primary way a stadium now reads as *this* team's,
- * surface color rather than light being the carrier (see ACCENT_MIX's
- * comment above for why light alone couldn't do this job). Still no
- * new geometry category: one more plane per station, same construction
- * as the existing gold seam just below it in the Station return.
+/** Stadium step 1: a turf patch under each station -- the primary way a
+ * stadium reads as *this* team's, surface carrying color rather than
+ * light being the carrier (see ACCENT_MIX's comment above for why light
+ * alone couldn't do this job). Still no new geometry category: one more
+ * plane per station, same construction as the existing gold seam just
+ * below it in the Station return -- what changed is the material on it
+ * (turfTexture.ts's procedural canvas texture: a yard line, hash marks,
+ * a team-color yard number), not the plane itself.
  *
- * FLOOR_TINT_MIX stays far less diluted than the light's own
- * ACCENT_MIX -- 0.85 keeps the team's assigned hue clearly dominant,
- * with only a whisper of ACCENT_WARM_BASE blended in so a cooler
- * fallback color (blues, violets in content/teamColors.ts's fallback
- * palette) doesn't read as a jarring, uncomposited hex against the warm
- * marble everywhere else on the site.
+ * Originally a flat team-color fill (FLOOR_TINT_MIX blended toward
+ * ACCENT_WARM_BASE); replaced with the turf texture on later feedback
+ * that a plain color rectangle didn't read as "a football field," just
+ * as tinted ground. The turf stays green/neutral -- the team color now
+ * lives on the yard number specifically (createTurfTexture's own
+ * comment), the same way a real end zone carries team color while the
+ * rest of the field stays grass, rather than tinting the whole surface.
  *
  * Sized well under STATION_GAP (15) on purpose: leaves clearance at
  * both ends of a station's footprint for the tunnel archways, which
- * still span the *whole* inter-station gap today -- narrowing that
- * span to match is tracked as a later tuning pass (stadium step 3),
- * not done here, since this step is scoped to color only, no other
- * geometry changes. */
+ * are compressed into the middle of each gap as of stadium step 2 --
+ * see ARCH_ZONE_START/END below. */
 const FLOOR_TINT_WIDTH = 16
 const FLOOR_TINT_DEPTH = 11
-const FLOOR_TINT_MIX = 0.85
 
 /** Stadium step 2: tiered seating stands.
  *
@@ -131,20 +132,21 @@ const SEAT_BLOCK_WIDTH = 2.0
  * "accent column near the action" pattern rather than a random
  * per-instance scatter. */
 const ACCENT_SEGMENT_INDEX = 1
-/** Not FLOOR_TINT_MIX -- a live screenshot check (elevated diagnostic
- * camera, panel hidden) caught the accent blocks reading as
- * indistinguishable from the neutral ones at FLOOR_TINT_MIX's 0.85
- * dilution. Root cause: JourneyCanvas's scene fog (`#2B2926`, 14-58)
- * applies to unlit meshBasicMaterial too by default, and the stands
- * sit far enough out (laterally, not just in Z) that fog is already
- * pulling both the accent and the neutral shade toward the same dark
- * tone before the eye ever gets a look at the underlying hue -- the
- * floor patch never had this problem because it sits close to camera
- * at ground level. Full team saturation, zero dilution, gives the
- * accent color the most headroom to still read as distinct once fog
- * has had its effect. SEAT_NEUTRAL was raised for the same reason,
- * away from a near-black that was already close to the fog color
- * itself even before fog -- a neutral seat block needs to read as
+/** Not the same dilution the floor patch's own team color once used
+ * (a flat 0.85-diluted fill, since replaced by turfTexture.ts) -- a
+ * live screenshot check (elevated diagnostic camera, panel hidden)
+ * caught the stands' accent blocks reading as indistinguishable from
+ * the neutral ones at that level of dilution. Root cause: JourneyCanvas's
+ * scene fog (`#2B2926`, 14-58) applies to unlit meshBasicMaterial too by
+ * default, and the stands sit far enough out (laterally, not just in Z)
+ * that fog is already pulling both the accent and the neutral shade
+ * toward the same dark tone before the eye ever gets a look at the
+ * underlying hue -- the floor patch never had this problem because it
+ * sits close to camera at ground level. Full team saturation, zero
+ * dilution, gives the accent color the most headroom to still read as
+ * distinct once fog has had its effect. SEAT_NEUTRAL was raised for the
+ * same reason, away from a near-black that was already close to the fog
+ * color itself even before fog -- a neutral seat block needs to read as
  * "structure," not disappear into the backdrop. */
 const SEAT_ACCENT_MIX = 1
 const SEAT_NEUTRAL = '#55504a'
@@ -170,7 +172,7 @@ const FASCIA_DEPTH = 0.3
 /** The bowl's outer shell -- one gold wall per wing, capping the
  * outside/top of the upper deck. Reuses GOLD_MATERIAL_PROPS as-is
  * (the archway lintels' own material, already proven to read correctly
- * under this scene's lighting -- unlike FLOOR_TINT_MIX's surface color,
+ * under this scene's lighting -- unlike a flat team-color surface,
  * gold at moderate metalness was never the thing that washed out, so
  * there's no reason to reach for an unlit material here the way the
  * team-color surfaces below do). */
@@ -234,20 +236,19 @@ function Station({ station, index }: { station: JourneyStation; index: number })
   const prefersReducedMotion = useReducedMotion()
   const igniteEnabled = effectsTier === 'full' && !prefersReducedMotion
   const igniteColor = useMemo(() => new Color(IGNITED_GOLD), [])
-  // Static color, computed once per station rather than per-frame -- a
-  // team's assigned hue doesn't change while scrolling, unlike the
+  // Static texture, generated once per station rather than per-frame --
+  // a team's assigned hue doesn't change while scrolling, unlike the
   // ignite plane above (which tracks live camera distance) or the
   // accent light (which tracks which station is nearest). Renders on
   // both quality tiers: this is plain static geometry, not a per-frame
-  // effect, so there's nothing here for "reduced" to skip.
-  const floorTintColor = useMemo(
-    () =>
-      new Color(teamColorFor(station.winnerUserId)).lerp(
-        new Color(ACCENT_WARM_BASE),
-        1 - FLOOR_TINT_MIX,
-      ),
+  // effect, so there's nothing here for "reduced" to skip. Disposed on
+  // unmount/re-generation -- a CanvasTexture holds onto real GPU memory
+  // that useMemo alone has no way to release.
+  const turfTexture = useMemo(
+    () => createTurfTexture(teamColorFor(station.winnerUserId)),
     [station.winnerUserId],
   )
+  useEffect(() => () => turfTexture.dispose(), [turfTexture])
 
   useFrame(({ camera, size }) => {
     if (!igniteEnabled) return
@@ -284,25 +285,28 @@ function Station({ station, index }: { station: JourneyStation; index: number })
 
       <Portrait avatarId={station.loserAvatarId} position={[2.7, 2.35, 0]} rotationY={-0.13} />
 
-      {/* The team-color floor patch -- see FLOOR_TINT_MIX's own comment.
-          Sits above the marble floor (y=0) but below the gold seam
-          (y=0.012) so the seam still reads as a distinct accent line
-          layered on top of the tint, not fighting it for the same
-          pixels.
+      {/* The turf patch -- see turfTexture.ts's own comment for what's
+          drawn on it and why the team color lives on the yard number
+          rather than a wash across the whole surface. Sits above the
+          marble floor (y=0) but below the gold seam (y=0.012) so the
+          seam still reads as a distinct accent line layered on top,
+          not fighting the turf for the same pixels.
 
           Unlit (meshBasicMaterial, toneMapped false), matching the
           ignite plane/gold seam above rather than a PBR material -- not
-          the original choice here. A live screenshot check caught a lit
-          meshStandardMaterial reading as barely-there: even a pure
-          #ff0000 test swap (bypassing FLOOR_TINT_MIX entirely) rendered
-          as a pale wash under this scene's soft studio HDRI + fill
-          lights, the same lighting a diffuse surface has no way to
-          opt out of. Unlit sidesteps that -- the whole point of this
-          patch is to be the primary, unmistakable color carrier the
-          plan called for, not a subtly-shaded piece of ground. */}
+          the original choice here (this plane originally carried a flat
+          fill color, not a texture). A live screenshot check caught a
+          lit meshStandardMaterial reading as barely-there: even a pure
+          #ff0000 test swap rendered as a pale wash under this scene's
+          soft studio HDRI + fill lights, the same lighting a diffuse
+          surface has no way to opt out of. Unlit sidesteps that -- the
+          yard number specifically needs to read as an unmistakable
+          color carrier, not a subtly-shaded piece of ground, and the
+          turf-green base is unlit for the same reason the fill it
+          replaced was: one material for the whole plane, not two. */}
       <mesh position={[0, 0.01, 0]} rotation={[-Math.PI / 2, 0, 0]}>
         <planeGeometry args={[FLOOR_TINT_WIDTH, FLOOR_TINT_DEPTH]} />
-        <meshBasicMaterial color={floorTintColor} toneMapped={false} />
+        <meshBasicMaterial map={turfTexture} toneMapped={false} />
       </mesh>
 
       {/* A gold seam across the floor marks where the station is, so the
@@ -425,7 +429,7 @@ function TunnelArches({ stationCount }: { stationCount: number }) {
  * instanced per station/band/wing/segment rather than unique meshes.
  *
  * Seat-blocks and fascia lips share one unlit meshBasicMaterial: the
- * team-color accent blocks need to read as saturated (FLOOR_TINT_MIX's
+ * team-color accent blocks need to read as saturated (the floor patch's
  * own lesson -- a lit material desaturates under this scene's HDRI/fill
  * lights regardless of input hue), and since <Instances> shares one
  * material across every instance in a group, the neutral seat blocks
