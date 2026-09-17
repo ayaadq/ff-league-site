@@ -100,6 +100,83 @@ const FLOOR_TINT_WIDTH = 16
 const FLOOR_TINT_DEPTH = 11
 const FLOOR_TINT_MIX = 0.85
 
+/** Stadium step 2: tiered seating stands.
+ *
+ * Two straight wings flanking the field (not a closed ring) -- the
+ * deliberate reading of "rounded-rectangle/oval, not circular" for this
+ * pass: real straight-sided stands, distinctly not a curved track-
+ * stadium bowl, and it leaves both ends of a station's footprint clear
+ * for the tunnel archways exactly the way FLOOR_TINT_DEPTH already does
+ * (see its own comment). WING_INNER_X starts outside the archway
+ * pillars (ARCH_HALF_WIDTH=4.5 plus PILLAR_SIZE) with real clearance,
+ * so stand geometry can never collide with the tunnel's.
+ *
+ * Three stacked TIER_BANDS -- lower bowl, mezzanine, upper deck -- each
+ * stepped back in X *and* up in Y from the one below, with a real gap
+ * in both axes (not just a Y offset) so the step-back actually reads
+ * from the camera's angle rather than the bands visually merging into
+ * one taller slab. */
+const WING_INNER_X = 6
+const WING_HALF_DEPTH = 5
+const WING_SEGMENTS = 4
+const SEAT_BLOCK_DEPTH = 2.2
+const SEAT_BLOCK_WIDTH = 2.0
+/** Which of the WING_SEGMENTS blocks per wing carries the team-color
+ * accent -- index 1 of 4, biased toward the station's own center
+ * (segment centers run from the wing's far edge toward the middle, so
+ * a low index sits nearer the portraits, where the camera is actually
+ * looking) rather than the far end, which spends more of its time
+ * fading into fog. One accent block per wing per band = 2 of 8 total
+ * per band, 25% -- inside the 20-30% target, in a deliberate
+ * "accent column near the action" pattern rather than a random
+ * per-instance scatter. */
+const ACCENT_SEGMENT_INDEX = 1
+/** Not FLOOR_TINT_MIX -- a live screenshot check (elevated diagnostic
+ * camera, panel hidden) caught the accent blocks reading as
+ * indistinguishable from the neutral ones at FLOOR_TINT_MIX's 0.85
+ * dilution. Root cause: JourneyCanvas's scene fog (`#2B2926`, 14-58)
+ * applies to unlit meshBasicMaterial too by default, and the stands
+ * sit far enough out (laterally, not just in Z) that fog is already
+ * pulling both the accent and the neutral shade toward the same dark
+ * tone before the eye ever gets a look at the underlying hue -- the
+ * floor patch never had this problem because it sits close to camera
+ * at ground level. Full team saturation, zero dilution, gives the
+ * accent color the most headroom to still read as distinct once fog
+ * has had its effect. SEAT_NEUTRAL was raised for the same reason,
+ * away from a near-black that was already close to the fog color
+ * itself even before fog -- a neutral seat block needs to read as
+ * "structure," not disappear into the backdrop. */
+const SEAT_ACCENT_MIX = 1
+const SEAT_NEUTRAL = '#55504a'
+
+interface TierBand {
+  yBase: number
+  xOffset: number
+  height: number
+}
+/** xOffset increases by more than SEAT_BLOCK_DEPTH each step (2.5 vs
+ * 2.2) so each band's X range clears the one below it with a real gap,
+ * not just an abutting edge -- paired with the yBase gaps below (each
+ * band's top sits 0.5 short of the next band's bottom), the step-back
+ * is visible on both axes the camera can actually perceive it on. */
+const TIER_BANDS: TierBand[] = [
+  { yBase: 0.3, xOffset: 0, height: 2.0 },
+  { yBase: 2.8, xOffset: 2.5, height: 1.8 },
+  { yBase: 5.1, xOffset: 5.0, height: 1.6 },
+]
+
+const FASCIA_HEIGHT = 0.35
+const FASCIA_DEPTH = 0.3
+/** The bowl's outer shell -- one gold wall per wing, capping the
+ * outside/top of the upper deck. Reuses GOLD_MATERIAL_PROPS as-is
+ * (the archway lintels' own material, already proven to read correctly
+ * under this scene's lighting -- unlike FLOOR_TINT_MIX's surface color,
+ * gold at moderate metalness was never the thing that washed out, so
+ * there's no reason to reach for an unlit material here the way the
+ * team-color surfaces below do). */
+const SHELL_WIDTH = 0.4
+const SHELL_HEIGHT = 2.0
+
 /** Archway geometry -- see TunnelArches below. Half-width is wide
  * enough to clear the camera's lateral sway (currently 0.7, well under
  * this even if a future pass widens it) with room to spare; height is
@@ -114,6 +191,22 @@ const PILLAR_SIZE = 0.5
  * instance count climbing (still two Instances draw calls total,
  * regardless of station or archway count). */
 const ARCHES_PER_GAP = 3
+
+/** Compressed into a shorter middle segment of each gap rather than
+ * spread across the whole thing -- mis-filed as cosmetic polish back in
+ * stadium step 1, corrected here once step 2's stands (WING_HALF_DEPTH
+ * below) proved it wasn't cosmetic: at the old even 0..1 spacing, three
+ * archway pillars all sitting at the same X, stacked along the camera's
+ * near-axial view down the Z corridor, collapsed by perspective into
+ * something close to a solid wall -- occluding almost the entire bowl
+ * on both sides, confirmed live, not assumed. 0.35..0.65 leaves the
+ * outer ~35% of each gap on both ends clear, just past where
+ * WING_HALF_DEPTH (0.333 of STATION_GAP) already ends, so pillars never
+ * enter a station's own footprint and never block the sightline to it
+ * either -- a real "tunnel" hub in the middle of each gap, open stadium
+ * on both ends, rather than pillars smeared across the whole span. */
+const ARCH_ZONE_START = 0.35
+const ARCH_ZONE_END = 0.65
 
 /** The two portraits of one matchup, facing the camera.
  *
@@ -295,7 +388,8 @@ function TunnelArches({ stationCount }: { stationCount: number }) {
       const zStart = stationZ(gap)
       const zEnd = stationZ(gap + 1)
       for (let a = 1; a <= ARCHES_PER_GAP; a++) {
-        const t = a / (ARCHES_PER_GAP + 1)
+        const localT = a / (ARCHES_PER_GAP + 1)
+        const t = ARCH_ZONE_START + (ARCH_ZONE_END - ARCH_ZONE_START) * localT
         zs.push(zStart + (zEnd - zStart) * t)
       }
     }
@@ -325,6 +419,188 @@ function TunnelArches({ stationCount }: { stationCount: number }) {
   )
 }
 
+/** Full quality tier's tiered stands -- three Instances groups total
+ * (seat-blocks, fascia lips, shell walls), regardless of station count,
+ * same discipline as TunnelArches: one shared geometry per group,
+ * instanced per station/band/wing/segment rather than unique meshes.
+ *
+ * Seat-blocks and fascia lips share one unlit meshBasicMaterial: the
+ * team-color accent blocks need to read as saturated (FLOOR_TINT_MIX's
+ * own lesson -- a lit material desaturates under this scene's HDRI/fill
+ * lights regardless of input hue), and since <Instances> shares one
+ * material across every instance in a group, the neutral seat blocks
+ * have to be unlit too rather than splitting into a second material
+ * group for a self-shading look. A flat dark unlit block reads fine as
+ * "seating structure" without needing PBR shading to sell it -- unlike
+ * the team-color surfaces, there was nothing this material choice
+ * needed to fight to be visible. */
+function FullStands({ stations }: { stations: JourneyStation[] }) {
+  const stationCount = stations.length
+  const seatColors = stations.map((station) =>
+    new Color(teamColorFor(station.winnerUserId)).lerp(
+      new Color(ACCENT_WARM_BASE),
+      1 - SEAT_ACCENT_MIX,
+    ),
+  )
+
+  // Every memo below keys off stationCount (a primitive), not `stations`
+  // itself -- matching TunnelArches' own archZs -- so layout is only
+  // ever recomputed when the number of stations changes, never when
+  // team identity does (seatColors, read separately at render time,
+  // handles that instead).
+  const seatBlocks = useMemo(() => {
+    const items: {
+      position: [number, number, number]
+      scale: [number, number, number]
+      accent: boolean
+      stationIndex: number
+    }[] = []
+    for (let stationIndex = 0; stationIndex < stationCount; stationIndex++) {
+      const z0 = stationZ(stationIndex)
+      TIER_BANDS.forEach((band) => {
+        for (const wingSign of [1, -1] as const) {
+          for (let j = 0; j < WING_SEGMENTS; j++) {
+            const t = (j + 0.5) / WING_SEGMENTS
+            const z = z0 - WING_HALF_DEPTH + 2 * WING_HALF_DEPTH * t
+            const x = wingSign * (WING_INNER_X + band.xOffset + SEAT_BLOCK_DEPTH / 2)
+            items.push({
+              position: [x, band.yBase + band.height / 2, z],
+              scale: [SEAT_BLOCK_DEPTH, band.height, SEAT_BLOCK_WIDTH],
+              accent: j === ACCENT_SEGMENT_INDEX,
+              stationIndex,
+            })
+          }
+        }
+      })
+    }
+    return items
+  }, [stationCount])
+
+  const fasciaLips = useMemo(() => {
+    const items: { position: [number, number, number]; stationIndex: number }[] = []
+    for (let stationIndex = 0; stationIndex < stationCount; stationIndex++) {
+      const z0 = stationZ(stationIndex)
+      TIER_BANDS.forEach((band) => {
+        for (const wingSign of [1, -1] as const) {
+          items.push({
+            position: [wingSign * (WING_INNER_X + band.xOffset), band.yBase, z0],
+            stationIndex,
+          })
+        }
+      })
+    }
+    return items
+  }, [stationCount])
+
+  const shellWalls = useMemo(() => {
+    const topBand = TIER_BANDS[TIER_BANDS.length - 1]
+    const items: { position: [number, number, number] }[] = []
+    for (let stationIndex = 0; stationIndex < stationCount; stationIndex++) {
+      const z0 = stationZ(stationIndex)
+      const x = WING_INNER_X + topBand.xOffset + SEAT_BLOCK_DEPTH + SHELL_WIDTH / 2 + 0.1
+      for (const wingSign of [1, -1] as const) {
+        items.push({
+          position: [wingSign * x, topBand.yBase + topBand.height + SHELL_HEIGHT / 2, z0],
+        })
+      }
+    }
+    return items
+  }, [stationCount])
+
+  return (
+    <>
+      <Instances limit={seatBlocks.length}>
+        <boxGeometry args={[1, 1, 1]} />
+        <meshBasicMaterial toneMapped={false} />
+        {seatBlocks.map((block, i) => (
+          <Instance
+            key={i}
+            position={block.position}
+            scale={block.scale}
+            color={block.accent ? seatColors[block.stationIndex] : SEAT_NEUTRAL}
+          />
+        ))}
+      </Instances>
+      <Instances limit={fasciaLips.length}>
+        <boxGeometry args={[FASCIA_DEPTH, FASCIA_HEIGHT, WING_HALF_DEPTH * 2]} />
+        <meshBasicMaterial toneMapped={false} />
+        {fasciaLips.map((lip, i) => (
+          <Instance key={i} position={lip.position} color={seatColors[lip.stationIndex]} />
+        ))}
+      </Instances>
+      <Instances limit={shellWalls.length}>
+        <boxGeometry args={[SHELL_WIDTH, SHELL_HEIGHT, WING_HALF_DEPTH * 2]} />
+        <meshStandardMaterial {...GOLD_MATERIAL_PROPS} />
+        {shellWalls.map((wall, i) => (
+          <Instance key={i} position={wall.position} />
+        ))}
+      </Instances>
+    </>
+  )
+}
+
+const SIMPLE_BAND_HEIGHT = 2.4
+const SIMPLE_BAND_DEPTH = 2.5
+
+/** Reduced quality tier's stands -- one Instances group, one flat band
+ * per wing per station (12 instances total regardless of station
+ * count), no tiers, no fascia/shell trim, no accent patterning. Still
+ * team-colored (uniformly, the whole band) rather than dropped
+ * entirely -- "reduced" cuts the geometry that costs triangles/draw
+ * calls, not the color identity that was this whole stadium pass's
+ * actual point. */
+function SimpleStands({ stations }: { stations: JourneyStation[] }) {
+  const stationCount = stations.length
+  const seatColors = stations.map((station) =>
+    new Color(teamColorFor(station.winnerUserId)).lerp(
+      new Color(ACCENT_WARM_BASE),
+      1 - SEAT_ACCENT_MIX,
+    ),
+  )
+
+  const bands = useMemo(() => {
+    const items: { position: [number, number, number]; stationIndex: number }[] = []
+    for (let stationIndex = 0; stationIndex < stationCount; stationIndex++) {
+      const z0 = stationZ(stationIndex)
+      for (const wingSign of [1, -1] as const) {
+        items.push({
+          position: [wingSign * (WING_INNER_X + SIMPLE_BAND_DEPTH / 2), SIMPLE_BAND_HEIGHT / 2, z0],
+          stationIndex,
+        })
+      }
+    }
+    return items
+  }, [stationCount])
+
+  return (
+    <Instances limit={bands.length}>
+      <boxGeometry args={[SIMPLE_BAND_DEPTH, SIMPLE_BAND_HEIGHT, WING_HALF_DEPTH * 2]} />
+      <meshBasicMaterial toneMapped={false} />
+      {bands.map((band, i) => (
+        <Instance key={i} position={band.position} color={seatColors[band.stationIndex]} />
+      ))}
+    </Instances>
+  )
+}
+
+/** Picks the tier's stands variant once, rather than tier-conditionals
+ * sprinkled through one component's JSX (the stadium plan's own
+ * architecture call) -- FullStands and SimpleStands build genuinely
+ * different geometry, not the same geometry with animation toggled,
+ * the first place in this file where the quality tier decides what
+ * gets built at all rather than just what gets updated per frame.
+ * Reduced tier only -- not gated on prefers-reduced-motion, since this
+ * is static geometry with no per-frame work either variant does; that
+ * axis is orthogonal to which stands variant renders. */
+function Stands({ stations }: { stations: JourneyStation[] }) {
+  const effectsTier = useEffectsTier()
+  return effectsTier === 'full' ? (
+    <FullStands stations={stations} />
+  ) : (
+    <SimpleStands stations={stations} />
+  )
+}
+
 /** The weekly journey's world: a marble floor with the week's matchups
  * standing along it, lit one at a time, fading into a dark warm fog
  * rather than the bright open marble the other two scenes use --
@@ -334,11 +610,11 @@ function TunnelArches({ stationCount }: { stationCount: number }) {
  * keep working. A lit floor fading into real darkness reads as its own
  * place, not just a dimmer copy of the gallery.
  *
- * Deliberately sparse otherwise. Everything here exists to give the
- * camera somewhere to travel and to put the two faces of each game in
- * front of you; the scoreboard, the headline and the roast are DOM text
- * layered over the top, where they stay crisp, selectable and readable
- * by a screen reader. */
+ * A real stadium bowl (Stands, stadium step 2) rings each station now,
+ * but the scoreboard, the headline and the roast stay DOM text layered
+ * over the top rather than any of this geometry -- they stay crisp,
+ * selectable and readable by a screen reader that way, which nothing
+ * built from boxGeometry could offer. */
 export function JourneyScene({ stations }: { stations: JourneyStation[] }) {
   const depth = Math.max(stations.length, 1) * STATION_GAP + 40
 
@@ -353,6 +629,7 @@ export function JourneyScene({ stations }: { stations: JourneyStation[] }) {
 
       <TunnelArches stationCount={stations.length} />
       <AccentLighting stations={stations} />
+      <Stands stations={stations} />
 
       {stations.map((station, i) => (
         <Station key={station.id} station={station} index={i} />
