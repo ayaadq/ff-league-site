@@ -37,10 +37,34 @@ const LOOP_TRIM = 0.05
  * without this you get a machine-gun burst instead of a texture. */
 const ONE_SHOT_GAP_MS = 130
 
+/** Scroll-velocity-reactive ambience (PLAN.md Phase 13B, SPEC.md §1's
+ * "crowd noise gets louder/softer with scroll velocity"). Implemented as
+ * a second gain node in series after `ambienceGain`
+ * (`source -> ambienceGain -> velocityGain -> destination`) rather than
+ * modulating `ambienceGain` directly, so this composes cleanly with the
+ * existing fade-in/out and `duck()` envelopes already scheduled on
+ * `ambienceGain` — this node only ever holds a continuous multiplier
+ * around 1, never a scheduled ramp of its own, so nothing here can cancel
+ * or fight a duck() call mid-swell. */
+const VELOCITY_GAIN_AT_REST = 0.85
+const VELOCITY_GAIN_AT_SPEED = 1.4
+/** Smoothed px/ms scroll speed that reaches the loud ceiling above — a
+ * fast deliberate flick, not an ordinary reading scroll. */
+const VELOCITY_FOR_MAX_GAIN = 2.6
+/** Retain factor for the exponential moving average smoothing raw
+ * per-frame speed samples — scroll deltas are noisy frame to frame, and
+ * without this the gain would flutter rather than swell. */
+const VELOCITY_SMOOTHING = 0.85
+/** `setTargetAtTime`'s time constant — how quickly the gain node chases
+ * its target each frame. Short enough to feel responsive to a flick,
+ * long enough not to introduce zipper noise. */
+const VELOCITY_GAIN_TIME_CONSTANT = 0.15
+
 interface Loaded {
   ctx: AudioContext
   buffers: Record<string, AudioBuffer>
   ambienceGain: GainNode
+  velocityGain: GainNode
   uiGain: GainNode
   source: AudioBufferSourceNode
 }
@@ -90,9 +114,13 @@ export function SoundProvider({ children }: { children: ReactNode }) {
       )
       const buffers = Object.fromEntries(entries)
 
+      const velocityGain = ctx.createGain()
+      velocityGain.gain.value = VELOCITY_GAIN_AT_REST
+      velocityGain.connect(ctx.destination)
+
       const ambienceGain = ctx.createGain()
       ambienceGain.gain.value = 0
-      ambienceGain.connect(ctx.destination)
+      ambienceGain.connect(velocityGain)
 
       const uiGain = ctx.createGain()
       uiGain.gain.value = 1
@@ -120,7 +148,7 @@ export function SoundProvider({ children }: { children: ReactNode }) {
       roar.connect(roarGain)
       roar.start()
 
-      loaded.current = { ctx, buffers, ambienceGain, uiGain, source }
+      loaded.current = { ctx, buffers, ambienceGain, velocityGain, uiGain, source }
       setReady(true)
     } catch {
       // A blocked AudioContext or a failed fetch should leave the site
@@ -204,6 +232,42 @@ export function SoundProvider({ children }: { children: ReactNode }) {
       window.removeEventListener('keydown', resume)
     }
   }, [enable])
+
+  // Scroll-velocity-reactive ambience — see the constants block above for
+  // why this drives a dedicated `velocityGain` node rather than touching
+  // `ambienceGain` directly. Only runs while the bed is actually audible;
+  // a visitor who never opts into sound pays nothing for this rAF loop.
+  useEffect(() => {
+    if (!ready) return
+    let frame = 0
+    let lastY = window.scrollY
+    let lastTime = performance.now()
+    let smoothedSpeed = 0
+
+    const tick = (now: number) => {
+      const current = loaded.current
+      if (current && current.ctx.state === 'running') {
+        const dt = Math.max(now - lastTime, 1)
+        const y = window.scrollY
+        const speed = Math.abs(y - lastY) / dt
+        smoothedSpeed = smoothedSpeed * VELOCITY_SMOOTHING + speed * (1 - VELOCITY_SMOOTHING)
+        lastY = y
+        lastTime = now
+
+        const t = Math.min(smoothedSpeed / VELOCITY_FOR_MAX_GAIN, 1)
+        const target = VELOCITY_GAIN_AT_REST + (VELOCITY_GAIN_AT_SPEED - VELOCITY_GAIN_AT_REST) * t
+        current.velocityGain.gain.setTargetAtTime(
+          target,
+          current.ctx.currentTime,
+          VELOCITY_GAIN_TIME_CONSTANT,
+        )
+      }
+      frame = requestAnimationFrame(tick)
+    }
+    frame = requestAnimationFrame(tick)
+
+    return () => cancelAnimationFrame(frame)
+  }, [ready])
 
   const play = useCallback((name: SoundName, options?: { gain?: number }) => {
     const current = loaded.current

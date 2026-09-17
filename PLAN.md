@@ -731,6 +731,64 @@ every phase, real-device-check anything touching 3D/motion" pattern. No
 blocking yet, but is still owed before the redesign as a whole is called
 done.
 
-**Phases B–F (hero + scroll-velocity audio; rotating player cards;
-homepage rebuild plus smack-talk/game-of-the-week; team/history restyle;
-cross-cutting a11y/perf/real-device plus final docs pass): not started.**
+**Phase B — Hero + scroll-velocity audio. Status: complete, verified
+locally.** `three/HeroScene.tsx` renders a small cluster of drei
+`MeshDistortMaterial` blobs (ignite/current colored, three under the
+`'full'` effects tier, one under `'reduced'` — a genuinely simpler scene,
+not the same one slower) — the concrete, no-extra-dependency answer to
+"liquid motion graphics" for a 3D mesh, the same way index.css's
+`--animate-blob` keyframe answers it for a 2D div. `three/HeroCanvas.tsx`
+follows the exact same Canvas/SceneLighting/ScrollCameraRig shape as
+`WeeklySummaryCanvas`/`TrophyRoomCanvas`. `components/HeroSection.tsx` is
+the new full-bleed ink hero: a `-mx-6` escape from `Layout.tsx`'s `px-6`
+so it reaches true viewport edges (the other two 3D sections stay inside
+the padded column, but a hero specifically reads as broken with a paper
+gutter around it), the same sticky-track-inside-a-taller-wrapper pattern
+as the other canvases, and a scrubbed GSAP fade/lift on the foreground
+copy as the user scrolls past it (skipped entirely under
+`prefers-reduced-motion`, matching `ScrollCameraRig`'s own parked-camera
+behavior). `HomePage.tsx`'s old plain-text header (kicker, "Scoreboard",
+divider, sound prompt, scroll cue) moved inside it unchanged in content,
+restyled for the dark canvas. `SectionKicker`/`ScrollCue` gained an
+optional `tone` prop (`'paper'` default, `'ink'` for the hero) so their
+other call sites (History's kickers, History's own `ScrollCue`) are
+unaffected. `EnableSoundPrompt.tsx` was restyled and, in the process, a
+real pre-existing bug was found and fixed: it referenced
+`border-gold-metal`/`bg-gold-metal`, which were never real Tailwind
+utilities (`gold-metal` was only ever the CSS variable name inside
+`.text-gold-metal`'s `background-clip: text` trick, not a `--color-*`
+token) — the sound-prompt's ring and dot had been silently unstyled since
+whenever that landed. Now uses the real ignite token.
+
+Scroll-velocity ambience (`audio/SoundProvider.tsx`): a new `velocityGain`
+node sits in series after the existing `ambienceGain`
+(`source → ambienceGain → velocityGain → destination`) rather than
+modulating `ambienceGain` directly, so it composes cleanly with the
+already-scheduled fade-in/out and `duck()` envelopes on that node — the
+new node only ever holds a continuous multiplier around 1, never a
+scheduled ramp of its own, so it can't cancel or fight a `duck()` call
+mid-swell. A rAF loop (running only while the bed is actually audible,
+so a visitor who never opts into sound pays nothing extra) samples
+`window.scrollY` each frame, smooths the resulting speed with an
+exponential moving average, and drives the gain toward a target between
+0.85× (at rest) and 1.4× (a fast flick) via `setTargetAtTime`. No new
+public API surface — `useSound()`'s `play`/`duck`/`toggle` contract is
+unchanged.
+
+Verified: `tsc -b`, `oxlint` (same pre-existing warnings, zero new),
+`prettier --write`, and a production `vite build` all pass. Checked live
+in the dev server at true 390×844: the hero renders edge-to-edge black
+with the "Scoreboard" title, ignite divider, and now-legible sound prompt
+all correctly styled; scrolling into the hero fades the foreground copy
+out and hands off cleanly into the first paper section
+("What the hell just happened") with no layout shift; console shows only
+the same pre-existing benign favicon/THREE warnings, nothing new. The
+scroll-velocity gain modulation itself is exercised by the code path
+(rAF loop, `setTargetAtTime` calls) but its audible effect can't be
+verified by an automated screenshot pass — that's a real-device/real-ear
+check, deferred to Phase F alongside the rest of this redesign's
+outstanding real-device work.
+
+**Phases C–F (rotating player cards; homepage rebuild plus smack-talk/
+game-of-the-week; team/history restyle; cross-cutting a11y/perf/
+real-device plus final docs pass): not started.**
