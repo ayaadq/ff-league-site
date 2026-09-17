@@ -1,4 +1,4 @@
-import { Instance, Instances } from '@react-three/drei'
+import { Instance, Instances, RoundedBoxGeometry } from '@react-three/drei'
 import { useFrame } from '@react-three/fiber'
 import { useEffect, useMemo, useRef } from 'react'
 import { Color, type Mesh, type MeshBasicMaterial, type PointLight } from 'three'
@@ -13,7 +13,7 @@ import {
   stationZ,
   type JourneyStation,
 } from './journeyLayout'
-import { GOLD_MATERIAL_PROPS } from './materials'
+import { GOLD_MATERIAL_PROPS, STAND_MATERIAL_PROPS, TURF_MATERIAL_PROPS } from './materials'
 import { Portrait } from './Portrait'
 import { createFieldTurfTexture, createTurfTexture } from './turfTexture'
 
@@ -162,6 +162,48 @@ const ACCENT_SEGMENT_INDEX = 1
 const SEAT_ACCENT_MIX = 1
 const SEAT_NEUTRAL = '#55504a'
 
+/** Corner radius for the seat-block unit geometry (RoundedBoxGeometry
+ * below is built at 1x1x1 and scaled per-instance, same as the plain
+ * boxGeometry it replaces) -- 0.08 in unit space lands around 0.15-0.18
+ * world units once scaled by a block's real ~2x2x1.6-2.0 dimensions,
+ * enough to read as a soft edge without rounding into a pill shape.
+ * Anisotropic per-instance scale stretches the fillet slightly off-
+ * circular (a known simplification of rounding a shared unit geometry
+ * rather than baking a separate rounded shape per block size) -- not
+ * perceptible at this scene's camera distances given how close the
+ * block's own depth/width/height already sit to each other. */
+const SEAT_BLOCK_RADIUS = 0.08
+/** Cheapest viable drei RoundedBoxGeometry settings -- smoothness
+ * (curveSegments) and bevelSegments both floor at 1; going lower isn't
+ * possible, going higher costs real triangles for a detail this small
+ * gains nothing from (see the live triangle-count check in the stands
+ * geometry's own comment below). */
+const STAND_ROUNDING = { smoothness: 1, bevelSegments: 1 } as const
+
+/** Per-block height/depth jitter, so a row of seat blocks reads as
+ * individually-built bleacher units rather than one mechanically
+ * repeated slab -- "row to row" variation, not a redesign of the tier
+ * structure itself (TIER_BANDS already varies height/position band to
+ * band; this adds the finer-grained variation *within* a band's own
+ * row of WING_SEGMENTS blocks). Deterministic (seededRandom, same
+ * pattern as crowdTexture.ts), not Math.random() -- reproducible across
+ * reloads rather than the stands visibly reshuffling on every mount. */
+function seededRandom(seed: number): () => number {
+  let state = seed
+  return () => {
+    state = (state * 1664525 + 1013904223) >>> 0
+    return state / 4294967296
+  }
+}
+/** +/-12% on height, +/-8% on depth -- height varies more since that's
+ * the axis that actually reads as "these rows weren't poured from the
+ * same mold" from the camera's mostly-lateral viewing angle; depth's
+ * own variation is kept tighter since it also shifts each block's outer
+ * face (see the x-position comment in seatBlocks below), and a bigger
+ * swing there risked neighboring blocks visibly overlapping or gapping. */
+const SEAT_HEIGHT_JITTER = 0.24
+const SEAT_DEPTH_JITTER = 0.16
+
 interface TierBand {
   yBase: number
   xOffset: number
@@ -180,6 +222,15 @@ const TIER_BANDS: TierBand[] = [
 
 const FASCIA_HEIGHT = 0.35
 const FASCIA_DEPTH = 0.3
+/** A thin trim strip -- 0.05 is already a third of FASCIA_DEPTH's own
+ * 0.3, as far as this can go without the rounded profile eating the
+ * strip's flat face entirely. drei's RoundedBoxGeometry rounds the
+ * width x height cross-section and extrudes it straight along depth
+ * (the third args entry), which is exactly the shape a rounded trim
+ * strip needs -- FASCIA_DEPTH/FASCIA_HEIGHT get the rounded profile,
+ * WING_HALF_DEPTH * 2 (the strip's actual length) stays a straight
+ * extrusion. */
+const FASCIA_RADIUS = 0.05
 /** The bowl's outer shell -- one gold wall per wing, capping the
  * outside/top of the upper deck. Reuses GOLD_MATERIAL_PROPS as-is
  * (the archway lintels' own material, already proven to read correctly
@@ -272,21 +323,21 @@ function Station({ station, index }: { station: JourneyStation; index: number })
           seam still reads as a distinct accent line layered on top,
           not fighting the turf for the same pixels.
 
-          Unlit (meshBasicMaterial, toneMapped false), matching the
-          ignite plane/gold seam above rather than a PBR material -- not
-          the original choice here (this plane originally carried a flat
-          fill color, not a texture). A live screenshot check caught a
-          lit meshStandardMaterial reading as barely-there: even a pure
-          #ff0000 test swap rendered as a pale wash under this scene's
-          soft studio HDRI + fill lights, the same lighting a diffuse
-          surface has no way to opt out of. Unlit sidesteps that -- the
-          yard number specifically needs to read as an unmistakable
-          color carrier, not a subtly-shaded piece of ground, and the
-          turf-green base is unlit for the same reason the fill it
-          replaced was: one material for the whole plane, not two. */}
+          meshStandardMaterial (TURF_MATERIAL_PROPS, materials.ts) now,
+          not the unlit material this plane originally shipped with -- a
+          live screenshot check once found a lit material here reading as
+          a pale wash (see TURF_MATERIAL_PROPS's own comment for the
+          mechanism), but that turned out to be a roughness/env-intensity
+          tuning problem, not a reason to avoid lighting the plane at
+          all: high roughness plus a deliberately low envMapIntensity
+          keeps the diffuse albedo dominant over the reflected
+          environment, which is what makes this safe to light without
+          repeating the original wash. Lighting this plane is what makes
+          the stadium floor respond to the same HDRI the marble gallery
+          already does, instead of reading as a flat sticker next to it. */}
       <mesh position={[0, 0.01, 0]} rotation={[-Math.PI / 2, 0, 0]}>
         <planeGeometry args={[FLOOR_TINT_WIDTH, FLOOR_TINT_DEPTH]} />
-        <meshBasicMaterial map={turfTexture} toneMapped={false} />
+        <meshStandardMaterial map={turfTexture} {...TURF_MATERIAL_PROPS} />
       </mesh>
 
       {/* A gold seam across the floor marks where the station is, so the
@@ -358,21 +409,61 @@ function AccentLighting({ stations }: { stations: JourneyStation[] }) {
  * one shared geometry per group, instanced per station/band/wing/
  * segment rather than unique meshes.
  *
- * Seat-blocks and fascia lips share one unlit meshBasicMaterial: the
- * team-color accent blocks need to read as saturated (the floor patch's
- * own lesson -- a lit material desaturates under this scene's HDRI/fill
- * lights regardless of input hue), and since <Instances> shares one
- * material across every instance in a group, the neutral seat blocks
- * have to be unlit too rather than splitting into a second material
- * group for a self-shading look.
+ * All three groups are lit now (meshStandardMaterial: seat-blocks/fascia
+ * use STAND_MATERIAL_PROPS, shell walls reuse GOLD_MATERIAL_PROPS as
+ * before). Seat-blocks and fascia lips previously stayed unlit
+ * specifically to protect the team-color accent's saturation -- the same
+ * "lit material desaturates under this scene's HDRI/fill lights" problem
+ * TURF_MATERIAL_PROPS's own comment describes for the floor patch -- but
+ * that turned out to be a roughness/envMapIntensity tuning problem, not
+ * a reason to avoid lighting altogether. STAND_MATERIAL_PROPS's high
+ * roughness and modest envMapIntensity keep the accent color's albedo
+ * dominant the same way turf's fix does, so the stands now shade under
+ * the scene's HDRI like everything else in the gallery instead of
+ * reading as a flat cutout next to it. (Since <Instances> shares one
+ * material across every instance in a group, this applies to the
+ * neutral seat blocks too, not just the accent ones -- there's no way to
+ * light only some instances in a group.)
  *
  * Seat-blocks additionally carry crowdTexture.ts's tileable crowd
  * pattern -- one texture, generated once, shared by every instance
  * regardless of team; team-vs-neutral coloring keeps coming from the
  * same per-instance <Instance color> already in use, which multiplies
- * against whatever the texture draws. Fascia lips and shell walls stay
- * flat (no crowd texture) -- they're trim, not seating, and the plan's
- * own ask was specifically for the seat-tier blocks. */
+ * against whatever the texture draws. Tried reusing the same texture as
+ * a roughnessMap too (free per-pixel shine variation, no extra asset) --
+ * live-caught as a real regression, not a subtle improvement: the
+ * texture's SHADOW dots have a *higher* green channel ratio than their
+ * surrounding BASE tone relative to roughness's own scale, which made
+ * the shadow dots read as glossier than their surroundings instead of
+ * duller, picking up hard dark environment reflections and reading as
+ * harsh black blobs rather than a soft fleck. Dropped -- map (color)
+ * only. Fascia lips and shell walls stay flat-colored (no crowd
+ * texture) -- they're trim, not seating, and the plan's own ask was
+ * specifically for the seat-tier blocks.
+ *
+ * Seat-blocks and fascia use drei's RoundedBoxGeometry (SEAT_BLOCK_RADIUS/
+ * FASCIA_RADIUS, STAND_ROUNDING) instead of boxGeometry -- softer edges
+ * to match the marble gallery's own rounded corner-radius language
+ * (materials.ts's gallery-card/gold-frame treatments), not a hard-edged
+ * slab. Shell walls stay boxGeometry -- unlike seat-blocks/fascia, they
+ * were never part of this rounding pass. Checked, not assumed: a plain
+ * box is 12 triangles; drei's RoundedBoxGeometry (an ExtrudeGeometry
+ * bevel sweep under the hood) costs real triangles even at its cheapest
+ * settings, and STAND_ROUNDING's smoothness=1/bevelSegments=1 floor was
+ * picked specifically because it's the cheapest option that still reads
+ * as rounded rather than chamfered (bevelSegments=0 was visibly flatter
+ * live). At smoothness=1/bevelSegments=1 that's 140 triangles/instance --
+ * for this file's own instance counts (144 seat-blocks + 36 fascia lips
+ * at 6 stations), full tier's stands total goes from 2,160 triangles
+ * (plain boxes) to 25,200 (rounded), and reduced tier's 12-band total
+ * goes from 144 to 1,680. Both stay well inside SPEC.md §7.2's budget in
+ * absolute terms -- the section has no hard triangle ceiling, only "keep
+ * draw calls low" (draw calls are unchanged either way, one per
+ * Instances group regardless of the shared geometry's own triangle
+ * count) and a >=30fps mid-range-mobile floor, and reduced tier's total
+ * stays in the low thousands regardless, nowhere near where triangle
+ * count alone would threaten that floor on any device from the last
+ * several years. */
 function FullStands({ stations }: { stations: JourneyStation[] }) {
   const stationCount = stations.length
   const seatColors = stations.map((station) =>
@@ -393,6 +484,12 @@ function FullStands({ stations }: { stations: JourneyStation[] }) {
       accent: boolean
       stationIndex: number
     }[] = []
+    // One PRNG per stands build, walked in the same fixed iteration
+    // order as the loop below -- not reseeded per block (a per-block
+    // seed derived from the loop indices would work too, but this reads
+    // simpler and is just as deterministic/reproducible given the loop
+    // order never changes for a given stationCount).
+    const jitter = seededRandom(20260917)
     for (let stationIndex = 0; stationIndex < stationCount; stationIndex++) {
       const z0 = stationZ(stationIndex)
       TIER_BANDS.forEach((band) => {
@@ -400,10 +497,21 @@ function FullStands({ stations }: { stations: JourneyStation[] }) {
           for (let j = 0; j < WING_SEGMENTS; j++) {
             const t = (j + 0.5) / WING_SEGMENTS
             const z = z0 - WING_HALF_DEPTH + 2 * WING_HALF_DEPTH * t
-            const x = wingSign * (WING_INNER_X + band.xOffset + SEAT_BLOCK_DEPTH / 2)
+            // Height varies around the band's own height, depth around
+            // SEAT_BLOCK_DEPTH -- see SEAT_HEIGHT_JITTER/SEAT_DEPTH_JITTER's
+            // own comment for why the two get different ranges.
+            const height = band.height * (1 + (jitter() - 0.5) * SEAT_HEIGHT_JITTER)
+            const depth = SEAT_BLOCK_DEPTH * (1 + (jitter() - 0.5) * SEAT_DEPTH_JITTER)
+            // x keeps each block's *inner* face flush with the tier's own
+            // inner boundary (band.xOffset) regardless of its jittered
+            // depth, so neighboring bands never lose their gap -- only
+            // the outer face (away from the field) moves with the
+            // jitter, same as height only ever grows a block upward from
+            // the row's shared floor (band.yBase), never down through it.
+            const x = wingSign * (WING_INNER_X + band.xOffset + depth / 2)
             items.push({
-              position: [x, band.yBase + band.height / 2, z],
-              scale: [SEAT_BLOCK_DEPTH, band.height, SEAT_BLOCK_WIDTH],
+              position: [x, band.yBase + height / 2, z],
+              scale: [depth, height, SEAT_BLOCK_WIDTH],
               accent: j === ACCENT_SEGMENT_INDEX,
               stationIndex,
             })
@@ -468,8 +576,8 @@ function FullStands({ stations }: { stations: JourneyStation[] }) {
   return (
     <>
       <Instances limit={seatBlocks.length}>
-        <boxGeometry args={[1, 1, 1]} />
-        <meshBasicMaterial map={crowdTexture} toneMapped={false} />
+        <RoundedBoxGeometry args={[1, 1, 1]} radius={SEAT_BLOCK_RADIUS} {...STAND_ROUNDING} />
+        <meshStandardMaterial map={crowdTexture} {...STAND_MATERIAL_PROPS} />
         {seatBlocks.map((block, i) => (
           <Instance
             key={i}
@@ -480,8 +588,12 @@ function FullStands({ stations }: { stations: JourneyStation[] }) {
         ))}
       </Instances>
       <Instances limit={fasciaLips.length}>
-        <boxGeometry args={[FASCIA_DEPTH, FASCIA_HEIGHT, WING_HALF_DEPTH * 2]} />
-        <meshBasicMaterial toneMapped={false} />
+        <RoundedBoxGeometry
+          args={[FASCIA_DEPTH, FASCIA_HEIGHT, WING_HALF_DEPTH * 2]}
+          radius={FASCIA_RADIUS}
+          {...STAND_ROUNDING}
+        />
+        <meshStandardMaterial {...STAND_MATERIAL_PROPS} />
         {fasciaLips.map((lip, i) => (
           <Instance key={i} position={lip.position} color={seatColors[lip.stationIndex]} />
         ))}
@@ -499,6 +611,11 @@ function FullStands({ stations }: { stations: JourneyStation[] }) {
 
 const SIMPLE_BAND_HEIGHT = 2.4
 const SIMPLE_BAND_DEPTH = 2.5
+/** Real dimensions, not a unit geometry -- same radius scale as
+ * SEAT_BLOCK_RADIUS's own *world-space* target (~0.15-0.18) rather than
+ * its unit-space 0.08, since this band's geometry bakes in its actual
+ * size directly (no per-instance scale to translate through). */
+const SIMPLE_BAND_RADIUS = 0.16
 
 /** Reduced quality tier's stands -- one Instances group, one flat band
  * per wing per station (12 instances total regardless of station
@@ -506,7 +623,14 @@ const SIMPLE_BAND_DEPTH = 2.5
  * team-colored (uniformly, the whole band) rather than dropped
  * entirely -- "reduced" cuts the geometry that costs triangles/draw
  * calls, not the color identity that was this whole stadium pass's
- * actual point. */
+ * actual point.
+ *
+ * Lit (STAND_MATERIAL_PROPS), matching the full tier's stands -- this
+ * tier already renders far fewer instances (12 total, vs. the full
+ * tier's per-station-and-band count), so a lit material's fragment cost
+ * isn't the budget concern reduced tier exists to manage; keeping the
+ * same material keeps the two tiers visually continuous with each other
+ * rather than one shading under the HDRI and the other not. */
 function SimpleStands({ stations }: { stations: JourneyStation[] }) {
   const stationCount = stations.length
   const seatColors = stations.map((station) =>
@@ -532,8 +656,12 @@ function SimpleStands({ stations }: { stations: JourneyStation[] }) {
 
   return (
     <Instances limit={bands.length}>
-      <boxGeometry args={[SIMPLE_BAND_DEPTH, SIMPLE_BAND_HEIGHT, WING_HALF_DEPTH * 2]} />
-      <meshBasicMaterial toneMapped={false} />
+      <RoundedBoxGeometry
+        args={[SIMPLE_BAND_DEPTH, SIMPLE_BAND_HEIGHT, WING_HALF_DEPTH * 2]}
+        radius={SIMPLE_BAND_RADIUS}
+        {...STAND_ROUNDING}
+      />
+      <meshStandardMaterial {...STAND_MATERIAL_PROPS} />
       {bands.map((band, i) => (
         <Instance key={i} position={band.position} color={seatColors[band.stationIndex]} />
       ))}
@@ -583,12 +711,14 @@ const FIELD_TILE_WORLD_SIZE = FLOOR_TINT_WIDTH
  * return, below) still carries a thread of that, but it's a real
  * trade, not a free one.
  *
- * Unlit (meshBasicMaterial, matching the station patches' own material
- * choice) for the same reason as always in this file: this floor needs
- * to read as its actual green, not a lit material's desaturated take on
- * it. createFieldTurfTexture's tile repeats via RepeatWrapping rather
- * than needing a texture sized to the whole floor -- one small canvas,
- * scaled by `.repeat` to the floor's own real dimensions.
+ * Lit (meshStandardMaterial, TURF_MATERIAL_PROPS), matching the station
+ * patches' own material now -- both were originally unlit for the same
+ * "reads as its actual green, not a lit material's desaturated take on
+ * it" reason, and both moved to the same tuned lit material for the same
+ * fix (TURF_MATERIAL_PROPS's own comment). createFieldTurfTexture's tile
+ * repeats via RepeatWrapping rather than needing a texture sized to the
+ * whole floor -- one small canvas, scaled by `.repeat` to the floor's
+ * own real dimensions.
  *
  * A real stadium bowl (Stands, stadium step 2) rings each station now,
  * but the scoreboard, the headline and the roast stay DOM text layered
@@ -611,7 +741,7 @@ export function JourneyScene({ stations }: { stations: JourneyStation[] }) {
           is what ends the world. */}
       <mesh position={[0, 0, -depth / 2 + 20]} rotation={[-Math.PI / 2, 0, 0]}>
         <planeGeometry args={[70, depth]} />
-        <meshBasicMaterial map={fieldTexture} toneMapped={false} />
+        <meshStandardMaterial map={fieldTexture} {...TURF_MATERIAL_PROPS} />
       </mesh>
 
       <AccentLighting stations={stations} />

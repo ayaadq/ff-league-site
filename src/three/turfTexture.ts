@@ -21,11 +21,39 @@ const CANVAS_HEIGHT = 440
  * stripe-only pattern does at any aspect. */
 const FIELD_CANVAS_SIZE = 256
 
-const TURF_BASE = '#2d5a34'
+/** Pre-compensates a hex color for this scene's lighting exposure --
+ * converting the turf plane from an unlit to a lit material (materials.ts's
+ * TURF_MATERIAL_PROPS) meant the same hex values that used to paint
+ * directly to the screen now read visibly softer, closer to the marble
+ * gallery's own high-key, pale character (confirmed by a live side-by-side
+ * against TrophyRoomScene's columns/podium under this exact rig -- that
+ * scene is genuinely soft and airy too, not a saturated reference this
+ * turf was falling short of). So the bar here is *not* "match the old
+ * fully-saturated unlit color" -- it's "the yard number still reads as a
+ * distinct, identifiable team hue against the field," which the unlit-
+ * tuned hex values satisfy on their own once lit (checked live across a
+ * couple of stations, distinct hues both legible). This exists as a small
+ * amount of cheap insurance on top of that, not a fix for a real problem --
+ * roughness/metalness/envMapIntensity were tried first and ruled out
+ * (they tune the environment reflection, not SceneLighting's ambient +
+ * directional contribution, which is what's actually adding the exposure,
+ * and isn't a per-material knob this file reaches). Applied to the turf's
+ * own greens and the yard number's team color (see createTurfTexture
+ * below) -- not to LINE_WHITE, which is meant to read bright regardless. */
+function darken(hex: string, factor: number): string {
+  const r = Math.round(parseInt(hex.slice(1, 3), 16) * factor)
+  const g = Math.round(parseInt(hex.slice(3, 5), 16) * factor)
+  const b = Math.round(parseInt(hex.slice(5, 7), 16) * factor)
+  return `rgb(${r}, ${g}, ${b})`
+}
+
+const LIGHTING_COMPENSATION = 0.8
+
+const TURF_BASE = darken('#2d5a34', LIGHTING_COMPENSATION)
 /** Mowing stripes: real turf is cut in alternating lengthwise bands,
  * not a flat green -- a few percent darker is enough to read as mowed
  * grass without competing with the yard markings for attention. */
-const TURF_STRIPE = '#28502c'
+const TURF_STRIPE = darken('#28502c', LIGHTING_COMPENSATION)
 const LINE_WHITE = '#f2f2ec'
 
 /** Fills the base green and mowing stripes -- shared by createTurfTexture
@@ -94,8 +122,11 @@ export function createTurfTexture(accentColor: string): CanvasTexture {
       ctx.fillRect(hx - 2, lineY + 6, 4, 16)
     }
 
-    // The primary yard number, in the team's own color.
-    ctx.fillStyle = accentColor
+    // The primary yard number, in the team's own color -- darkened by
+    // the same LIGHTING_COMPENSATION as the turf base (see darken's own
+    // comment), or the number washes out worse than the field around it
+    // once lit: it's the more saturated color of the two.
+    ctx.fillStyle = darken(accentColor, LIGHTING_COMPENSATION)
     ctx.textAlign = 'center'
     ctx.textBaseline = 'middle'
     ctx.font = 'bold 150px sans-serif'

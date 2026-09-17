@@ -147,33 +147,38 @@ export function WeeklyJourney({
   const totalSvh = games.length * 100
 
   return (
-    <section id={TRACK_ID} className="relative mt-16 md:mt-24" aria-label={`Week ${week} matchups`}>
-      <div className="pointer-events-none sticky top-0 h-svh w-full overflow-hidden bg-[#2B2926]">
-        <ChunkErrorBoundary>
-          <Suspense fallback={null}>
-            <JourneyCanvas
-              stations={stations}
-              trackId={TRACK_ID}
-              timings={timings}
-              onStationDwellStart={handleStationDwellStart}
-              gotwIndex={gotwIndex}
-            />
-          </Suspense>
-        </ChunkErrorBoundary>
-      </div>
+    <>
+      <section
+        id={TRACK_ID}
+        className="relative mt-16 md:mt-24"
+        aria-label={`Week ${week} matchups`}
+      >
+        <div className="pointer-events-none sticky top-0 h-svh w-full overflow-hidden bg-[#2B2926]">
+          <ChunkErrorBoundary>
+            <Suspense fallback={null}>
+              <JourneyCanvas
+                stations={stations}
+                trackId={TRACK_ID}
+                timings={timings}
+                onStationDwellStart={handleStationDwellStart}
+                gotwIndex={gotwIndex}
+              />
+            </Suspense>
+          </ChunkErrorBoundary>
+        </div>
 
-      {/* Pulled back up over the sticky canvas so the panels read as
+        {/* Pulled back up over the sticky canvas so the panels read as
           captions on the scene rather than as a list beneath it. */}
-      <div className="relative -mt-[100svh]">
-        {games.map((game, i) => {
-          const note = matchupNoteFor(content, game.winner.userId, game.loser.userId)
-          return (
-            <article
-              key={game.matchupId ?? i}
-              className="flex flex-col justify-center px-6 sm:px-10"
-              style={{ height: `${heightFractions[i] * totalSvh}svh` }}
-            >
-              {/* A scrim, not a card: the reskinned floor (MARBLE_MATERIAL_PROPS,
+        <div className="relative -mt-[100svh]">
+          {games.map((game, i) => {
+            const note = matchupNoteFor(content, game.winner.userId, game.loser.userId)
+            return (
+              <article
+                key={game.matchupId ?? i}
+                className="flex flex-col justify-center px-6 sm:px-10"
+                style={{ height: `${heightFractions[i] * totalSvh}svh` }}
+              >
+                {/* A scrim, not a card: the reskinned floor (MARBLE_MATERIAL_PROPS,
                   JourneyScene.tsx) is bright where the earlier all-dark scene
                   wasn't, and this text was tuned for a uniformly dark backdrop --
                   the loser-side tones especially (#8d877c) washed out badly
@@ -199,8 +204,8 @@ export function WeeklyJourney({
                   exist in the 3D scene. Verified live that the panel's own
                   content (longest line: the title, two-column stat grid)
                   still reads fine at the new width before keeping it. */}
-              <div className="mx-auto w-full max-w-2xl rounded-2xl bg-[#2B2926]/90 px-5 py-7 sm:px-8 sm:py-9">
-                {/* Broadcast-style title card, entering as this station
+                <div className="mx-auto w-full max-w-2xl rounded-2xl bg-[#2B2926]/90 px-5 py-7 sm:px-8 sm:py-9">
+                  {/* Broadcast-style title card, entering as this station
                     arrives. Plain team names, not a personalized "YOU
                     vs." -- the site has no per-visitor identity to draw
                     on (single shared password, SPEC.md §8 puts accounts
@@ -209,98 +214,130 @@ export function WeeklyJourney({
                     (28px) is what gives it the bigger "flies in" feel
                     the brief asked for -- still the same trigger and
                     tween every other beat in this file already uses. */}
-                <Reveal y={56}>
-                  <p className="font-display text-2xl tracking-wide text-[#f2efe9] uppercase sm:text-3xl">
-                    Week {week} — {nameFor(game.winner.userId)} vs. {nameFor(game.loser.userId)}
+                  <Reveal y={56}>
+                    <p className="font-display text-2xl tracking-wide text-[#f2efe9] uppercase sm:text-3xl">
+                      Week {week} — {nameFor(game.winner.userId)} vs. {nameFor(game.loser.userId)}
+                    </p>
+                  </Reveal>
+
+                  <p className="mt-2 text-[0.65rem] tracking-[0.3em] text-[#a6845c] uppercase">
+                    Week {week} · Final
+                    {game.tied ? ' · Tied' : ` · Margin ${game.margin.toFixed(2)}`}
+                    {note?.gameOfTheWeek ? ' · Game of the week' : ''}
                   </p>
-                </Reveal>
 
-                <p className="mt-2 text-[0.65rem] tracking-[0.3em] text-[#a6845c] uppercase">
-                  Week {week} · Final
-                  {game.tied ? ' · Tied' : ` · Margin ${game.margin.toFixed(2)}`}
-                  {note?.gameOfTheWeek ? ' · Game of the week' : ''}
-                </p>
+                  <div className="mt-5 grid grid-cols-1 gap-4 sm:grid-cols-2">
+                    {[game.winner, game.loser].map((side, sideIndex) => (
+                      <div key={sideIndex} className={sideIndex === 0 ? '' : 'opacity-70'}>
+                        <p className="truncate text-sm text-[#cfc9be]">{nameFor(side.userId)}</p>
+                        <p
+                          className={`font-display text-5xl leading-none lining-nums tabular-nums sm:text-6xl ${
+                            sideIndex === 0 ? 'text-[#d9c7a8]' : 'text-[#8d877c]'
+                          }`}
+                        >
+                          <StatCountUp value={side.actual} decimals={2} />
+                        </p>
+                        <p className="mt-1 text-xs text-[#8d877c] lining-nums tabular-nums">
+                          {sideIndex === 0 ? 'Winner' : 'Loser'} · {side.possible.toFixed(1)}{' '}
+                          possible · {Math.round(side.efficiency * 100)}%
+                        </p>
 
-                <div className="mt-5 grid grid-cols-1 gap-4 sm:grid-cols-2">
-                  {[game.winner, game.loser].map((side, sideIndex) => (
-                    <div key={sideIndex} className={sideIndex === 0 ? '' : 'opacity-70'}>
-                      <p className="truncate text-sm text-[#cfc9be]">{nameFor(side.userId)}</p>
-                      <p
-                        className={`font-display text-5xl leading-none lining-nums tabular-nums sm:text-6xl ${
-                          sideIndex === 0 ? 'text-[#d9c7a8]' : 'text-[#8d877c]'
-                        }`}
-                      >
-                        <StatCountUp value={side.actual} decimals={2} />
-                      </p>
-                      <p className="mt-1 text-xs text-[#8d877c] lining-nums tabular-nums">
-                        {sideIndex === 0 ? 'Winner' : 'Loser'} · {side.possible.toFixed(1)} possible
-                        · {Math.round(side.efficiency * 100)}%
-                      </p>
-
-                      {/* The week's standout player, per side -- the
+                        {/* The week's standout player, per side -- the
                           highest-scoring player each team actually
                           started (TeamWeek.topStarter, already computed
                           in api/weeklyRecap.ts). Real headshots, first
                           use of PlayerHeadshot inside the journey. */}
-                      {side.topStarter && (
-                        <Reveal className="mt-4">
-                          <div className="flex items-center gap-2">
-                            <PlayerHeadshot
-                              playerId={side.topStarter.playerId}
-                              name={playerNameFor(side.topStarter.playerId)}
-                            />
-                            <div className="min-w-0">
-                              <p className="truncate text-[0.65rem] tracking-[0.2em] text-[#8d877c] uppercase">
-                                Top starter
-                              </p>
-                              <p className="truncate text-sm text-[#d9c7a8]">
-                                {playerNameFor(side.topStarter.playerId)}{' '}
-                                <span className="lining-nums tabular-nums">
-                                  · {side.topStarter.points.toFixed(1)}
-                                </span>
-                              </p>
+                        {side.topStarter && (
+                          <Reveal className="mt-4">
+                            <div className="flex items-center gap-2">
+                              <PlayerHeadshot
+                                playerId={side.topStarter.playerId}
+                                name={playerNameFor(side.topStarter.playerId)}
+                              />
+                              <div className="min-w-0">
+                                <p className="truncate text-[0.65rem] tracking-[0.2em] text-[#8d877c] uppercase">
+                                  Top starter
+                                </p>
+                                <p className="truncate text-sm text-[#d9c7a8]">
+                                  {playerNameFor(side.topStarter.playerId)}{' '}
+                                  <span className="lining-nums tabular-nums">
+                                    · {side.topStarter.points.toFixed(1)}
+                                  </span>
+                                </p>
+                              </div>
                             </div>
-                          </div>
-                        </Reveal>
-                      )}
-                    </div>
+                          </Reveal>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+
+                  {note?.headline && (
+                    <h3 className="font-display mt-7 text-2xl text-[#f2efe9] sm:text-3xl">
+                      {note.headline}
+                    </h3>
+                  )}
+
+                  {note?.chips && note.chips.length > 0 && (
+                    <ul className="mt-5 flex flex-wrap gap-x-6 gap-y-3">
+                      {note.chips.map((chip, chipIndex) => (
+                        <li key={chipIndex}>
+                          <span className="block text-[0.6rem] tracking-[0.2em] text-[#8d877c] uppercase">
+                            {chip.label}
+                          </span>
+                          <span className="text-base text-[#d9c7a8] lining-nums tabular-nums">
+                            {chip.value}
+                          </span>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+
+                  {note?.body?.map((paragraph, paragraphIndex) => (
+                    <p
+                      key={paragraphIndex}
+                      className="mt-4 max-w-prose text-sm leading-relaxed text-[#cfc9be]"
+                    >
+                      {paragraph}
+                    </p>
                   ))}
                 </div>
+              </article>
+            )
+          })}
+        </div>
+      </section>
 
-                {note?.headline && (
-                  <h3 className="font-display mt-7 text-2xl text-[#f2efe9] sm:text-3xl">
-                    {note.headline}
-                  </h3>
-                )}
+      {/* Boundary transition -- the sticky canvas above releases and
+          scrolls away over its own final ~100svh (a plain sticky-release
+          fact this placement leans on: the canvas's natural, un-stuck
+          flow position ends exactly where the section above ends, so
+          whatever sits directly after it in the document is what
+          continued scrolling reveals during that release). Without this,
+          that reveal was the page's plain marble background with no
+          hand-off at all -- a hard cut regardless of scroll speed, and
+          the faster the scroll the less of it registered before the cut
+          landed.
 
-                {note?.chips && note.chips.length > 0 && (
-                  <ul className="mt-5 flex flex-wrap gap-x-6 gap-y-3">
-                    {note.chips.map((chip, chipIndex) => (
-                      <li key={chipIndex}>
-                        <span className="block text-[0.6rem] tracking-[0.2em] text-[#8d877c] uppercase">
-                          {chip.label}
-                        </span>
-                        <span className="text-base text-[#d9c7a8] lining-nums tabular-nums">
-                          {chip.value}
-                        </span>
-                      </li>
-                    ))}
-                  </ul>
-                )}
+          A static CSS gradient, not a scroll-triggered JS tween: the
+          fade is driven by scroll POSITION within this block, never by
+          wall-clock time, so it can't desync or read as abrupt no matter
+          how fast someone scrolls through it -- every scroll position
+          this block occupies has a well-defined color, correct on
+          whatever frame the browser happens to next paint, the same
+          "motion never gates the data" reasoning PLAN.md Phase 12 already
+          applies to the camera's own scrub (`ease: 'none'`, no clamp on
+          scroll speed).
 
-                {note?.body?.map((paragraph, paragraphIndex) => (
-                  <p
-                    key={paragraphIndex}
-                    className="mt-4 max-w-prose text-sm leading-relaxed text-[#cfc9be]"
-                  >
-                    {paragraph}
-                  </p>
-                ))}
-              </div>
-            </article>
-          )
-        })}
-      </div>
-    </section>
+          Solid #2B2926 for the first third, not a fade starting at the
+          very top -- the canvas's own last visible frame is uniformly
+          dark, so this needs to continue that with no visible seam before
+          it starts dissolving, or the transition would read as starting
+          before the canvas has actually finished clearing. */}
+      <div
+        aria-hidden="true"
+        className="h-[45svh] w-full bg-[linear-gradient(to_bottom,#2B2926_0%,#2B2926_35%,transparent_100%)]"
+      />
+    </>
   )
 }
