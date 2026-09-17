@@ -11,7 +11,12 @@ import { CanvasTexture, SRGBColorSpace } from 'three'
  * transparent, so nothing here fills one) — the consuming material must
  * set `transparent: true` or the alpha channel is wasted. */
 
-const CANVAS_SIZE = 512
+// Halved from 512 (WebGL context loss on mobile, reported live in
+// production — one of four concurrent WebGL contexts Home mounts, each
+// with its own HDRI decode plus textures; this shaves ~6-8MB of GPU
+// memory across a typical 6-station week's worth of planes). Line-art
+// Xs/Os read fine at this resolution — this was never detail-bound.
+const CANVAS_SIZE = 256
 
 interface Point {
   x: number
