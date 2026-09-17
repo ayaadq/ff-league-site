@@ -999,5 +999,71 @@ week-by-week card correctly. Zero console errors on every check in this
 phase (the cleanest phase yet — no favicon 404 even showed up on some
 passes, apparently already cached).
 
-**Phase F (cross-cutting a11y/perf/real-device plus final docs pass):
-not started.**
+**Phase F — Cross-cutting a11y/perf/real-device plus final docs pass.
+Status: the accessibility sweep and docs pass are done; the real-device
+and Vercel-deploy checks are not (see below — this is the one gap the
+whole redesign still owes).**
+
+Ran an actual WCAG contrast calculation (relative luminance/contrast
+ratio, not eyeballed) against every ink/paper × ignite/current/mute
+pairing the redesign introduced. Two real findings, both fixed:
+
+- **`.text-gold-metal` (large display numerals — Home's "High score,"
+  History's "Best single week"/"Longest win streak") measured 2.80:1
+  against paper — fails even the relaxed 3:1 large-text floor.** Fixed
+  by pointing the class at `--color-gold` ("ignite-deep," `#C2451F`,
+  4.55:1 against paper) instead of `--color-gold-bright` ("ignite,"
+  `#FF5A36`) — the one place in the app an "ignite" token is literal
+  readable text rather than a border/divider/icon, so it's the one place
+  that needed the darker variant. Confirmed by screenshot before/after:
+  the numerals visibly darken to a legible burnt-ember tone.
+- **`--color-brass`/"current" (`#2EE6D6`) measured 1.41:1 against paper**
+  — currently a non-issue since grep confirms it's only ever consumed by
+  3D materials (`three/materials.ts`, `three/liquidMaterials.ts`), never
+  as 2D text/borders, but documented with an explicit warning in
+  `index.css` so a future edit doesn't reach for `text-brass`/`border-brass`
+  on a paper surface without knowing it fails badly.
+
+Every other pairing actually in use measured well clear of AA: charcoal
+on paper 17.7:1, charcoal-soft on paper 6.9:1, paper on ink 17.7:1,
+mute-on-ink on ink 7.1:1, gold-light on ink 16.0:1, ignite-bright on ink
+(the journey's kicker text) 6.3:1. `Marquee.tsx`'s decorative ignite
+display text at 70% opacity was left as-is — an already-documented,
+pre-existing exception (large decorative text with a redundant sr-only
+readable duplicate), not something this redesign changed the nature of.
+
+`prefers-reduced-motion` verified live (Playwright's `emulateMedia`, not
+just read from the code): the hero's blob stops distorting and rotating,
+the GSAP scroll-linked fade on the hero copy doesn't fire at all
+(content stays fully visible and readable even scrolled past where it
+would otherwise have faded), and the player-card arc's scroll-driven
+spin is disabled while drag still works — matching each component's own
+documented intent. Keyboard navigation spot-checked: tab order through
+the header and into the new hero (logo → sound toggle → menu → hero's
+own sound prompt) is sequential and correct, and the one surprising stop
+(focus landing on `PlayerCardStrip`'s scroll-snap `<ul>`) is the browser's
+standard implicit-focus behavior for scrollable regions, not a bug — it's
+what makes that horizontal strip keyboard-scrollable.
+
+Docs consistency pass: grepped for lingering `Cormorant` references
+(none outside historical/changelog prose, which is intentionally kept as
+a record per this project's own convention) and fixed one genuinely
+stale line in SPEC.md §3 that still described the gate's _old_ literal
+aesthetic ("marble slab, gold inlay lock/latch motif") after Phase A
+changed what the gate actually looks like.
+
+**What's NOT done, and is the one real gap this whole redesign still
+owes:** nothing in Phases A–F has been deployed to the production Vercel
+URL, and nothing has been checked on an actual phone. Every verification
+in this redesign was the dev server plus Playwright at emulated
+viewport sizes — exactly the "Chrome DevTools' device emulator does not
+reflect real GPU/thermal performance" gap CLAUDE.md itself warns against
+treating as sufficient. In particular, still unverified on real hardware:
+the ≥30fps mobile floor for the new hero/player-card 3D scenes, the
+scroll-velocity ambience's actual audible feel on real touch-scroll
+momentum (iOS Safari's rubber-banding specifically, per SPEC §7.2), and
+whether `EffectsTierProvider`'s 640px viewport-width tier gate (not a
+capability check) lands most phones on the reduced 2D player-card strip
+as intended or misses a capable-but-narrow device. This needs a push to
+the deploy branch and a real phone in hand — not something achievable
+from this environment.

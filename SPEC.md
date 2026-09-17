@@ -37,8 +37,12 @@ Two things it must do well:
   source. That's an accepted tradeoff for a friends' league with no
   sensitive data.
 - No accounts, no per-user auth, no backend required for this.
-- The gate screen itself should carry the aesthetic (marble slab, gold
-  inlay lock/latch motif) — it's the first impression, not a throwaway form.
+- The gate screen itself should carry the site's visual system — it's the
+  first impression, not a throwaway form. (Redesign pass, PLAN.md Phase
+  13: previously described as a literal "marble slab, gold inlay
+  lock/latch motif"; the gate is now a flat paper surface with ignite
+  accents per §5, same principle — carry the current system, not a
+  generic form — different literal description.)
 
 ## 4. Information architecture
 

@@ -41,7 +41,11 @@
   --color-gold: #c2451f; /* "ignite-deep" — borders/dividers/depth, decorative */
   --color-gold-bright: #ff5a36; /* "ignite" — primary accent, decorative only */
   --color-gold-light: #ffe2d6; /* "ignite-soft" — light tint for badges/backgrounds on paper */
-  --color-brass: #2ee6d6; /* "current" — secondary accent (teal), used sparingly */
+  --color-brass: #2ee6d6; /* "current" — secondary accent (teal), used sparingly. WARNING:
+    measured (Phase 13F contrast sweep) at 1.41:1 against paper — nowhere near even the
+    relaxed 3:1 large-text floor. Currently only consumed by 3D materials (three/materials.ts,
+    three/liquidMaterials.ts), never as 2D text/borders — keep it that way, or pair it with a
+    darker variant before ever using it as `text-brass`/`border-brass` on a paper surface. */
 
   --color-ink: #0b0b0e; /* dark canvas background (hero, journey, game-of-the-week) */
   --color-ink-raised: #17171c; /* card/panel surface on ink */
@@ -216,13 +220,17 @@
   border-radius: 999px;
 }
 
-/** Flat ignite fill for large display numerals (High score, League History
- * records) — replaces the `background-clip: text` metallic gradient.
- * Ignite is decorative-only per the token comment above; this class is
- * only ever applied to display-scale numerals (24px+), the one context
- * that rule allows literal text color. */
+/** Flat ignite-deep fill for large display numerals (High score, League
+ * History records) — replaces the `background-clip: text` metallic
+ * gradient. Uses `--color-gold` ("ignite-deep"), NOT `--color-gold-bright`
+ * ("ignite") — measured (Phase 13F contrast sweep): ignite-bright against
+ * paper is 2.80:1, which fails even the relaxed 3:1 large-text floor;
+ * ignite-deep clears 4.5:1 against paper and 3.9:1 against ink. This is
+ * the one case in the app where an "ignite" token is literal readable
+ * text rather than a border/divider/icon, so it's the one case that
+ * needed the darker variant instead of the brighter default. */
 .text-gold-metal {
-  color: var(--color-gold-bright);
+  color: var(--color-gold);
 }
 
 /** Flat ignite frame for the "portrait" avatars (TeamAvatar md/lg) —
