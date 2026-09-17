@@ -789,6 +789,58 @@ verified by an automated screenshot pass — that's a real-device/real-ear
 check, deferred to Phase F alongside the rest of this redesign's
 outstanding real-device work.
 
-**Phases C–F (rotating player cards; homepage rebuild plus smack-talk/
-game-of-the-week; team/history restyle; cross-cutting a11y/perf/
-real-device plus final docs pass): not started.**
+**Phase C — Rotating player cards. Status: complete, verified locally.**
+`api/seasonLeaders.ts` aggregates each starter's fantasy points across
+every week of the season (only counting weeks a player was actually
+started, not bench points) into a season point-total leaderboard, reusing
+the exact `streakWeeksMatchups` array `HomePage.tsx` already fetches for
+the standings streaks — no new API calls. `three/PlayerCard.tsx` follows
+`Portrait.tsx`'s texture-loading/error-boundary shape exactly, but with a
+real player headshot (`api/cdn.ts`'s `playerHeadshotUrl`) on an
+ignite/current-alternating backing instead of a gold frame.
+`three/PlayerCardArc.tsx` arranges cards with the shared `arcLayout.ts`
+math and drives the group's rotation from two independent sources summed
+together rather than fighting each other: a GSAP scrub tween (one full
+turn across the section's own scroll track — "3D elements that animate
+based on scroll position") and a native-pointer-event drag override that
+eases back to zero on release. `prefers-reduced-motion` disables the
+scroll-driven spin but leaves drag intact, on the reasoning that a
+deliberate user gesture isn't the ambient motion that preference guards
+against.
+
+`components/SeasonLeadersSection.tsx` branches on `effectsTier`: the
+`'full'` tier mounts the 3D arc (lazy-loaded, same
+`ChunkErrorBoundary`+`Suspense fallback={null}`+sticky-track pattern as
+every other canvas) with a visually-hidden real list alongside it for
+accessibility — the same split `EfficiencyChart` already uses for its
+bars plus a real `<table>`. The `'reduced'` tier skips the 3D canvas
+entirely and shows `components/PlayerCardStrip.tsx`'s horizontal
+scroll-snap strip as the only, fully visible content — a genuinely
+different, cheaper layout per SPEC.md §7.2, not the same scene rendered
+slower. Worth noting for whoever checks this on a real phone next: since
+`EffectsTierProvider` gates on a 640px viewport-width `matchMedia` (not
+device capability), **every phone in this league sees the reduced 2D
+strip by default**, not the 3D arc — the 3D path is a desktop/tablet
+enhancement, which is exactly backwards from "reduced tier is a
+fallback for weak hardware" if a capable phone happens to render at
+&lt;640px width. That's the same tier-gating tradeoff `EffectsTierProvider`
+already made deliberately (documented in its own file as tried against
+device-capability sniffing and abandoned) — not a new problem this phase
+introduced, but worth flagging since this is the first phase where the
+2D-vs-3D split is this visible a difference rather than a perf nicety.
+
+Verified: `tsc -b`, `oxlint` (one new warning, same category as
+`Portrait.tsx`'s existing one — mutating a hook-returned texture's
+properties, an established pattern in this codebase), `prettier --write`,
+and a production `vite build` all pass. Checked live in the dev server:
+at 390px width (reduced tier) the horizontal card strip renders real
+player headshots, names, and point totals correctly, matching the
+surrounding Awards section's styling; at 1280px width (full tier) the 3D
+arc renders four visible cards with real Sleeper headshots on
+alternating ignite/current backings, and scrolling the section visibly
+rotates the arc (confirmed by screenshot comparison before/after a
+600px scroll). Console showed zero errors on both passes.
+
+**Phases D–F (homepage rebuild plus smack-talk/game-of-the-week;
+team/history restyle; cross-cutting a11y/perf/real-device plus final docs
+pass): not started.**

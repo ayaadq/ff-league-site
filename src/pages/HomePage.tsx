@@ -12,6 +12,7 @@ import {
 } from '../api/hooks'
 import { pairMatchups } from '../api/matchups'
 import { playerDisplayName } from '../api/players'
+import { seasonLeaders } from '../api/seasonLeaders'
 import {
   currentStreaks,
   sortStandings,
@@ -30,6 +31,7 @@ import { HeroSection } from '../components/HeroSection'
 import { RecapAwards } from '../components/RecapAwards'
 import { RecapRankings } from '../components/RecapRankings'
 import { RecapStorylines } from '../components/RecapStorylines'
+import { SeasonLeadersSection } from '../components/SeasonLeadersSection'
 import { WeeklyJourney } from '../components/WeeklyJourney'
 import { Marquee } from '../components/Marquee'
 import { ChunkErrorBoundary } from '../components/ChunkErrorBoundary'
@@ -117,6 +119,18 @@ export function HomePage() {
   const streaks = useMemo(
     () => currentStreaks(streakWeeksMatchups.map((q) => q.data ?? [])),
     [streakWeeksMatchups],
+  )
+
+  // Season point-total leaders (PLAN.md Phase 13C) -- reuses the same
+  // season-long matchups already fetched for the streaks above, no new
+  // API calls.
+  const leaders = useMemo(
+    () =>
+      seasonLeaders(
+        streakWeeksMatchups.map((q) => q.data ?? []),
+        players.data,
+      ),
+    [streakWeeksMatchups, players.data],
   )
 
   // Recent trades/waivers for the activity feed -- the last few weeks
@@ -215,6 +229,8 @@ export function HomePage() {
           avatarFor={(userId) => (userId ? teamAvatarIdForUser(userId, users.data ?? []) : null)}
           playerNameFor={(playerId) => playerDisplayName(players.data?.[playerId], playerId)}
         />
+
+        <SeasonLeadersSection leaders={leaders} />
 
         {/* Act 3 -- Awards. */}
         {recap.content?.awards && (
