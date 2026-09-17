@@ -226,21 +226,47 @@ export function applyGotwDwell(
   return timings.map((t, i) => (i === gotwIndex ? { ...t, dwell: GOTW_DWELL } : t))
 }
 
-/** The <Canvas> camera's own fov prop (JourneyCanvas.tsx) -- shared here
- * rather than a second 45 hardcoded in both files, the same reasoning
- * as BASE_STANDOFF/FRAMED_FOR_ASPECT above. */
-export const BASE_FOV = 45
+/** The camera's field of view at an ordinary station's own dwell --
+ * also the <Canvas> camera prop's own static default (JourneyCanvas.tsx),
+ * so the first painted frame already matches what place(0) is about to
+ * set rather than flashing a different value first.
+ *
+ * Widened from an original 45 after live screenshots (stadium step 2's
+ * own verification) showed the tiered stands sitting entirely outside
+ * the dwell frustum: at typical desktop pullback, the visible world
+ * half-width at a station's own depth was ~4.25 units at 45 degrees,
+ * while the stands start at WING_INNER_X=6 (JourneyScene.tsx) -- not a
+ * tuning gap, the geometry was provably outside the cone regardless of
+ * the DOM panel covering it. 60 degrees brings that to roughly 5.7-6.5
+ * depending on pullback, just past WING_INNER_X, at a real and
+ * deliberate cost: the two portraits, which sit at the same depth as
+ * the stands, read at roughly 65-75% of their previous screen size.
+ * Revealing more at a fixed depth and preserving what's already framed
+ * at that same depth are the same trigonometric lever pointed in
+ * opposite directions, not two independent knobs -- confirmed by
+ * working the actual numbers before picking 60, not guessing at a
+ * value and eyeballing it after. */
+export const DWELL_FOV = 60
 const GOTW_MIN_FOV = 34
 
-/** The camera's field of view at a given progress -- BASE_FOV
- * everywhere except the one "game of the week" station, where it eases
- * down to GOTW_MIN_FOV across the travel approaching it and its own
- * dwell, then back up across the travel leaving it. Linear, not eased
- * with a curve -- matching this file's own "the scrub supplies the
- * weight, not the ease" convention (JourneyCameraRig's scrollTrigger
- * comment).
+function stationTargetFov(index: number, gotwIndex: number | null): number {
+  return index === gotwIndex ? GOTW_MIN_FOV : DWELL_FOV
+}
+
+/** The camera's field of view at a given progress -- DWELL_FOV through
+ * every ordinary station's own dwell, easing to GOTW_MIN_FOV through
+ * the one "game of the week" station's dwell and the travel on both
+ * sides of it, back to DWELL_FOV once clear. Travel between two
+ * ordinary stations holds at a constant DWELL_FOV throughout (both
+ * ends of the ease are equal) -- there's no separate "neutral baseline"
+ * distinct from an ordinary station's own target anymore; DWELL_FOV
+ * *is* that baseline. Same piecewise hold-then-ease shape as
+ * zAtProgress above, not a second shape invented for FOV specifically.
+ * Linear, not eased with a curve -- matching this file's own "the
+ * scrub supplies the weight, not the ease" convention (JourneyCameraRig's
+ * scrollTrigger comment).
  *
- * A tighter frame via FOV rather than a closer physical standoff is
+ * A tighter GOTW frame via FOV rather than a closer physical standoff is
  * deliberate: JourneyScene's ignite plane and accent light both recover
  * the camera's look target by inverting camera.position.z against a
  * FIXED standoff (BASE_STANDOFF * cameraPullback), decoupled from
@@ -256,22 +282,24 @@ export function fovAtProgress(
   bounds: StationBounds[],
   gotwIndex: number | null,
 ): number {
-  if (gotwIndex === null || !bounds[gotwIndex]) return BASE_FOV
-  const b = bounds[gotwIndex]
+  const n = bounds.length
+  if (n === 0) return DWELL_FOV
   const clamped = Math.min(Math.max(progress, 0), 1)
-  const enterStart = gotwIndex > 0 ? bounds[gotwIndex - 1].dwellEnd : b.dwellStart
-  const exitEnd = b.travelEnd
 
-  if (clamped < enterStart || clamped > exitEnd) return BASE_FOV
-  if (clamped < b.dwellStart) {
-    const span = b.dwellStart - enterStart
-    const t = span > 0 ? (clamped - enterStart) / span : 1
-    return BASE_FOV - (BASE_FOV - GOTW_MIN_FOV) * t
+  for (let i = 0; i < n; i++) {
+    const b = bounds[i]
+    if (clamped <= b.dwellEnd || i === n - 1) {
+      return stationTargetFov(i, gotwIndex)
+    }
+    if (clamped <= b.travelEnd) {
+      const span = b.travelEnd - b.dwellEnd
+      const t = span > 0 ? (clamped - b.dwellEnd) / span : 1
+      const fromFov = stationTargetFov(i, gotwIndex)
+      const toFov = stationTargetFov(i + 1, gotwIndex)
+      return fromFov + (toFov - fromFov) * t
+    }
   }
-  if (clamped <= b.dwellEnd) return GOTW_MIN_FOV
-  const span = exitEnd - b.dwellEnd
-  const t = span > 0 ? (clamped - b.dwellEnd) / span : 1
-  return GOTW_MIN_FOV + (BASE_FOV - GOTW_MIN_FOV) * t
+  return stationTargetFov(n - 1, gotwIndex)
 }
 
 /** Which station's dwell window a given overall progress falls inside,

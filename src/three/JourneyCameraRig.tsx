@@ -102,10 +102,11 @@ export function JourneyCameraRig({
       )
       camera.lookAt(0, LOOK_HEIGHT, targetZ)
 
-      // Skipped entirely on a week with no GOTW game (fovAtProgress
-      // would just return BASE_FOV every time anyway) -- no reason to
-      // write camera.fov and recompute the projection matrix every
-      // scrub frame for a value that's never going to change.
+      // Runs every frame regardless of gotwIndex now -- DWELL_FOV
+      // widened every ordinary station's own dwell (journeyLayout.ts's
+      // fovAtProgress), not just the GOTW station's tightening, so
+      // there's no week where this is skippable the way it used to be
+      // when 45 degrees was the universal, never-changing default.
       //
       // Mutating the hook-returned camera directly, same as
       // camera.position.set()/camera.lookAt() just above -- three.js
@@ -117,11 +118,9 @@ export function JourneyCameraRig({
       // warning where the .set()/.lookAt() calls above don't -- the
       // linter only flags a raw property assignment, not a method call
       // on the same object -- expected, not a bug to work around.
-      if (gotwIndex !== null) {
-        const perspectiveCamera = camera as PerspectiveCamera
-        perspectiveCamera.fov = fovAtProgress(progress, bounds, gotwIndex)
-        perspectiveCamera.updateProjectionMatrix()
-      }
+      const perspectiveCamera = camera as PerspectiveCamera
+      perspectiveCamera.fov = fovAtProgress(progress, bounds, gotwIndex)
+      perspectiveCamera.updateProjectionMatrix()
     }
 
     // The first painted frame has to be framed correctly. ScrollTrigger

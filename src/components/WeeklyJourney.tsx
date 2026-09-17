@@ -187,8 +187,19 @@ export function WeeklyJourney({
                   behind it varies by station and by scroll position within a
                   station -- 90% is close enough to opaque that the result is
                   consistently dark regardless, at the cost of the 3D scene
-                  barely showing through the card anymore. */}
-              <div className="mx-auto w-full max-w-3xl rounded-2xl bg-[#2B2926]/90 px-5 py-7 sm:px-8 sm:py-9">
+                  barely showing through the card anymore.
+
+                  max-w-2xl, narrowed from max-w-3xl once DWELL_FOV
+                  (journeyLayout.ts) widened the camera enough to actually
+                  put the stadium stands inside the frustum during dwell --
+                  the panel was free to cover most of the canvas width
+                  before that, since nothing back there was visible either
+                  way; now the extra ~96px of freed side margin is what
+                  actually lets the wider shot read on screen, not just
+                  exist in the 3D scene. Verified live that the panel's own
+                  content (longest line: the title, two-column stat grid)
+                  still reads fine at the new width before keeping it. */}
+              <div className="mx-auto w-full max-w-2xl rounded-2xl bg-[#2B2926]/90 px-5 py-7 sm:px-8 sm:py-9">
                 {/* Broadcast-style title card, entering as this station
                     arrives. Plain team names, not a personalized "YOU
                     vs." -- the site has no per-visitor identity to draw
