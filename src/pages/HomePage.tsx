@@ -33,6 +33,7 @@ import { HeroSection } from '../components/HeroSection'
 import { RecapAwards } from '../components/RecapAwards'
 import { RecapRankings } from '../components/RecapRankings'
 import { RecapStorylines } from '../components/RecapStorylines'
+import { NextWeekPreview } from '../components/NextWeekPreview'
 import { SeasonLeadersSection } from '../components/SeasonLeadersSection'
 import { SmackTalkFeed } from '../components/SmackTalkFeed'
 import { WeeklyJourney } from '../components/WeeklyJourney'
@@ -473,6 +474,8 @@ export function HomePage() {
             </div>
           </div>
         )}
+
+        <NextWeekPreview />
 
         {!isLoading && (
           <Reveal sound>

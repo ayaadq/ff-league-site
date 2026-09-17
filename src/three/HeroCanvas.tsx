@@ -4,15 +4,16 @@ import { HeroScene } from './HeroScene'
 import { SceneLighting } from './SceneLighting'
 import { ScrollCameraRig } from './ScrollCameraRig'
 
+const TRACK_ID = 'hero-scroll-track'
 const REST_POSITION = { x: 0, y: 0.4, z: 5.5 }
 const SCROLLED_POSITION = { x: -0.6, y: 0.05, z: 8.6 }
 const LOOK_TARGET: [number, number, number] = [0, 0.1, -2]
 
-/** Home's hero backdrop (PLAN.md Phase 13B) — three liquid blobs
- * (HeroScene.tsx) behind the hero copy, replacing the old plain-text
- * header. Same self-contained-canvas shape as the other two scenes
- * (WeeklySummaryCanvas, TrophyRoomCanvas): owns its own scroll-track id
- * and camera framing, mounted inside HeroSection.tsx's sticky track.
+/** Home's hero backdrop (PLAN.md Phase G) — rotating footballs
+ * (HeroScene.tsx) behind the hero copy. Same self-contained-canvas shape
+ * as the other scenes (WeeklySummaryCanvas, TrophyRoomCanvas): owns its
+ * own scroll-track id and camera framing, mounted inside
+ * HeroSection.tsx's sticky track.
  *
  * Mobile performance (SPEC.md §7.2): capped devicePixelRatio, no
  * post-processing, the shared three-light SceneLighting rig rather than
@@ -31,12 +32,12 @@ export function HeroCanvas() {
       }}
     >
       <color attach="background" args={['#0b0b0e']} />
-      <fog attach="fog" args={['#0b0b0e', 6, 16]} />
+      <fog attach="fog" args={['#0b0b0e', 9, 18]} />
       <Suspense fallback={null}>
         <SceneLighting />
-        <HeroScene />
+        <HeroScene trackId={TRACK_ID} />
         <ScrollCameraRig
-          trackId="hero-scroll-track"
+          trackId={TRACK_ID}
           restPosition={REST_POSITION}
           scrolledPosition={SCROLLED_POSITION}
           lookTarget={LOOK_TARGET}

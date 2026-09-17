@@ -1067,3 +1067,178 @@ capability check) lands most phones on the reduced 2D player-card strip
 as intended or misses a capable-but-narrow device. This needs a push to
 the deploy branch and a real phone in hand — not something achievable
 from this environment.
+
+## Phase G — Hero footballs, journey redesign, confetti, trading-card
+
+preview, zoom fix
+
+Five features requested together, executed as one pass. Status:
+complete, verified locally (dev server + Playwright at 390px and
+1440px); real-device verification is the same outstanding gap Phase F
+already flagged, unchanged by this phase.
+
+**Hero footballs.** `three/HeroScene.tsx`'s liquid blobs (PLAN.md Phase
+13B) are replaced with three footballs — a scaled sphere (a prolate-
+spheroid stand-in; three.js has no football primitive) with five lace
+boxes, rotating clockwise on a GSAP scrub tied to the hero's own scroll
+track rather than a time-based idle spin, per the brief's "rotate ...
+based on scroll progress." Ignite/current appear only as lace color and
+a per-ball point light, not the ball's own material, per the brief's
+"keep ignite/current as accent lighting." `three/liquidMaterials.ts` is
+deleted (no longer referenced).
+
+Two real bugs surfaced and fixed while verifying this, both by
+screenshot, not assumed:
+
+- The ball's first body color (a near-ink dark grey, chosen so ignite/
+  current would read as the only color) was **nearly invisible** against
+  the ink background — a neutral-dark object heavily fogged blends
+  toward the fog's own near-black color, unlike the old blobs' saturated
+  ignite/current material which stayed visually distinct from fog even
+  when faded. Fixed with a lighter pewter-grey body plus a nearer camera
+  distance and a pushed-out fog `near` value, all confirmed by
+  before/after screenshots.
+- The initial ball layout crowded the hero copy at 390px width. Pushed
+  further to the frame's corners and scaled down — desktop (three
+  clearly separated, well-lit balls flanking the headline) reads better
+  than mobile (one ball tucked into a corner) but both are legible and
+  don't obscure the text.
+
+**Journey redesign.** `three/JourneyScene.tsx`'s turf floor and tiered
+stadium stands (`FullStands`/`SimpleStands`/`AccentLighting`, the bulk of
+the file) are deleted entirely, along with `three/turfTexture.ts` and
+`three/crowdTexture.ts` (now fully unreferenced) and
+`TURF_MATERIAL_PROPS`/`STAND_MATERIAL_PROPS` from `materials.ts`. This
+reverses a scope call from the previous redesign pass (PLAN.md Phase
+13D), which declined to rebuild this same geometry given how much live-
+verified tuning it carried — this phase's brief explicitly asks for the
+rebuild anyway, so it's a deliberate replacement made with that history
+in view, not a casual one. `Station`'s portrait face-off and winner-
+ignite glow (the actual matchup visualization, not stadium dressing) are
+unchanged.
+
+Replacement: `three/playDiagramTexture.ts` generates transparent-
+background canvas textures of abstract X's-and-O's formations (three
+schematic variants, offense/defense markers, arrowed routes) — the same
+procedural-canvas approach the deleted textures used, just drawing
+something else. `PlayDiagrams` places two per station (ignite for the
+winner's side, current for the loser's), positioned to the sides clear
+of the central portraits. Parallax is mostly free: each plane sits at
+its own fixed Z and the journey's existing camera dolly already passes
+them at different apparent rates by depth; on top of that, the full
+effects tier fades a plane in/out by camera proximity (the same
+distance-falloff shape `Station`'s own ignite plane already used).
+
+**Journey confetti.** `components/ConfettiLayer.tsx` — plain DOM
+particles animated directly with GSAP (no React state per particle),
+mounted once by `WeeklyJourney.tsx` and fired from the same
+`onStationDwellStart` callback that already drives the sound duck/roar.
+`JourneyCameraRig`'s `onStationDwellStart` callback signature gained a
+`velocity` parameter (px/sec, read from the same ScrollTrigger already
+driving the camera) so confetti intensity scales with how fast the
+reader is scrolling, without a second independent velocity sampler.
+Bias (left/right lean) reads a comparison of the two rosters' ids rather
+than the winner's on-screen position — this scene always renders the
+winner on the left, so a literal "which side did the winner render on"
+bias would be identical every single time; a stable per-matchup id
+comparison gives the real per-game left/right variation the brief's own
+example describes. Scoped to the journey only — nothing else on the site
+mounts `ConfettiLayer`.
+
+A real bug surfaced here, not caught until a live reload deep in the
+page: `JourneyCameraRig`'s new velocity read (`tween.scrollTrigger?.getVelocity()`)
+referenced the enclosing `const tween` from inside that same tween's own
+`onUpdate` callback, which GSAP/ScrollTrigger can invoke _synchronously
+during initialization_ under some mount conditions — throwing "Cannot
+access 'tween' before initialization" and taking the whole journey
+canvas down (caught by `ChunkErrorBoundary`, so the page degraded rather
+than crashed, but the canvas was gone). Fixed by reading velocity from
+the ScrollTrigger's own nested `onUpdate(self)` callback into a separate
+`let lastVelocity` variable instead, which receives the instance as a
+parameter rather than closing over a not-yet-assigned `const`.
+
+**Trading-card matchup preview.** `components/NextWeekPreview.tsx`,
+mounted directly above the Standings section. "Next week" resolves to
+whichever not-yet-scored week should be previewed (the current NFL week
+itself if it hasn't started scoring, otherwise the following week),
+reusing the exact `useMatchups`/`pairMatchups` pattern every other week
+view already uses — no new data-fetching shape. Cards alternate ink/paper
+per card (not per side); each face shows the team's avatar, name,
+starting lineup with real Sleeper headshots, and a bottom stats bar
+(W-L record, season points-for — "PFF" in the brief, resolved to
+league-scored points-for per the brief's own "Claude should use
+league-standard PPR points" instruction, since this app has no
+projected-points data source at all).
+
+The flip is a real CSS 3D transform (`rotateY` on a `preserve-3d`
+element with two `backface-visibility: hidden` faces), not r3f — chosen
+for the same reason `WeeklyJourney` keeps its score/headline text in DOM
+rather than 3D: a card's content is names, numbers and photos, which
+belong in DOM for selectability/screen-reader access regardless of which
+motion technique drives the container. Scrubbed to exactly 300px of
+scroll (the brief's own figure) via GSAP, confirmed correct at 0%
+(front, flat), 25% (a genuine perspective-tilted 3D card, not just an
+opacity cross-fade), 50% (`rotateY(90deg)` exactly, confirmed via
+computed `matrix3d` — a real flipping card edge-on and hard to see for
+that one instant is physically correct, not a bug), and 75% (Team B's
+side, right-reading, not mirrored, confirming the `backface-visibility`
+trick composes correctly with the earlier flip tween). Disintegration
+triggers as a discrete one-shot (`toggleActions: 'play none none
+reverse'`, not scrubbed) once flip-plus-hold scroll distance is passed;
+particles scale up while spreading radially and fading — the flat-
+screen stand-in for "toward the viewer," since no 2D DOM/CSS technique
+can produce true stereoscopic depth — mixing ignite and current per
+the brief. `prefers-reduced-motion` skips all of it: both team cards
+render as plain stacked panels, no rotation, no particles, confirmed by
+screenshot.
+
+One transient visual artifact noted, not fully chased down: a single
+frame captured via a fast synthetic scroll jump (Playwright's
+instant `mousewheel`, not a real touch/wheel gesture) showed Team A's
+mirrored text briefly during the disintegration fade, while every
+settled state before and after that frame (front, 25%, 75%, fully
+faded) checked correct via computed style, not just eyeballed. Given it
+self-corrects immediately and real gesture-driven scrolling doesn't
+jump discontinuously the way a synthetic instant scroll does, this is
+flagged as a real-device thing to watch rather than something fixed
+blind here.
+
+**Pinch-to-zoom fix.** `index.html`'s viewport meta gained
+`maximum-scale=1, user-scalable=no`. `index.css` locks `html`/`body` to
+the viewport width and restricts `touch-action` to vertical panning.
+
+This surfaced the single most severe bug of this phase: the first
+version used `overflow-x: hidden` on `html`/`body` as the brief
+specified. CSS links `overflow-x`/`overflow-y` — setting one to a
+non-`visible` value while leaving the other at its default `visible`
+silently promotes the second to `auto`, turning `html`/`body` into an
+actual scroll container. That **broke `position: sticky` for every
+scroll-driven 3D canvas on the entire site** (hero, journey, standings
+wall, trophy room, player cards, this phase's own trading cards) —
+confirmed by a sticky element's `getBoundingClientRect().top` moving
+1:1 with `scrollY` instead of holding at 0, the exact symptom that first
+looked like a trading-card-specific bug before the real, page-wide cause
+was traced. Fixed with `overflow-x: clip` instead, which prevents the
+same horizontal overflow without establishing a scroll container or
+triggering the linked-overflow promotion — confirmed by re-checking
+`overflow-y` computed to `visible` again and every affected sticky
+section holding at `top: 0` under scroll, not just the one that first
+surfaced it.
+
+**Verified:** `tsc -b`, `oxlint` (same eight pre-existing warnings this
+whole redesign has carried since Phase A, zero new), `prettier --write`,
+and a production `vite build` all pass. Checked live at 390×844 and
+1440×900: hero footballs visible and rotating on scroll at both widths,
+journey play diagrams visible at station edges without crowding the
+scorecards, confetti bursts firing with correct ignite/current coloring
+on station transitions, trading-card front/mid-flip/back/disintegration
+all confirmed via computed style (not just screenshots) at both the
+happy path and the reduced-motion path, zero horizontal overflow at
+1440px, and every pre-existing sticky 3D section re-confirmed working
+after the overflow fix. Console showed zero errors on every check after
+the two bugs above were fixed.
+
+**Not done:** real-device verification (frame rate, touch-gesture flip
+feel, actual pinch-to-zoom behavior on real iOS/Android) — the same gap
+every phase since the redesign began has carried, still not achievable
+from this environment.

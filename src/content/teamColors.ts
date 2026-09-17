@@ -1,10 +1,13 @@
-/** Per-manager accent color for 3D scene lighting (JourneyScene's
- * AccentLighting) — Sleeper doesn't expose real team colors, so this
- * assigns one per manager itself. Hand-authored where set, the same
- * shape content/lore/ already uses for hand-authored data: a plain
+/** Per-manager accent color — Sleeper doesn't expose real team colors,
+ * so this assigns one per manager itself. Hand-authored where set, the
+ * same shape content/lore/ already uses for hand-authored data: a plain
  * array keyed by Sleeper `user_id`, empty is a fully supported state,
  * edit this file and commit (no admin UI). Not nested under
  * content/lore/ itself since this isn't narrative content.
+ *
+ * Originally written for JourneyScene's 3D team-color lighting
+ * (AccentLighting), which PLAN.md Phase G's stadium removal deleted;
+ * the sole consumer now is GameOfTheWeekHero.tsx's 2D gradient blob.
  *
  * Unauthored managers still get a color rather than no accent light at
  * all — a deterministic hash of their user_id picks one from

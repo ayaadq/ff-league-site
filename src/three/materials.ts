@@ -16,8 +16,11 @@
  * old champagne/antique-brass gold, and `BRASS_MATERIAL_PROPS` carries
  * "current" (`--color-brass`) — the token *names* stayed put (see
  * index.css's own remap comment) so every existing consumer (Portrait's
- * frame, the journey's stadium shell walls, TrophyRoomScene) picked up
- * the new colors without needing its own edit.
+ * frame, TrophyRoomScene) picked up the new colors without needing its
+ * own edit. `TURF_MATERIAL_PROPS`/`STAND_MATERIAL_PROPS` were removed in
+ * PLAN.md Phase G along with the stadium geometry they were exclusively
+ * for (JourneyScene.tsx's turf floor and tiered stands) — see that
+ * file's own doc comment for the replacement (play-diagram planes).
  */
 
 // Redesign pass (PLAN.md Phase 13D): colors only, moved to the new
@@ -68,45 +71,4 @@ export const BRASS_MATERIAL_PROPS = {
   roughness: 0.4,
   metalness: 0.4,
   envMapIntensity: 1,
-} as const
-
-// Turf and stand surfaces (JourneyScene.tsx's stadium) carry their own
-// texture map for color -- no `color` field here, unlike the flat
-// marble/gold presets above, since Three multiplies material.color ×
-// map and a color here would just tint the texture rather than replace
-// it, same as leaving it at the implicit default white.
-//
-// High roughness plus a low envMapIntensity here keeps this a diffuse,
-// non-reflective surface -- the right instinct for grass, and the same
-// direction GOLD_MATERIAL_PROPS's own comment reasons from (favor the
-// evenly-lit diffuse term over the environment reflection). But be aware
-// of what these two props *don't* do: they tune the HDRI's own specular/
-// IBL contribution, not SceneLighting's ambient light plus three
-// directional lights, which is what actually brightens/softens a lit
-// turf plane relative to its old unlit self -- live-tested by swinging
-// envMapIntensity from 0.35 down to 0.15 with no visible change. That
-// softening isn't a bug to chase out with material props: a live
-// side-by-side against TrophyRoomScene's own columns under this exact
-// rig confirmed the marble gallery is *itself* soft and high-key, not a
-// saturated reference this turf was falling short of. Any remaining
-// compensation for a saturated color (the turf green, a team-color yard
-// number) belongs in the texture's own source colors instead --
-// turfTexture.ts's `darken()` -- since that's a flat diffuse-light
-// contribution these props can't reach.
-export const TURF_MATERIAL_PROPS = {
-  roughness: 0.88,
-  metalness: 0,
-  envMapIntensity: 0.15,
-} as const
-
-// Stand surfaces (seat blocks, fascia) sit in a lighter, less saturated
-// range than turf -- close to MARBLE_MATERIAL_PROPS's own light neutral
-// gray, which already reads correctly lit in the trophy room and
-// standings wall, so this doesn't need turf's aggressive envMapIntensity
-// suppression. Roughness stays well above gold/brass -- these are
-// painted/molded stadium surfaces, not polished stone or metal.
-export const STAND_MATERIAL_PROPS = {
-  roughness: 0.6,
-  metalness: 0,
-  envMapIntensity: 0.55,
 } as const

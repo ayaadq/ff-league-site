@@ -1,70 +1,121 @@
-import { MeshDistortMaterial, Sphere } from '@react-three/drei'
-import { useFrame } from '@react-three/fiber'
-import { useRef } from 'react'
+import { gsap } from 'gsap'
+import { useEffect, useMemo, useRef } from 'react'
 import type { Group } from 'three'
 import { useEffectsTier } from '../motion/effectsTierContext'
+import { setupGsap } from '../motion/gsapSetup'
 import { useReducedMotion } from '../motion/reducedMotionContext'
-import { CURRENT_LIQUID_PROPS, IGNITE_LIQUID_PROPS } from './liquidMaterials'
 
-interface Blob {
+const IGNITE = '#ff5a36'
+const CURRENT = '#2ee6d6'
+/** A neutral pewter-grey body rather than literal leather brown — reads
+ * as a graphic silhouette belonging to this site's palette rather than
+ * an unrelated new hue, while staying clearly visible against the ink
+ * canvas (an ink-toned ball on an ink background was tried first and
+ * was nearly invisible — confirmed by screenshot, not assumed away).
+ * Close to `--color-mute-on-ink`, already proven legible against ink for
+ * exactly this reason. Ignite and current do the actual "accent" work
+ * per PLAN.md Phase G's brief, as glowing laces plus a tinted point
+ * light per ball, not as the ball's own base color. */
+const BODY_COLOR = '#5c5a62'
+
+interface FootballConfig {
   position: [number, number, number]
   scale: number
-  props: typeof IGNITE_LIQUID_PROPS | typeof CURRENT_LIQUID_PROPS
-  /** Idle group-rotation speed (rad/s) — independent of the material's
-   * own `speed` (its internal surface-distortion animation). */
-  spinSpeed: number
+  /** Full clockwise turns completed over the hero's entire scroll span —
+   * varied per ball so the three don't spin in obvious lockstep. */
+  turns: number
+  accent: string
 }
 
-/** Three blobs read as a composition (front/back, two colors, varied
- * scale); one is the cheapest scene that still reads as "the hero has a
- * liquid 3D presence" for the reduced-quality tier (SPEC.md §7.2 — a
- * genuinely simpler scene, not the same one slower). */
-const FULL_BLOBS: Blob[] = [
-  { position: [-1.7, 0.35, -1.4], scale: 1.3, props: IGNITE_LIQUID_PROPS, spinSpeed: 0.16 },
-  { position: [1.9, -0.45, -2.3], scale: 1.7, props: CURRENT_LIQUID_PROPS, spinSpeed: -0.11 },
-  { position: [0.15, 1.15, -3.1], scale: 1.05, props: IGNITE_LIQUID_PROPS, spinSpeed: 0.09 },
+/** Positions kept within ~1.5 units of the camera's own Z (5.5, see
+ * HeroCanvas.tsx) rather than the old blob composition's deeper spread —
+ * confirmed by screenshot that the previous depths (2-4 units further
+ * back) sat far enough into the fog gradient that a neutral-grey ball
+ * blended almost invisibly toward the fog's own near-black color, a
+ * failure mode a saturated-color object (the old blobs) doesn't share. */
+const FULL_FOOTBALLS: FootballConfig[] = [
+  { position: [-3.1, 1.9, -1.6], scale: 0.6, turns: 1.6, accent: IGNITE },
+  { position: [3.0, -2.2, -1.6], scale: 0.75, turns: -1.1, accent: CURRENT },
+  { position: [2.7, 2.3, -2.1], scale: 0.5, turns: 2.1, accent: IGNITE },
 ]
-const REDUCED_BLOBS: Blob[] = [FULL_BLOBS[1]]
+const REDUCED_FOOTBALLS: FootballConfig[] = [FULL_FOOTBALLS[1]]
 
-function LiquidBlob({ blob, animate }: { blob: Blob; animate: boolean }) {
-  const ref = useRef<Group>(null)
+/** A football rendered as a scaled sphere (a cheap, no-extra-geometry
+ * stand-in for a true prolate spheroid — three.js has no built-in
+ * "football" primitive) plus a row of lace boxes along the seam. Laces
+ * and the backing point light both carry the ball's accent color, so
+ * ignite/current read as *lighting the ball*, not as the ball's own
+ * material — matching the brief's "keep ignite/current as accent
+ * lighting on the footballs," not a literally orange or teal ball. */
+function Football({ config, trackId }: { config: FootballConfig; trackId: string }) {
+  const groupRef = useRef<Group>(null)
+  const reducedMotion = useReducedMotion()
 
-  useFrame((_, delta) => {
-    if (!animate || !ref.current) return
-    ref.current.rotation.y += delta * blob.spinSpeed
-    ref.current.rotation.x += delta * blob.spinSpeed * 0.4
-  })
+  useEffect(() => {
+    if (reducedMotion || !groupRef.current) return
+    setupGsap()
+    const track = document.getElementById(trackId)
+    if (!track) return
+
+    // Clockwise as viewed on screen: in three.js's right-handed
+    // coordinate system (camera looking down -Z), increasing rotation.z
+    // reads as counter-clockwise, so clockwise needs the negative
+    // direction — hence turns is negated here rather than at each
+    // config's own call site (config.turns stays a plain "how many turns,
+    // which way looks best for this ball" tuning knob).
+    const tween = gsap.to(groupRef.current.rotation, {
+      z: -config.turns * Math.PI * 2,
+      ease: 'none',
+      scrollTrigger: { trigger: track, start: 'top top', end: 'bottom top', scrub: 0.6 },
+    })
+
+    return () => {
+      tween.scrollTrigger?.kill()
+      tween.kill()
+    }
+  }, [reducedMotion, trackId, config.turns])
 
   return (
-    <group ref={ref} position={blob.position} scale={blob.scale}>
-      <Sphere args={[1, 48, 48]}>
-        <MeshDistortMaterial {...blob.props} speed={animate ? blob.props.speed : 0} />
-      </Sphere>
+    <group position={config.position} scale={config.scale}>
+      <pointLight color={config.accent} intensity={3.5} distance={5} decay={2} />
+      <group ref={groupRef} scale={[1.55, 0.88, 0.88]}>
+        <mesh>
+          <sphereGeometry args={[1, 40, 28]} />
+          <meshStandardMaterial color={BODY_COLOR} roughness={0.45} metalness={0.1} />
+        </mesh>
+        {/* Laces — five short bars along the top seam, evenly spaced
+            along the ball's elongated local X axis. Un-scaled per-instance
+            so they stay bar-shaped rather than inheriting the parent
+            group's [1.55, 0.88, 0.88] squash. */}
+        {[-0.5, -0.25, 0, 0.25, 0.5].map((t, i) => (
+          <mesh key={i} position={[t, 1.02 / 0.88, 0]} scale={[1 / 1.55, 1 / 0.88, 1 / 0.88]}>
+            <boxGeometry args={[0.05, 0.03, 0.16]} />
+            <meshBasicMaterial color={config.accent} toneMapped={false} />
+          </mesh>
+        ))}
+      </group>
     </group>
   )
 }
 
-/** The hero's 3D presence (PLAN.md Phase 13B) — a small cluster of liquid
- * blobs behind the hero copy, replacing the old static trophy-gallery
- * opener. Idle rotation plus each blob's own surface distortion are both
- * "3D elements that animate" independent of scroll; ScrollCameraRig
- * (mounted alongside this in HeroCanvas.tsx) supplies the actual
- * scroll-position-driven camera move.
- *
- * `prefers-reduced-motion` stops both the idle rotation and the
- * material's own distortion animation (a static, held blob shape rather
- * than disabling the mesh entirely) — the same "real branch, not a
- * blanket kill" pattern the rest of the site's motion follows. */
-export function HeroScene() {
-  const reducedMotion = useReducedMotion()
+/** The hero's 3D presence (PLAN.md Phase G) — rotating footballs,
+ * replacing the liquid-blob composition from the previous redesign pass.
+ * Idle rotation is entirely scroll-driven (each ball's own GSAP scrub
+ * tween against the hero's scroll track) rather than a useFrame time-based
+ * spin, per this phase's explicit brief ("rotate ... based on scroll
+ * progress"). `prefers-reduced-motion` leaves the balls fully rendered at
+ * their rest orientation — a real branch, not a blanket kill. */
+export function HeroScene({ trackId }: { trackId: string }) {
   const effectsTier = useEffectsTier()
-  const blobs = effectsTier === 'reduced' ? REDUCED_BLOBS : FULL_BLOBS
-  const animate = !reducedMotion
+  const footballs = useMemo(
+    () => (effectsTier === 'reduced' ? REDUCED_FOOTBALLS : FULL_FOOTBALLS),
+    [effectsTier],
+  )
 
   return (
     <>
-      {blobs.map((blob, i) => (
-        <LiquidBlob key={i} blob={blob} animate={animate} />
+      {footballs.map((config, i) => (
+        <Football key={i} config={config} trackId={trackId} />
       ))}
     </>
   )

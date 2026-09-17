@@ -58,17 +58,24 @@ export function JourneyCameraRig({
   timings?: StationTiming[]
   /** Fires once, with a station's index, the moment the scrubbed
    * progress this rig is already reading enters that station's dwell
-   * window -- WeeklyJourney's audio ducking hangs its game-outcome
-   * swell off this rather than its own separate scroll listener, so
-   * the sound and the camera's actual arrival can't drift apart the
-   * way a second independent trigger source eventually would (see
+   * window -- WeeklyJourney's audio ducking (and, PLAN.md Phase G, its
+   * confetti burst) hangs its game-outcome swell off this rather than
+   * its own separate scroll listener, so the sound/confetti and the
+   * camera's actual arrival can't drift apart the way a second
+   * independent trigger source eventually would (see
    * dwellIndexAtProgress's own comment). Kept in a ref rather than the
    * effect's dependency array below -- WeeklyJourney passes a new
    * closure every render (it captures `games`), and re-running this
    * effect on every one of those would tear down and rebuild the
    * ScrollTrigger for no camera-relevant reason, losing the "last
-   * fired" bookkeeping that keeps this a once-per-arrival callback. */
-  onStationDwellStart?: (index: number) => void
+   * fired" bookkeeping that keeps this a once-per-arrival callback.
+   *
+   * `velocity` (px/sec, from this same ScrollTrigger's own
+   * `getVelocity()`) rides along for the confetti burst's intensity —
+   * reading it off the ScrollTrigger already driving the camera rather
+   * than a second, independent velocity sampler keeps "how fast the
+   * reader is moving" defined in exactly one place. */
+  onStationDwellStart?: (index: number, velocity: number) => void
   /** The one "game of the week" station, if this week has one --
    * eases the camera's fov for it (journeyLayout.ts's fovAtProgress,
    * see its own comment for why fov and not a closer standoff). A
@@ -140,6 +147,17 @@ export function JourneyCameraRig({
     // onStationDwellStart lives inside onUpdate below rather than
     // inside place() itself specifically so place(0) never touches it.
     let lastDwellIndex = -1
+    // Set by the scrollTrigger's own `onUpdate` below (which receives the
+    // ScrollTrigger instance as a plain parameter, `self`) rather than
+    // read as `tween.scrollTrigger` from inside the tween's own
+    // `onUpdate` -- referencing the enclosing `const tween` from within a
+    // callback that GSAP/ScrollTrigger can invoke *synchronously during
+    // `gsap.to()`'s own initialization* (confirmed live: happens when
+    // this rig mounts with the page already scrolled partway through the
+    // track, e.g. after a reload deep in the journey) throws "Cannot
+    // access 'tween' before initialization" -- the assignment to `tween`
+    // hasn't completed yet at that point, regardless of `const` vs `let`.
+    let lastVelocity = 0
     const state = { progress: 0 }
     const tween = gsap.to(state, {
       progress: 1,
@@ -156,13 +174,21 @@ export function JourneyCameraRig({
       // rework exists to remove. 'bottom top' makes progress span
       // scrollY in [trackTop, trackTop + trackHeight] exactly, the same
       // denominator the panel heights already assume.
-      scrollTrigger: { trigger: track, start: 'top top', end: 'bottom top', scrub: 1.1 },
+      scrollTrigger: {
+        trigger: track,
+        start: 'top top',
+        end: 'bottom top',
+        scrub: 1.1,
+        onUpdate: (self) => {
+          lastVelocity = self.getVelocity()
+        },
+      },
       onUpdate: () => {
         place(state.progress)
         const dwellIndex = dwellIndexAtProgress(state.progress, bounds)
         if (dwellIndex !== -1 && dwellIndex !== lastDwellIndex) {
           lastDwellIndex = dwellIndex
-          onStationDwellStartRef.current?.(dwellIndex)
+          onStationDwellStartRef.current?.(dwellIndex, lastVelocity)
         }
       },
     })

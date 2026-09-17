@@ -244,6 +244,35 @@
   box-shadow: 0 8px 20px -12px rgb(11 11 14 / 45%);
 }
 
+/* Pinch-to-zoom viewport collapse fix (PLAN.md Phase G): a horizontally
+   overflowing element anywhere on the page (easy to introduce with 3D
+   canvases and full-bleed sections) combined with the viewport meta's
+   user-scalable=no still let some mobile browsers briefly collapse the
+   layout during a pinch gesture. Locking html/body to the viewport width
+   and restricting touch-action to vertical panning closes that gap
+   without disabling vertical scroll or its momentum.
+
+   `overflow-x: clip`, not `hidden` -- a real bug caught live, not
+   theoretical: CSS links overflow-x/overflow-y, so `overflow-x: hidden`
+   alone (leaving overflow-y at its default `visible`) silently promotes
+   overflow-y to `auto` too, turning html/body into an actual scroll
+   container. That breaks `position: sticky` for every scroll-driven 3D
+   canvas on the site (hero, journey, standings wall, trophy room, player
+   cards, the trading-card preview) -- confirmed by a sticky element's
+   getBoundingClientRect().top moving 1:1 with scrollY instead of holding
+   at 0. `clip` prevents the same horizontal overflow without
+   establishing a scroll container or triggering that promotion — the
+   value CSS Overflow 3 added specifically for this "clip, don't scroll"
+   case. Support is evergreen-only (Chrome 90+, Firefox 97+, Safari
+   16+), which matches this project's own browser floor (CLAUDE.md). */
+html,
+body {
+  overflow-x: clip;
+  max-width: 100vw;
+  width: 100%;
+  touch-action: pan-y;
+}
+
 body {
   background-color: var(--color-marble);
   color: var(--color-charcoal);

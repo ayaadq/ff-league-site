@@ -44,7 +44,7 @@ export function JourneyCanvas({
   timings?: StationTiming[]
   /** Passed straight through to JourneyCameraRig -- see its own prop
    * comment for why the camera rig, not this canvas, owns firing it. */
-  onStationDwellStart?: (index: number) => void
+  onStationDwellStart?: (index: number, velocity: number) => void
   /** The one "game of the week" station, if this week has one -- passed
    * straight through to JourneyCameraRig, which tightens the camera's
    * fov for it, below every other station's own DWELL_FOV

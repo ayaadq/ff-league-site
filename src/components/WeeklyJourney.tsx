@@ -1,4 +1,4 @@
-import { lazy, Suspense } from 'react'
+import { lazy, Suspense, useRef } from 'react'
 import type { MatchupRecap } from '../api/weeklyRecap'
 import { useSound } from '../audio/soundContext'
 import { matchupNoteFor, type WeekRecapContent } from '../content/recaps'
@@ -12,6 +12,7 @@ import {
   type JourneyStation,
 } from '../three/journeyLayout'
 import { ChunkErrorBoundary } from './ChunkErrorBoundary'
+import { ConfettiLayer, type ConfettiHandle } from './ConfettiLayer'
 import { PlayerHeadshot } from './PlayerHeadshot'
 
 const JourneyCanvas = lazy(() =>
@@ -35,6 +36,14 @@ const ROAR_MAX_GAIN = 1
 const DUCK_MAX_DEPTH_DROP = 0.65
 const DUCK_MIN_DURATION = 0.6
 const DUCK_MAX_DURATION = 2.2
+
+/** Scroll speed (px/sec, from JourneyCameraRig's own ScrollTrigger) that
+ * maps to a full-intensity confetti burst — a fast deliberate flick, not
+ * an ordinary reading scroll. Same order of magnitude as
+ * SoundProvider's own scroll-velocity-to-gain ceiling, picked for the
+ * same reason: a number tuned against how fast people actually scroll,
+ * not an arbitrary round figure. */
+const CONFETTI_VELOCITY_FOR_MAX_INTENSITY = 2800
 
 /** The week's six games, walked one at a time.
  *
@@ -69,6 +78,7 @@ export function WeeklyJourney({
   playerNameFor: (playerId: string) => string
 }) {
   const { play, duck } = useSound()
+  const confettiRef = useRef<ConfettiHandle>(null)
 
   if (games.length === 0) return null
 
@@ -84,7 +94,7 @@ export function WeeklyJourney({
   // independent scroll listener here. duck()/play() are both no-ops
   // before sound is enabled and running (SoundProvider's own guards), so
   // this costs nothing for a visitor who never touches the sound toggle.
-  const handleStationDwellStart = (index: number) => {
+  const handleStationDwellStart = (index: number, velocity: number) => {
     const c = closeness[index]
     if (c === undefined) return
     const gain = ROAR_MIN_GAIN + (ROAR_MAX_GAIN - ROAR_MIN_GAIN) * (1 - c)
@@ -98,6 +108,23 @@ export function WeeklyJourney({
     // SoundProvider, and a few ms of setTimeout jitter is inaudible on an
     // envelope this loose (the crowd doesn't clap on a beat).
     window.setTimeout(() => play('roar', { gain }), (duration / 2) * 1000)
+
+    // Confetti (PLAN.md Phase G) -- one burst per matchup, biased toward
+    // the winner's side. `bias` reads a comparison of the two rosters'
+    // ids, not the winner's actual on-screen position: this scene always
+    // renders the winner on the left (Station's own layout, JourneyScene.tsx),
+    // so a literal "which side did the winner render on" bias would be
+    // identical every single time -- a real per-game left/right split, as
+    // the brief's "if team A wins, lean left; if team B wins, lean right"
+    // example describes, needs a stable per-matchup A/B assignment
+    // independent of who happened to win, and roster id comparison is
+    // exactly that: fixed for a given matchup, arbitrary in the sense
+    // that "A" isn't semantically anything, but stable and genuinely
+    // different from game to game.
+    const game = games[index]
+    const bias = game.winner.rosterId < game.loser.rosterId ? -1 : 1
+    const intensity = Math.min(Math.abs(velocity) / CONFETTI_VELOCITY_FOR_MAX_INTENSITY, 1)
+    confettiRef.current?.burst({ bias, intensity })
   }
 
   const stations: JourneyStation[] = games.map((game, i) => ({
@@ -148,6 +175,8 @@ export function WeeklyJourney({
 
   return (
     <>
+      <ConfettiLayer ref={confettiRef} />
+
       <section
         id={TRACK_ID}
         className="relative mt-16 md:mt-24"
