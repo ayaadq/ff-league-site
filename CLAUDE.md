@@ -82,6 +82,41 @@ build plan in `PLAN.md`. Read both before starting implementation work.
 - Reuse the shared r3f canvas/scene rather than mounting a new canvas per
   route — see `PLAN.md` Phase 4.
 
+### Design taste (taste-skill)
+
+This project has the `taste-skill` skill pack installed at the project level
+(`npx skills add https://github.com/Leonxlnx/taste-skill`, tracked in
+`skills-lock.json`, gitignored under `.claude/skills/`). It is not optional
+flavor text — apply it actively, don't just let it sit installed:
+
+- **Default for all frontend/UI/motion work:** `design-taste-frontend`
+  (folder `taste-skill`, v2). Read its brief-inference step, set the
+  VARIANCE/MOTION/DENSITY dials for this project explicitly (this is a
+  premium-consumer/agency-caliber motion site, not a SaaS dashboard — lean
+  toward the higher end of variance and motion, per `SPEC.md` §5.5's
+  "ambitious motion" mandate), and run its Section 4.7 pre-flight hard-rule
+  checklist (hero-in-viewport, eyebrow restraint, zigzag cap, CTA
+  contrast/wrap, etc.) before marking any UI-facing phase in `PLAN.md`
+  done — not just before final ship.
+- **When revisiting already-built phases:** use `redesign-existing-projects`
+  to audit first (layout, spacing, hierarchy, styling) before changing
+  code, rather than freehand tweaking.
+- **If output looks templated/half-finished:** `full-output-enforcement`
+  guards against placeholder comments and truncated sections.
+- **Benchmark against real reference sites, not just the skill's internal
+  rules.** The skill encodes anti-slop principles but does not itself
+  browse the web. Before calling a 3D/motion section "done," pull up 2-3
+  real sites in the same league as what this project is going for
+  (Awwwards-caliber studio/agency sites — e.g. Lusion, Active Theory,
+  Basement Studio, Resn, Cuberto-style work) and check the section against
+  them for whether it reads as genuinely bespoke or as generic AI output.
+  Note what specifically was checked against in the phase's completion
+  notes, don't just assert "looks good."
+- Treat `SPEC.md` §5 (palette/type/motion tokens) as the binding brand
+  spec: the skill's own default-avoidance rules (e.g. banned beige/brass
+  palette, serif discipline) apply everywhere `SPEC.md` hasn't already
+  made an explicit choice, not as an override of it.
+
 ### Lore content
 
 - Lore (`src/content/lore/`) is hand-authored data, not fetched from an

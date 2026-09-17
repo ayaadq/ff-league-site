@@ -1,4 +1,5 @@
-import type { SleeperRoster, SleeperRosterSettings, SleeperUser } from './types'
+import { pairMatchups } from './matchups'
+import type { SleeperMatchup, SleeperRoster, SleeperRosterSettings, SleeperUser } from './types'
 
 export function teamNameForRoster(roster: SleeperRoster, users: SleeperUser[]): string {
   const user = roster.owner_id ? users.find((u) => u.user_id === roster.owner_id) : undefined
@@ -48,9 +49,56 @@ export function totalPoints(settings: SleeperRosterSettings): number {
   return settings.fpts + (settings.fpts_decimal ?? 0) / 100
 }
 
+/** Same split-field pattern as totalPoints, mirrored for the "against"
+ * side Sleeper tracks per roster. */
+export function totalPointsAgainst(settings: SleeperRosterSettings): number {
+  return (settings.fpts_against ?? 0) + (settings.fpts_against_decimal ?? 0) / 100
+}
+
 export function sortStandings(rosters: SleeperRoster[]): SleeperRoster[] {
   return [...rosters].sort((a, b) => {
     if (b.settings.wins !== a.settings.wins) return b.settings.wins - a.settings.wins
     return totalPoints(b.settings) - totalPoints(a.settings)
   })
+}
+
+export interface Streak {
+  type: 'W' | 'L'
+  length: number
+}
+
+/** Each roster's active win/loss streak, walking the current season's
+ * weeks in order (index 0 is week 1). Single-season only, so roster_id
+ * is a safe key here — unlike leagueRecords.ts's cross-season records,
+ * nothing here needs to bridge a roster across season boundaries.
+ *
+ * A tied week breaks the streak without starting a new one — there's no
+ * "T" streak convention on a standings page, and the next decisive
+ * result just starts a fresh count at 1. An unplayed matchup (both
+ * sides at 0, e.g. a future week already returned by the API) is
+ * skipped rather than counted as a tie. */
+export function currentStreaks(weeksMatchups: SleeperMatchup[][]): Map<number, Streak> {
+  const streaks = new Map<number, Streak>()
+
+  const apply = (rosterId: number, type: 'W' | 'L') => {
+    const current = streaks.get(rosterId)
+    streaks.set(rosterId, { type, length: current?.type === type ? current.length + 1 : 1 })
+  }
+
+  for (const weekMatchups of weeksMatchups) {
+    for (const [a, b] of pairMatchups(weekMatchups)) {
+      if (a.points === 0 && b.points === 0) continue
+      if (a.points === b.points) {
+        streaks.delete(a.roster_id)
+        streaks.delete(b.roster_id)
+        continue
+      }
+      const winner = a.points > b.points ? a : b
+      const loser = a.points > b.points ? b : a
+      apply(winner.roster_id, 'W')
+      apply(loser.roster_id, 'L')
+    }
+  }
+
+  return streaks
 }

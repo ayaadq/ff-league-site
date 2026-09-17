@@ -6,19 +6,26 @@ import {
   useNflState,
   useRosters,
   useUsers,
+  useWeeksMatchups,
+  useWeeksTransactions,
+  type WeekRef,
 } from '../api/hooks'
 import { pairMatchups } from '../api/matchups'
 import { playerDisplayName } from '../api/players'
 import {
+  currentStreaks,
   sortStandings,
   teamAvatarIdForRoster,
   teamAvatarIdForUser,
   teamNameForRoster,
   teamNameForUser,
   totalPoints,
+  totalPointsAgainst,
 } from '../api/standings'
+import { summarizeTransactions } from '../api/transactions'
 import { useWeekRecap } from '../api/useWeekRecap'
 import { EnableSoundPrompt } from '../audio/EnableSoundPrompt'
+import { ActivityFeed } from '../components/ActivityFeed'
 import { EfficiencyChart } from '../components/EfficiencyChart'
 import { RecapAwards } from '../components/RecapAwards'
 import { RecapRankings } from '../components/RecapRankings'
@@ -32,6 +39,12 @@ import { SectionKicker } from '../components/SectionKicker'
 import { TeamAvatar } from '../components/TeamAvatar'
 import { StatCountUp } from '../motion/StatCountUp'
 import type { StandingEntry } from '../three/WeeklySummaryScene'
+
+/** How many trailing weeks of transactions feed the activity list — a
+ * recent-activity read, not a season archive (that's what a future
+ * per-team page would be for). */
+const ACTIVITY_WEEKS = 3
+const ACTIVITY_LIMIT = 8
 
 /** three + r3f + drei + gsap are by far the largest thing in the bundle
  * and none of it is needed to render this page's 2D content, so the
@@ -87,6 +100,48 @@ export function HomePage() {
   const hasResults = pairs.some((pair) => pair.some((m) => m.points > 0))
 
   const standings = useMemo(() => sortStandings(rosters.data ?? []), [rosters.data])
+
+  // Current-season win/loss streaks — every week through resultsWeek,
+  // weeks strictly before the live NFL week are immutable and cached
+  // forever, the live week itself stays short-staleTime (same split
+  // useMatchups/useWeeksMatchups already share a query key over).
+  const streakWeekRefs = useMemo<WeekRef[]>(
+    () =>
+      Array.from({ length: resultsWeek }, (_, i) => i + 1).map((w) => ({
+        leagueId,
+        week: w,
+        immutable: w !== week,
+      })),
+    [leagueId, resultsWeek, week],
+  )
+  const streakWeeksMatchups = useWeeksMatchups(streakWeekRefs)
+  const streaks = useMemo(
+    () => currentStreaks(streakWeeksMatchups.map((q) => q.data ?? [])),
+    [streakWeeksMatchups],
+  )
+
+  // Recent trades/waivers for the activity feed -- the last few weeks
+  // only, not the full season archive.
+  const activityWeekRefs = useMemo<WeekRef[]>(
+    () =>
+      Array.from({ length: Math.min(ACTIVITY_WEEKS, resultsWeek) }, (_, i) => resultsWeek - i).map(
+        (w) => ({ leagueId, week: w, immutable: w !== week }),
+      ),
+    [leagueId, resultsWeek, week],
+  )
+  const activityWeeksTransactions = useWeeksTransactions(activityWeekRefs)
+  const recentActivity = useMemo(
+    () =>
+      activityWeeksTransactions
+        .flatMap((q, i) =>
+          summarizeTransactions(q.data ?? [], activityWeekRefs[i].week, (playerId) =>
+            playerDisplayName(players.data?.[playerId], playerId),
+          ),
+        )
+        .sort((a, b) => b.created - a.created)
+        .slice(0, ACTIVITY_LIMIT),
+    [activityWeeksTransactions, activityWeekRefs, players.data],
+  )
 
   // Feeds the 3D standings wall in the finale cluster below
   // (three/WeeklySummaryScene.tsx) -- same rank order as the Standings
@@ -223,8 +278,9 @@ export function HomePage() {
           below" (PLAN.md Phase 12): the journey ends and the page settles
           back into the marble gallery's live numbers. Marquee as the
           transition beat, this week's box scores and highlights, then the
-          3D wall and the season standings table as the last thing on the
-          page (Layout.tsx has no footer, so this is genuinely the end). */}
+          3D wall, the season standings table, and recent trades/waivers
+          as the last thing on the page (Layout.tsx has no footer, so
+          this is genuinely the end). */}
       {!isLoading && <Marquee text="Twelve teams. One trophy." className="mt-16 md:mt-24" />}
 
       {!isLoading && hasResults && (
@@ -399,7 +455,7 @@ export function HomePage() {
             </h2>
             <div className="relative mt-6">
               <div className="gallery-card overflow-x-auto p-4 sm:p-6">
-                <table className="w-full min-w-[420px] text-left text-sm">
+                <table className="w-full min-w-[560px] text-left text-sm">
                   <thead>
                     <tr className="border-charcoal/20 text-charcoal-soft border-b text-xs tracking-wide uppercase">
                       <th scope="col" className="py-2 font-normal">
@@ -414,33 +470,52 @@ export function HomePage() {
                       <th scope="col" className="py-2 text-right font-normal">
                         PF
                       </th>
+                      <th scope="col" className="py-2 text-right font-normal">
+                        PA
+                      </th>
+                      <th scope="col" className="py-2 text-right font-normal">
+                        Streak
+                      </th>
                     </tr>
                   </thead>
                   <tbody className="divide-charcoal/10 divide-y">
-                    {standings.map((roster, index) => (
-                      <tr key={roster.roster_id} className="hover:bg-marble/80 transition-colors">
-                        <td className="text-charcoal-soft py-3 lining-nums tabular-nums">
-                          {index + 1}
-                        </td>
-                        <td className="text-charcoal py-3">
-                          <div className="flex items-center gap-2">
-                            <TeamAvatar
-                              avatarId={teamAvatarIdForRoster(roster, users.data ?? [])}
-                              name={teamNameForRoster(roster, users.data ?? [])}
-                            />
-                            <span className="truncate">
-                              {teamNameForRoster(roster, users.data ?? [])}
-                            </span>
-                          </div>
-                        </td>
-                        <td className="text-charcoal py-3 text-right lining-nums tabular-nums">
-                          {roster.settings.wins}-{roster.settings.losses}-{roster.settings.ties}
-                        </td>
-                        <td className="text-charcoal py-3 text-right lining-nums tabular-nums">
-                          {totalPoints(roster.settings).toFixed(1)}
-                        </td>
-                      </tr>
-                    ))}
+                    {standings.map((roster, index) => {
+                      const streak = streaks.get(roster.roster_id)
+                      return (
+                        <tr key={roster.roster_id} className="hover:bg-marble/80 transition-colors">
+                          <td className="text-charcoal-soft py-3 lining-nums tabular-nums">
+                            {index + 1}
+                          </td>
+                          <td className="text-charcoal py-3">
+                            <div className="flex items-center gap-2">
+                              <TeamAvatar
+                                avatarId={teamAvatarIdForRoster(roster, users.data ?? [])}
+                                name={teamNameForRoster(roster, users.data ?? [])}
+                              />
+                              <span className="truncate">
+                                {teamNameForRoster(roster, users.data ?? [])}
+                              </span>
+                            </div>
+                          </td>
+                          <td className="text-charcoal py-3 text-right lining-nums tabular-nums">
+                            {roster.settings.wins}-{roster.settings.losses}-{roster.settings.ties}
+                          </td>
+                          <td className="text-charcoal py-3 text-right lining-nums tabular-nums">
+                            {totalPoints(roster.settings).toFixed(1)}
+                          </td>
+                          <td className="text-charcoal-soft py-3 text-right lining-nums tabular-nums">
+                            {totalPointsAgainst(roster.settings).toFixed(1)}
+                          </td>
+                          <td
+                            className={`py-3 text-right lining-nums tabular-nums ${
+                              streak?.type === 'W' ? 'text-charcoal' : 'text-charcoal-soft'
+                            }`}
+                          >
+                            {streak ? `${streak.type}${streak.length}` : '–'}
+                          </td>
+                        </tr>
+                      )
+                    })}
                   </tbody>
                 </table>
               </div>
@@ -450,6 +525,12 @@ export function HomePage() {
               />
             </div>
           </section>
+        </Reveal>
+      )}
+
+      {!isLoading && recentActivity.length > 0 && (
+        <Reveal>
+          <ActivityFeed transactions={recentActivity} nameFor={teamName} avatarFor={teamAvatarId} />
         </Reveal>
       )}
     </section>

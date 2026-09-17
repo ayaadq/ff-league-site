@@ -87,3 +87,30 @@ export interface SleeperPlayer {
 }
 
 export type SleeperPlayersMap = Record<string, SleeperPlayer>
+
+/** A traded draft pick — `owner_id` is who holds it after this
+ * transaction, `previous_owner_id` who held it before. A pick-only
+ * trade has no `adds`/`drops` entries at all, only this. */
+export interface SleeperTransactionPick {
+  season: string
+  round: number
+  roster_id: number
+  owner_id: number
+  previous_owner_id: number
+}
+
+/** A completed roster move — trade or waiver/free-agent claim. `adds`/
+ * `drops` map player_id to the roster_id that gained/lost them; a trade
+ * has entries for every roster involved, a waiver claim typically one.
+ * `waiver_budget` only appears on FAAB-funded waiver claims. */
+export interface SleeperTransaction {
+  transaction_id: string
+  type: 'trade' | 'waiver' | 'free_agent'
+  status: string
+  roster_ids: number[]
+  adds: Record<string, number> | null
+  drops: Record<string, number> | null
+  draft_picks?: SleeperTransactionPick[]
+  waiver_budget?: { sender: number; receiver: number; amount: number }[]
+  created: number
+}

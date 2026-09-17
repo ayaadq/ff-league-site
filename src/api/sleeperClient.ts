@@ -6,6 +6,7 @@ import type {
   SleeperNflState,
   SleeperPlayersMap,
   SleeperRoster,
+  SleeperTransaction,
   SleeperUser,
 } from './types'
 
@@ -35,7 +36,7 @@ export const getLosersBracket = (leagueId: string) =>
   sleeperFetch<SleeperBracketMatch[]>(`/league/${leagueId}/losers_bracket`)
 
 export const getTransactions = (leagueId: string, week: number) =>
-  sleeperFetch<unknown[]>(`/league/${leagueId}/transactions/${week}`)
+  sleeperFetch<SleeperTransaction[]>(`/league/${leagueId}/transactions/${week}`)
 
 export const getNflState = () => sleeperFetch<SleeperNflState>('/state/nfl')
 

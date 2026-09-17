@@ -5,6 +5,7 @@ import {
   getMatchups,
   getNflState,
   getRosters,
+  getTransactions,
   getUsers,
   getWinnersBracket,
 } from './sleeperClient'
@@ -116,6 +117,18 @@ export const useWeeksMatchups = (weekRefs: WeekRef[]) =>
     queries: weekRefs.map((ref) => ({
       queryKey: ['matchups', ref.leagueId, ref.week],
       queryFn: () => getMatchups(ref.leagueId, ref.week),
+      staleTime: ref.immutable ? STALE_TIME.immutable : STALE_TIME.live,
+    })),
+  })
+
+/** Transactions for an arbitrary set of (league, week) pairs — the same
+ * per-week fan-out as useWeeksMatchups, for the home page's recent
+ * activity feed (a handful of trailing weeks, not the whole season). */
+export const useWeeksTransactions = (weekRefs: WeekRef[]) =>
+  useQueries({
+    queries: weekRefs.map((ref) => ({
+      queryKey: ['transactions', ref.leagueId, ref.week],
+      queryFn: () => getTransactions(ref.leagueId, ref.week),
       staleTime: ref.immutable ? STALE_TIME.immutable : STALE_TIME.live,
     })),
   })
