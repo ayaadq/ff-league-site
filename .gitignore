@@ -29,4 +29,5 @@ dist-ssr
 # Installed Claude Code skills (tooling, not app source)
 .claude/skills/
 .agents/
+agent/
 skills-lock.json
