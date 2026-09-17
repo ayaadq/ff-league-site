@@ -5,16 +5,17 @@ import { JourneyScene } from './JourneyScene'
 import { DWELL_FOV, type JourneyStation, type StationTiming } from './journeyLayout'
 import { SceneLighting } from './SceneLighting'
 
-/** Night, reskinned toward the site's marble/gold family rather than an
+/** Night, reskinned toward the site's ink/paper family rather than an
  * unrelated near-black -- the journey is still the one atmospheric,
  * darker place on the site (moving all the way to the other scenes'
  * bright `#f7f5f2` would make WeeklyJourney's hardcoded light-on-dark
  * DOM text illegible, since those panels have no background of their
  * own and rely entirely on this canvas showing through behind them).
- * `#2B2926` is SPEC.md's own `--color-charcoal` token -- the darkest,
- * warmest neutral already in the palette, used here as a background
- * instead of text for the first time, rather than an ad hoc hex with no
- * relationship to the rest of the site.
+ * `#0B0B0E` is SPEC.md's own `--color-ink`/`--color-charcoal` token
+ * (redesign pass, PLAN.md Phase 13D — previously `#2B2926`, the
+ * marble/gold system's charcoal) -- the darkest neutral already in the
+ * palette, used here as a background instead of text, rather than an ad
+ * hoc hex with no relationship to the rest of the site.
  *
  * Fog rather than a far plane ends the world, so the next station
  * surfaces out of the dark as the camera approaches instead of popping
@@ -56,8 +57,8 @@ export function JourneyCanvas({
       gl={{ antialias: true, powerPreference: 'high-performance' }}
       camera={{ position: [0, 5.4, 9], fov: DWELL_FOV, near: 0.1, far: 120 }}
     >
-      <color attach="background" args={['#2B2926']} />
-      <fog attach="fog" args={['#2B2926', 14, 58]} />
+      <color attach="background" args={['#0B0B0E']} />
+      <fog attach="fog" args={['#0B0B0E', 14, 58]} />
       <Suspense fallback={null}>
         <SceneLighting />
         <JourneyScene stations={stations} />

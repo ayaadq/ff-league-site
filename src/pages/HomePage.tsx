@@ -13,6 +13,7 @@ import {
 import { pairMatchups } from '../api/matchups'
 import { playerDisplayName } from '../api/players'
 import { seasonLeaders } from '../api/seasonLeaders'
+import { banterForWeek } from '../content/banter'
 import {
   currentStreaks,
   sortStandings,
@@ -27,11 +28,13 @@ import { summarizeTransactions } from '../api/transactions'
 import { useWeekRecap } from '../api/useWeekRecap'
 import { ActivityFeed } from '../components/ActivityFeed'
 import { EfficiencyChart } from '../components/EfficiencyChart'
+import { GameOfTheWeekHero } from '../components/GameOfTheWeekHero'
 import { HeroSection } from '../components/HeroSection'
 import { RecapAwards } from '../components/RecapAwards'
 import { RecapRankings } from '../components/RecapRankings'
 import { RecapStorylines } from '../components/RecapStorylines'
 import { SeasonLeadersSection } from '../components/SeasonLeadersSection'
+import { SmackTalkFeed } from '../components/SmackTalkFeed'
 import { WeeklyJourney } from '../components/WeeklyJourney'
 import { Marquee } from '../components/Marquee'
 import { ChunkErrorBoundary } from '../components/ChunkErrorBoundary'
@@ -216,6 +219,13 @@ export function HomePage() {
           </Reveal>
         )}
 
+        <GameOfTheWeekHero
+          week={recap.week}
+          games={recap.games}
+          content={recap.content}
+          nameFor={(userId) => (userId ? teamNameForUser(userId, users.data ?? []) : 'Unknown')}
+        />
+
         {/* Act 2 -- the six-station skycam journey. Its own sticky scroll
           track and camera rig (three/JourneyCanvas.tsx) are entirely
           self-contained -- no Reveal wrapper here or anywhere inside it,
@@ -243,6 +253,12 @@ export function HomePage() {
             />
           </Reveal>
         )}
+
+        <SmackTalkFeed
+          lines={banterForWeek(recap.week)}
+          nameFor={(userId) => teamNameForUser(userId, users.data ?? [])}
+          avatarFor={(userId) => teamAvatarIdForUser(userId, users.data ?? [])}
+        />
 
         {/* Act 4 -- actual-vs-perfect efficiency chart. Pure computation,
           needs no authored copy. */}

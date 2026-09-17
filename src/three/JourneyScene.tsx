@@ -17,7 +17,11 @@ import { GOLD_MATERIAL_PROPS, STAND_MATERIAL_PROPS, TURF_MATERIAL_PROPS } from '
 import { Portrait } from './Portrait'
 import { createFieldTurfTexture, createTurfTexture } from './turfTexture'
 
-const IGNITED_GOLD = '#a6845c'
+// Redesign pass (PLAN.md Phase 13D): retinted from the old gold
+// (`#a6845c`) to the new "ignite" accent. Name kept as `IGNITED_GOLD`
+// rather than renamed -- it's exactly the same role (the winner's plane
+// literally ignites), just a different hex now.
+const IGNITED_GOLD = '#ff5a36'
 
 /** Ignite falloff -- see the winner's glow plane in Station below. At
  * distance 0 (the station currently being looked at) the plane sits at
@@ -71,8 +75,14 @@ const MIN_INTENSITY = 0.08
  * IGNITE_RADIUS/MIN_INTENSITY above, but are separate constants and
  * deliberately have no intensity floor -- unlike the winner's plane
  * (which should never read as fully dark), the ambient light is meant
- * to fully fade between stations, not ember at a minimum. */
-const ACCENT_WARM_BASE = '#a6845c'
+ * to fully fade between stations, not ember at a minimum.
+ *
+ * Redesign pass (PLAN.md Phase 13D): moved off the old warm-tan-gold
+ * neutral (`#a6845c`) to a warm dark graphite, so the "unifying neutral"
+ * twelve different team hues blend toward reads as part of this scene's
+ * darker ink-era night stadium rather than carrying the old gold system's
+ * warmth forward by coincidence. */
+const ACCENT_WARM_BASE = '#3a3630'
 const ACCENT_MIX = 0.55
 const ACCENT_RADIUS = 12
 const ACCENT_MAX_INTENSITY = 0.55

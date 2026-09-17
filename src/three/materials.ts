@@ -1,21 +1,33 @@
-/** PBR material presets for the gallery scene — SPEC.md §5.4.
+/** PBR material presets for the 3D scenes — SPEC.md §5.4.
  *
  * Values are tuned to read as real materials under an HDRI environment
  * map (drei's <Environment>), not flat colored plastic:
  * - Marble/ivory: zero metalness, moderate roughness, a faint clearcoat
  *   for the soft sheen real polished stone catches under studio light.
- * - Gold/brass: moderate metalness (see the comment below on why it's
- *   not higher), low-to-moderate roughness.
+ * - Gold/brass (redesign pass, PLAN.md Phase 13D — colors only, the
+ *   metalness/roughness tuning below is unchanged and still applies):
+ *   moderate metalness (see the comment below on why it's not higher),
+ *   low-to-moderate roughness.
  *
  * Colors match the shipped 2D palette tokens (src/index.css) — kept in
- * sync by hand, so gold in the 3D scene and gold in the page chrome
- * read as the same material. Currently a muted champagne/antique-brass
- * (moved off a brighter yellow gold per user feedback wanting something
- * more modern/minimalist/luxurious).
+ * sync by hand, so an accent in a 3D scene and the same accent in page
+ * chrome read as the same material. `GOLD_MATERIAL_PROPS` now carries
+ * the redesign's "ignite" accent (`--color-gold-bright`) rather than the
+ * old champagne/antique-brass gold, and `BRASS_MATERIAL_PROPS` carries
+ * "current" (`--color-brass`) — the token *names* stayed put (see
+ * index.css's own remap comment) so every existing consumer (Portrait's
+ * frame, the journey's stadium shell walls, TrophyRoomScene) picked up
+ * the new colors without needing its own edit.
  */
 
+// Redesign pass (PLAN.md Phase 13D): colors only, moved to the new
+// paper/paper-raised hex values (index.css's `--color-marble`/
+// `--color-ivory`) — shared by WeeklySummaryScene (Home) and
+// TrophyRoomScene (League History) via SceneFloor.tsx/Portrait.tsx, so
+// retinting here updates both scenes' floor and blank-canvas fallback in
+// one place.
 export const MARBLE_MATERIAL_PROPS = {
-  color: '#e6e4e0',
+  color: '#f5f3ee',
   roughness: 0.42,
   metalness: 0,
   clearcoat: 0.12,
@@ -23,7 +35,7 @@ export const MARBLE_MATERIAL_PROPS = {
 } as const
 
 export const IVORY_MATERIAL_PROPS = {
-  color: '#efebe4',
+  color: '#eae7df',
   roughness: 0.48,
   metalness: 0,
   clearcoat: 0.08,
@@ -45,14 +57,14 @@ export const IVORY_MATERIAL_PROPS = {
 // for a wall of 12 identically-colored instances facing different
 // directions, not a single hero object.
 export const GOLD_MATERIAL_PROPS = {
-  color: '#a6845c',
+  color: '#ff5a36',
   roughness: 0.35,
   metalness: 0.45,
   envMapIntensity: 1.1,
 } as const
 
 export const BRASS_MATERIAL_PROPS = {
-  color: '#6f5f49',
+  color: '#2ee6d6',
   roughness: 0.4,
   metalness: 0.4,
   envMapIntensity: 1,

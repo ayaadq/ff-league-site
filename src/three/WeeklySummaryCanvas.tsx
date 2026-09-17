@@ -35,8 +35,8 @@ export function WeeklySummaryCanvas({ standings }: { standings: StandingEntry[] 
         far: 40,
       }}
     >
-      <color attach="background" args={['#f7f5f2']} />
-      <fog attach="fog" args={['#f7f5f2', 11, 24]} />
+      <color attach="background" args={['#f5f3ee']} />
+      <fog attach="fog" args={['#f5f3ee', 11, 24]} />
       <Suspense fallback={null}>
         <SceneLighting />
         <WeeklySummaryScene standings={standings} />

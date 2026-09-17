@@ -153,7 +153,7 @@ export function WeeklyJourney({
         className="relative mt-16 md:mt-24"
         aria-label={`Week ${week} matchups`}
       >
-        <div className="pointer-events-none sticky top-0 h-svh w-full overflow-hidden bg-[#2B2926]">
+        <div className="bg-charcoal pointer-events-none sticky top-0 h-svh w-full overflow-hidden">
           <ChunkErrorBoundary>
             <Suspense fallback={null}>
               <JourneyCanvas
@@ -204,7 +204,7 @@ export function WeeklyJourney({
                   exist in the 3D scene. Verified live that the panel's own
                   content (longest line: the title, two-column stat grid)
                   still reads fine at the new width before keeping it. */}
-                <div className="mx-auto w-full max-w-2xl rounded-2xl bg-[#2B2926]/90 px-5 py-7 sm:px-8 sm:py-9">
+                <div className="bg-charcoal/90 mx-auto w-full max-w-2xl rounded-2xl px-5 py-7 sm:px-8 sm:py-9">
                   {/* Broadcast-style title card, entering as this station
                     arrives. Plain team names, not a personalized "YOU
                     vs." -- the site has no per-visitor identity to draw
@@ -215,29 +215,28 @@ export function WeeklyJourney({
                     the brief asked for -- still the same trigger and
                     tween every other beat in this file already uses. */}
                   <Reveal y={56}>
-                    <p className="font-display text-2xl tracking-wide text-[#f2efe9] uppercase sm:text-3xl">
+                    <p className="font-display text-marble text-2xl tracking-wide uppercase sm:text-3xl">
                       Week {week} — {nameFor(game.winner.userId)} vs. {nameFor(game.loser.userId)}
                     </p>
                   </Reveal>
 
-                  <p className="mt-2 text-[0.65rem] tracking-[0.3em] text-[#a6845c] uppercase">
+                  <p className="text-gold-bright mt-2 text-[0.65rem] tracking-[0.3em] uppercase">
                     Week {week} · Final
                     {game.tied ? ' · Tied' : ` · Margin ${game.margin.toFixed(2)}`}
-                    {note?.gameOfTheWeek ? ' · Game of the week' : ''}
                   </p>
 
                   <div className="mt-5 grid grid-cols-1 gap-4 sm:grid-cols-2">
                     {[game.winner, game.loser].map((side, sideIndex) => (
                       <div key={sideIndex} className={sideIndex === 0 ? '' : 'opacity-70'}>
-                        <p className="truncate text-sm text-[#cfc9be]">{nameFor(side.userId)}</p>
+                        <p className="text-mute-on-ink truncate text-sm">{nameFor(side.userId)}</p>
                         <p
                           className={`font-display text-5xl leading-none lining-nums tabular-nums sm:text-6xl ${
-                            sideIndex === 0 ? 'text-[#d9c7a8]' : 'text-[#8d877c]'
+                            sideIndex === 0 ? 'text-gold-light' : 'text-mute-on-ink'
                           }`}
                         >
                           <StatCountUp value={side.actual} decimals={2} />
                         </p>
-                        <p className="mt-1 text-xs text-[#8d877c] lining-nums tabular-nums">
+                        <p className="text-mute-on-ink mt-1 text-xs lining-nums tabular-nums">
                           {sideIndex === 0 ? 'Winner' : 'Loser'} · {side.possible.toFixed(1)}{' '}
                           possible · {Math.round(side.efficiency * 100)}%
                         </p>
@@ -255,10 +254,10 @@ export function WeeklyJourney({
                                 name={playerNameFor(side.topStarter.playerId)}
                               />
                               <div className="min-w-0">
-                                <p className="truncate text-[0.65rem] tracking-[0.2em] text-[#8d877c] uppercase">
+                                <p className="text-mute-on-ink truncate text-[0.65rem] tracking-[0.2em] uppercase">
                                   Top starter
                                 </p>
-                                <p className="truncate text-sm text-[#d9c7a8]">
+                                <p className="text-gold-light truncate text-sm">
                                   {playerNameFor(side.topStarter.playerId)}{' '}
                                   <span className="lining-nums tabular-nums">
                                     · {side.topStarter.points.toFixed(1)}
@@ -273,7 +272,7 @@ export function WeeklyJourney({
                   </div>
 
                   {note?.headline && (
-                    <h3 className="font-display mt-7 text-2xl text-[#f2efe9] sm:text-3xl">
+                    <h3 className="font-display text-marble mt-7 text-2xl sm:text-3xl">
                       {note.headline}
                     </h3>
                   )}
@@ -282,10 +281,10 @@ export function WeeklyJourney({
                     <ul className="mt-5 flex flex-wrap gap-x-6 gap-y-3">
                       {note.chips.map((chip, chipIndex) => (
                         <li key={chipIndex}>
-                          <span className="block text-[0.6rem] tracking-[0.2em] text-[#8d877c] uppercase">
+                          <span className="text-mute-on-ink block text-[0.6rem] tracking-[0.2em] uppercase">
                             {chip.label}
                           </span>
-                          <span className="text-base text-[#d9c7a8] lining-nums tabular-nums">
+                          <span className="text-gold-light text-base lining-nums tabular-nums">
                             {chip.value}
                           </span>
                         </li>
@@ -296,7 +295,7 @@ export function WeeklyJourney({
                   {note?.body?.map((paragraph, paragraphIndex) => (
                     <p
                       key={paragraphIndex}
-                      className="mt-4 max-w-prose text-sm leading-relaxed text-[#cfc9be]"
+                      className="text-mute-on-ink mt-4 max-w-prose text-sm leading-relaxed"
                     >
                       {paragraph}
                     </p>
@@ -336,7 +335,7 @@ export function WeeklyJourney({
           before the canvas has actually finished clearing. */}
       <div
         aria-hidden="true"
-        className="h-[45svh] w-full bg-[linear-gradient(to_bottom,#2B2926_0%,#2B2926_35%,transparent_100%)]"
+        className="h-[45svh] w-full bg-[linear-gradient(to_bottom,#0B0B0E_0%,#0B0B0E_35%,transparent_100%)]"
       />
     </>
   )

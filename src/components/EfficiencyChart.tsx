@@ -6,22 +6,16 @@ import { useSound } from '../audio/soundContext'
  * chart for its dark stadium section by overriding them on a wrapper
  * rather than forking the component.
  *
- * Both pairs were run through the palette validator rather than picked by
- * eye, and the eye would have got it wrong: an earlier dark candidate
- * (#a6845c against #8a8378) passed contrast but scored ΔE 5.6 for normal
- * vision — a hard fail, effectively the same colour to everyone. These
- * pairs clear the separation floors with room:
- *
- *   light surface  #a6845c / #57534c   ΔE 20.1 normal, 18.2 protan
- *   dark surface   #c2a173 / #807a70   ΔE 15.6 normal, 14.1 protan
- *
- * The validator also flags both for chroma, which is out of scope here:
- * that check guards categorical identity palettes, and these two are
- * parts of one total separated by lightness inside a deliberately
- * low-chroma system (SPEC.md §5.1). Separation is what the check exists
- * to protect, and separation passes. */
+ * Redesign pass (PLAN.md Phase 13D): `--chart-scored` moved to the new
+ * "ignite" accent, `--chart-shortfall` is unchanged (`--color-charcoal-soft`
+ * was already a plain neutral grey, no marble/gold coupling). The two
+ * fills are separated primarily by lightness/saturation, not hue alone —
+ * ignite (a saturated warm orange-red) against a muted neutral grey reads
+ * as clearly distinct at a glance, and neither fill is ever the sole
+ * carrier of meaning (the legend above and the sr-only table below both
+ * label each series by text, not colour). */
 const LIGHT_FILLS = {
-  '--chart-scored': '#a6845c',
+  '--chart-scored': '#ff5a36',
   '--chart-shortfall': '#57534c',
 } as React.CSSProperties
 
@@ -132,13 +126,14 @@ export function EfficiencyChart({
                     </>
                   )}
                 </div>
-                {/* Values sit beside the bar, never on it. Ink on a mid-tone
-                    fill cannot clear AA at this size -- measured 3.46:1 for
-                    white and 4.2:1 for charcoal against the gold, both short
-                    of the 4.5:1 normal-text floor. On the marble surface the
-                    same text clears it many times over, and the fill stays
-                    the validated colour instead of being darkened to rescue
-                    a label. */}
+                {/* Values sit beside the bar, never on it. The old gold fill
+                    measured short of the 4.5:1 normal-text floor for both
+                    white and charcoal text laid directly on top of it; ignite
+                    (the redesign's replacement fill, PLAN.md Phase 13D) is a
+                    similarly saturated mid-tone and hasn't been re-measured,
+                    so this stays the safe assumption rather than a re-verified
+                    one -- text sits on the paper surface beside the bar,
+                    where it clears AA many times over regardless. */}
                 <span className="w-24 shrink-0 text-right text-xs lining-nums tabular-nums sm:w-28">
                   <span className="text-charcoal font-semibold">{team.actual.toFixed(1)}</span>
                   <span className="text-charcoal-soft"> / {team.possible.toFixed(1)}</span>

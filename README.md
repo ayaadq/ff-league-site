@@ -108,3 +108,22 @@ All of it is optional, and partial entries are fine — a nickname with no
 bio renders cleanly. Every section is guarded, so with nothing authored
 (the current state) none of them render at all: no empty headings, no
 placeholder copy.
+
+## Adding smack talk
+
+Sleeper has no chat/trash-talk API, so the Home page's Smack Talk section
+is hand-authored, the same pattern as lore: versioned in the repo, edited
+like code, no admin UI. It lives in `src/content/banter/lines.ts` — one
+array, each entry a `BanterLine` (`types.ts` documents every field,
+`lines.ts` carries a worked example).
+
+Each line is keyed by the speaking manager's Sleeper `user_id` (see the
+table above), with an optional `toUserId` if it's aimed at someone
+specific, and an optional `week` to tie it to a given week's Smack Talk
+feed. A line with no `week` never surfaces in that per-week feed — leave
+it off only if you're keeping the entry for reference, not for it to
+show up.
+
+Empty is a fully supported state, same as lore: with nothing authored
+(the current state) the whole section is absent from Home, not an empty
+heading.

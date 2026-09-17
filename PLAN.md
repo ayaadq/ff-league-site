@@ -841,6 +841,99 @@ alternating ignite/current backings, and scrolling the section visibly
 rotates the arc (confirmed by screenshot comparison before/after a
 600px scroll). Console showed zero errors on both passes.
 
-**Phases D–F (homepage rebuild plus smack-talk/game-of-the-week;
-team/history restyle; cross-cutting a11y/perf/real-device plus final docs
-pass): not started.**
+**Phase D — Homepage rebuild plus new content sections. Status: complete,
+verified locally.** New `src/content/banter/` (`types.ts`, `lines.ts`,
+`index.ts`) mirrors `content/lore/`'s pattern exactly — hand-authored,
+versioned, keyed by Sleeper `user_id`, ships empty. `banterForMatchup`/
+`banterForWeek` are the only two accessors, same "one place components
+read from" rule lore's `index.ts` already documents.
+`components/SmackTalkFeed.tsx` renders that week's lines (or nothing,
+same empty-by-default convention as `RecapAwards`/`RecapRankings`) between
+Awards and the efficiency chart. `components/GameOfTheWeekHero.tsx` is a
+dedicated 2D+GSAP ink section (not a second WebGL scene — protects the
+mobile frame budget, the "new 3D" allowance went to Phase C's player
+cards) promoting the week's authored game-of-the-week flag, with a
+gradient-tinted `--animate-blob` shape (index.css, added in Phase A)
+behind the copy using the two teams' own `teamColorFor` accents. Mounted
+right before the matchup journey. `WeeklyJourney.tsx`'s now-redundant
+inline "· Game of the week" text badge was dropped since the game gets
+its own promoted section instead.
+
+Retint pass across the journey's 3D scene and DOM panels: `JourneyCanvas.tsx`'s
+hardcoded background/fog color moved from the old `--color-charcoal`
+value (`#2B2926`) to the new one (`#0B0B0E`) — this file sets a literal
+three.js color, not a CSS var, so it needed its own edit to stay in sync
+with index.css's Phase A remap. `JourneyScene.tsx`'s two inline accent
+constants (`IGNITED_GOLD`, `ACCENT_WARM_BASE`) moved to ignite and a
+warm dark graphite respectively. `WeeklyJourney.tsx`'s inline DOM text
+colors (five distinct hardcoded hexes for headline/label/score/body
+roles) were mapped to the nearest new token by role (paper for headline
+white, ignite for the accent kicker, ignite-soft for score emphasis,
+mute-on-ink for dimmer labels and body copy).
+
+**Scope note, decided rather than assumed:** the plan's own Phase D
+description suggested JourneyScene.tsx's turf/stands geometry could get
+"a new motif (e.g. glowing scoreboard-slab plinths)." That file carries
+an unusual amount of hard-won, live-verified tuning (falloff radii,
+per-instance jitter seeds, fog-interaction fixes, triangle-count
+budgeting — all documented in its own extensive comments). A full
+geometry rebuild without the same live-verification rigor risked
+reintroducing exactly the bugs those comments describe fixing, with no
+way to re-verify visually to the same standard in one autonomous pass.
+Retinting the existing structure (colors only, geometry/physics/tiering
+untouched) was the judgment call made instead — it achieves the actual
+goal (the stadium no longer reads as the old gold/marble system) without
+that risk. The geometry itself is still open for a future pass if wanted.
+
+`three/materials.ts`'s `GOLD_MATERIAL_PROPS`/`BRASS_MATERIAL_PROPS`
+moved to ignite/current — a single shared edit that also retinted every
+other consumer (`Portrait.tsx`'s frame, `TrophyRoomScene.tsx`, the
+journey's stadium shell walls) in one place, plus
+`MARBLE_MATERIAL_PROPS`/`IVORY_MATERIAL_PROPS` moved to the new paper/
+paper-raised hex values, updating `WeeklySummaryScene`'s floor and blank-
+portrait fallback (shared via `SceneFloor.tsx`/`Portrait.tsx`) ahead of
+Phase E's own pass on that scene. `WeeklySummaryCanvas.tsx`/
+`TrophyRoomCanvas.tsx`'s own hardcoded background/fog hex
+(`#f7f5f2`, an ad hoc near-white not tied to any token) were aligned to
+the exact new paper hex for consistency. `EfficiencyChart.tsx`'s two
+chart-fill CSS custom properties moved to ignite/unchanged-charcoal-soft;
+its comment's specific contrast measurements were softened to note
+they're unverified for the new color rather than left stating stale
+numbers as current fact.
+
+`RecapAwards.tsx`, `RecapRankings.tsx`, `RecapStorylines.tsx`,
+`ActivityFeed.tsx`, `TeamAvatar.tsx`, `PlayerHeadshot.tsx`, and
+`SectionKicker.tsx` needed **zero edits** — confirmed by reading each
+file, they only ever reference the shared tokens/classes Phase A already
+remapped (`text-charcoal`, `gallery-card`, `gold-divider`,
+`border-gold-bright`, `.gold-frame`), never a hand-picked hex. This is
+the payoff of Phase A's "keep token names, change values" strategy: most
+of the "restyle-only" surface area in the original plan turned out to
+already be done by construction, not because it was skipped.
+
+`HomePage.tsx`'s final section order:
+Hero → Storylines → Game of the Week → Journey → Season Leaders → Awards
+→ Smack Talk → Efficiency chart → Power rankings → Marquee → Results →
+Week Highlights → Standings wall → Standings table → Activity feed —
+matching the redesign plan's table exactly.
+
+Verified: `tsc -b`, `oxlint` (same pre-existing warnings, zero new),
+`prettier --write`, and a production `vite build` all pass. Checked live
+in the dev server at true 390×844: `gotw-heading` and
+`smack-talk-heading` both correctly absent (this week's authored content
+has no `gameOfTheWeek` flag and `banter` ships empty, exactly the
+supported empty state), `season-leaders-heading` and `efficiency-heading`
+both present, the journey's retinted station panel screenshots correctly
+(ignite kicker, ignite-soft score emphasis, mute-on-ink labels, paper
+headline, all against the ink scrim), and the standings wall's
+ignite-framed portraits render against the new paper canvas. Console
+showed only the same pre-existing benign favicon/THREE warnings on every
+check. `GameOfTheWeekHero`'s actual rendered appearance with a real
+flagged game was not visually verified this pass, since doing so would
+have meant writing fake content into the real authored recap file —
+its render-nothing path was verified instead; the render-something path
+is a real gap to check once a week with an authored `gameOfTheWeek` flag
+exists, or with deliberately temporary local content that gets reverted.
+
+**Phases E–F (team/history restyle; cross-cutting a11y/perf/real-device
+plus final docs pass): not started.**
