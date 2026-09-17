@@ -68,7 +68,21 @@ export function createTurfTexture(accentColor: string): CanvasTexture {
     // width) at one downfield position (world Z, canvas Y) -- a
     // horizontal stroke, not vertical, since Z is the direction the
     // camera actually travels through the journey.
-    const lineY = CANVAS_HEIGHT * 0.42
+    //
+    // 0.87, not the original 0.42 -- a live side-by-side screenshot
+    // comparison (real dwell camera, DOM panel included, not the
+    // panel-hidden diagnostic angle used to first build this) caught
+    // the whole marking cluster landing almost exactly where the panel
+    // sits, at the original position: visible during travel, invisible
+    // for the entire time actually spent reading a station's own panel,
+    // which is most of the time spent per station. 0.87 was reached by
+    // testing actual candidate values against the real camera (0.85 too
+    // high -- the line itself still clipped the panel's bottom edge;
+    // 0.9 too low -- the "20" 's own top clipped it instead), not
+    // derived from the plane's UV/rotation math up front, which was a
+    // real option but a much easier place to get the flip direction
+    // wrong than just looking at the actual screenshots.
+    const lineY = CANVAS_HEIGHT * 0.87
     ctx.fillStyle = LINE_WHITE
     ctx.fillRect(0, lineY - 3, CANVAS_WIDTH, 6)
 
@@ -91,8 +105,12 @@ export function createTurfTexture(accentColor: string): CanvasTexture {
     // "tight crop, continues beyond the frame" read the reference photo
     // called for, not a second complete number (canvas drawing clips
     // at its own boundary for free, no extra work needed to crop it).
+    // +45, not the original +85 -- at lineY's new 0.87, +85 pushed this
+    // past CANVAS_HEIGHT entirely (0.87*440 + 85 > 440), off the canvas
+    // and simply never drawn at all rather than bleeding at the edge as
+    // intended.
     ctx.font = 'bold 110px sans-serif'
-    ctx.fillText('30', CANVAS_WIDTH * 0.94, lineY + 85)
+    ctx.fillText('30', CANVAS_WIDTH * 0.94, lineY + 45)
   }
 
   const texture = new CanvasTexture(canvas)

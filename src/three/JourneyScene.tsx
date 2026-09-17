@@ -447,12 +447,20 @@ function FullStands({ stations }: { stations: JourneyStation[] }) {
 
   // Generated once (empty deps -- colorless, so nothing about a
   // specific station or team ever invalidates it) and reused for every
-  // seat-block instance regardless of station count. A few tiles per
-  // block is enough to read as textured rather than one giant pattern
-  // stretched thin across each block's own face.
+  // seat-block instance regardless of station count.
+  //
+  // repeat(1, 1), not tiled several times across each block -- a live
+  // screenshot comparison at realistic viewing distance (not the macro
+  // diagnostic camera used to first check the pattern rendered at all)
+  // found the dots reading as flat solid color, same underlying cause
+  // as crowdTexture.ts's own dot-size fix: more repeats means a smaller
+  // apparent world size per tile, which was already the problem at the
+  // texture's old dot scale and stayed the problem at the new one until
+  // this also came down. One tile per block face is the least dilution
+  // the fix could ask for.
   const crowdTexture = useMemo(() => {
     const texture = createCrowdTexture()
-    texture.repeat.set(3, 2)
+    texture.repeat.set(1, 1)
     return texture
   }, [])
   useEffect(() => () => crowdTexture.dispose(), [crowdTexture])

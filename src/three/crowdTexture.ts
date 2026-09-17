@@ -2,11 +2,22 @@ import { CanvasTexture, RepeatWrapping, SRGBColorSpace } from 'three'
 
 const CANVAS_SIZE = 128
 const BASE = '#c9c9c4'
-const HIGHLIGHT = '#e8e8e2'
-const SHADOW = '#a8a8a0'
-const DOT_COUNT = 90
-const DOT_RADIUS_MIN = 2
-const DOT_RADIUS_MAX = 4
+const HIGHLIGHT = '#f2f2ec'
+const SHADOW = '#767068'
+/** Fewer, much bigger blobs than an original 90-count/2-4px pass --
+ * that version was confirmed live to look fine under a macro diagnostic
+ * camera but read as flat solid color at the distance a station is
+ * actually viewed from (15-30+ world units away). At that range, a
+ * 2-4px dot on a 128px tile spanning a ~2-unit seat-block face works
+ * out to roughly 0.02-0.03 world units per dot -- far below what
+ * resolves at that distance, so texture filtering just averages the
+ * whole pattern down to its own mean color, same as a fine-print
+ * fabric reading as a flat tone from across a room. 10-20px dots on the
+ * same tile are roughly 0.15-0.3 world units instead, large enough to
+ * actually survive the distance. */
+const DOT_COUNT = 26
+const DOT_RADIUS_MIN = 10
+const DOT_RADIUS_MAX = 20
 
 /** Deterministic, not Math.random() -- reproducible across reloads
  * rather than a new pattern flickering in on every mount. Since this is
