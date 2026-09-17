@@ -13,8 +13,8 @@
     "verify:sleeper": "tsx scripts/verify-sleeper.ts"
   },
   "dependencies": {
-    "@fontsource/cormorant-garamond": "^5.3.0",
     "@fontsource/inter": "^5.3.0",
+    "@fontsource/space-grotesk": "^5.3.0",
     "@react-three/drei": "^10.7.8",
     "@react-three/fiber": "^9.7.0",
     "@tanstack/query-async-storage-persister": "^5.102.8",

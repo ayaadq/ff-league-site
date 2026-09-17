@@ -9,8 +9,8 @@ build plan in `PLAN.md`. Read both before starting implementation work.
 - **Build tool:** Vite, React 19, TypeScript
 - **Styling:** Tailwind CSS v4 (CSS-first `@theme` tokens in `src/index.css`
   for the palette/type/easing system defined in `SPEC.md` §5)
-- **Fonts:** self-hosted via `@fontsource` (Cormorant Garamond, Inter) —
-  no Google Fonts CDN request
+- **Fonts:** self-hosted via `@fontsource` (Space Grotesk, Inter) — no
+  Google Fonts CDN request
 - **Lint/format:** oxlint + Prettier (`prettier-plugin-tailwindcss` sorts
   class lists — don't hand-order them)
 - **Routing:** react-router
@@ -69,16 +69,34 @@ build plan in `PLAN.md`. Read both before starting implementation work.
 
 ### Visual system
 
-- Palette, type, and motion tokens are defined once (Tailwind config /
-  a shared tokens module) and consumed everywhere — no ad hoc hex codes
-  or magic easing numbers in components.
-- Gold/brass tones are decorative only (borders, icons, large display
-  numerals, 3D materials). **Never use gold/brass for text below 24px or
-  for any text that must be read** — use charcoal/charcoal-soft. See
+**Full redesign in progress** (see the plan referenced in PLAN.md's
+redesign phase entries): the site is pivoting from the "marble/gold trophy
+room" system to an ink/paper canvas with a single "ignite" accent,
+inspired by foodnia.co.jp / lisa.locomotive.ca/en / designbomb.it. `SPEC.md`
+§5 describes the new system as the binding spec; its marble/gold section
+is kept as a historical record of what shipped first, not a live
+reference. Not every page/component has migrated yet — check `PLAN.md`'s
+phase notes for current status before assuming a given page already
+reflects the new system.
+
+- Palette, type, and motion tokens are defined once (`src/index.css`
+  `@theme` block) and consumed everywhere — no ad hoc hex codes or magic
+  easing numbers in components. The token _names_ stayed stable across
+  the redesign (`--color-gold-bright` etc.) even though their values and
+  roles changed — see `src/index.css`'s own comment for the mapping.
+- Ignite/current tones (formerly gold/brass) are decorative only (borders,
+  icons, large display numerals, 3D materials). **Never use them for text
+  below 24px or for any text that must be read** — use
+  charcoal/charcoal-soft (on paper) or paper/mute-on-ink (on ink). See
   `SPEC.md` §5.1 for the accessibility rationale.
+- The new canvas alternates ink (dark) and paper (light) sections at
+  section boundaries — a real color/contrast snap, not a continuous wash.
+  A single section is never a gradient between the two.
 - "Minimalist" in this project describes palette and layout density, not
   motion. Motion and 3D are meant to be ambitious and used throughout —
   see `SPEC.md` §5.5 before assuming a transition should be simple.
+- GSAP + ScrollTrigger remains the only motion library (explicit decision
+  during the redesign) — do not introduce Framer Motion/Motion alongside it.
 - Reuse the shared r3f canvas/scene rather than mounting a new canvas per
   route — see `PLAN.md` Phase 4.
 

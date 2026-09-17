@@ -1,11 +1,11 @@
 @import 'tailwindcss';
 
-/* Self-hosted per SPEC.md §5.2. Weights: 400/500/600 display, 400/500/600/700
+/* Self-hosted per SPEC.md §5.2. Weights: 500/600/700 display, 400/500/600/700
    data. Latin subset only — pull in another subset here if the league ever
    needs non-Latin text. */
-@import '@fontsource/cormorant-garamond/latin-400.css';
-@import '@fontsource/cormorant-garamond/latin-500.css';
-@import '@fontsource/cormorant-garamond/latin-600.css';
+@import '@fontsource/space-grotesk/latin-500.css';
+@import '@fontsource/space-grotesk/latin-600.css';
+@import '@fontsource/space-grotesk/latin-700.css';
 @import '@fontsource/inter/latin-400.css';
 @import '@fontsource/inter/latin-500.css';
 @import '@fontsource/inter/latin-600.css';
@@ -13,49 +13,47 @@
 
 /**
  * Design tokens — see SPEC.md §5 for the full rationale.
- * Gold/brass are decorative only; never use them for text below 24px
- * or for anything that must be read (contrast fails on marble/ivory).
  *
- * Revised from an earlier bright-yellow-gold-on-white-marble pass (user
- * feedback: wanted something more modern/minimalist/luxurious, and a
- * grey marble rather than white). Re-sourced via the ui-ux-pro-max
- * palette database (--domain color, "editorial minimalist neutral warm
- * grey") rather than hand-picked: its Home Decoration/Interior Design
- * entry ("Interior warm grey + gold accent") is the basis for both
- * moves — a warm stone-grey neutral family for marble/ivory instead of
- * near-white, and a desaturated amber/antique-brass accent (its
- * #D97706) instead of a saturated yellow gold. `--color-gold-bright`
- * (#A6845C) and `--color-brass` (#6F5F49) are hand-tuned further toward
- * "muted champagne/antique brass" from that reference point — the
- * database's own value read as more "warm interior accent" than
- * "restrained luxury metal" once tried directly against the marble
- * background and the 3D gold materials (src/three/materials.ts, which
- * mirrors these hex values).
+ * Redesign (this pass): full pivot away from the marble/gold "trophy room"
+ * system to an ink/paper canvas with a single "ignite" accent, decided with
+ * the user against foodnia.co.jp / lisa.locomotive.ca / designbomb.it as
+ * reference direction (minimal chrome, oversized grotesk type, full-bleed
+ * motion, hard section-to-section transitions rather than one continuous
+ * texture). The eight original token *names* are kept — every existing
+ * `bg-marble`/`text-gold-bright`/`border-charcoal` utility across the app
+ * keeps working — only their hex values and roles changed, so this file is
+ * the single place the whole visual pivot happens for anything that was
+ * already using the shared tokens rather than a hand-picked color.
  *
- * `--color-gold-light` is a computed ~45% white-tint of
- * `--color-gold-bright`, used as the specular highlight stop in
- * metallic gradients so a gold border/line has real tonal variation
- * instead of reading as flat paint. `--color-gold` (darker) is reserved
- * for shadow/depth (card elevation, gradient edges) — it is NOT the
- * visible gold anywhere; `--color-gold-bright` is the primary visible
- * gold.
+ * `ignite` and `current` are decorative-only accents, same hard rule gold
+ * had: never for text below 24px or anything that must be read — both are
+ * saturated enough to fail WCAG AA body-text contrast on both paper and
+ * ink. Reserved for borders, dividers, icons, large display numerals, and
+ * 3D materials. Verify contrast on any new pairing before shipping it,
+ * exactly as the old gold rule required (see the Phase F accessibility
+ * pass in PLAN.md).
  */
 @theme {
-  --color-marble: #e6e4e0;
-  --color-ivory: #efebe4;
-  --color-charcoal: #2b2926;
-  --color-charcoal-soft: #57534c;
-  --color-gold: #6b5637;
-  --color-gold-bright: #a6845c;
-  --color-gold-light: #d9c7a8;
-  --color-brass: #6f5f49;
+  --color-marble: #f5f3ee; /* "paper" — primary light canvas */
+  --color-ivory: #eae7df; /* "paper-raised" — card surface on paper */
+  --color-charcoal: #0b0b0e; /* primary text (near-black); doubles as the "ink" canvas fill via bg-charcoal */
+  --color-charcoal-soft: #57534c; /* muted text on paper — unchanged from the marble/gold system, was already a neutral grey */
+  --color-gold: #c2451f; /* "ignite-deep" — borders/dividers/depth, decorative */
+  --color-gold-bright: #ff5a36; /* "ignite" — primary accent, decorative only */
+  --color-gold-light: #ffe2d6; /* "ignite-soft" — light tint for badges/backgrounds on paper */
+  --color-brass: #2ee6d6; /* "current" — secondary accent (teal), used sparingly */
 
-  --font-display: 'Cormorant Garamond', serif;
+  --color-ink: #0b0b0e; /* dark canvas background (hero, journey, game-of-the-week) */
+  --color-ink-raised: #17171c; /* card/panel surface on ink */
+  --color-mute-on-ink: #9c9aa6; /* secondary text on ink */
+
+  --font-display: 'Space Grotesk', ui-sans-serif, system-ui, sans-serif;
   --font-sans: 'Inter', ui-sans-serif, system-ui, sans-serif;
 
-  /* Slow, weighted easing per SPEC.md §5.5 — mirrored as JS eases for
-     GSAP when motion work starts (PLAN.md Phase 6), so both CSS and
-     GSAP transitions share the same curves. */
+  /* Slow, weighted easing per SPEC.md §5.5 — mirrored as JS eases for GSAP
+     (src/motion/gsapSetup.ts) so CSS and GSAP transitions share the same
+     curves. Kept as-is through the redesign: the "slow and weighted" feel
+     is a motion-texture decision, independent of the palette pivot. */
   --ease-weighted: cubic-bezier(0.22, 1, 0.36, 1);
   --ease-weighted-in-out: cubic-bezier(0.65, 0, 0.35, 1);
 
@@ -67,6 +65,13 @@
   --animate-sound-ping: sound-ping 2.8s var(--ease-weighted) infinite;
   --animate-scroll-cue: scroll-cue 2.4s var(--ease-weighted-in-out) infinite;
   --animate-marquee: marquee 38s linear infinite;
+
+  /* Ambient "liquid" blob morph — the redesign's concrete answer to
+     "liquid motion graphics" without a paid GSAP plugin (no MorphSVGPlugin
+     installed): a blurred div animated through asymmetric border-radius
+     keyframes rather than a true SVG path morph. Used behind hero/GOTW
+     copy, always paired with a blur filter on the element itself. */
+  --animate-blob: blob-morph 14s var(--ease-weighted-in-out) infinite;
 }
 
 @keyframes sound-bar {
@@ -122,165 +127,113 @@
   }
 }
 
+/* Asymmetric border-radius keyframes — see the --animate-blob comment
+   above. Values chosen so no two keyframes look like a simple ellipse
+   rotation; each stop reads as a distinct organic shape. */
+@keyframes blob-morph {
+  0%,
+  100% {
+    border-radius: 42% 58% 65% 35% / 45% 40% 60% 55%;
+  }
+  33% {
+    border-radius: 60% 40% 35% 65% / 55% 65% 35% 45%;
+  }
+  66% {
+    border-radius: 35% 65% 55% 45% / 40% 55% 45% 60%;
+  }
+}
+
 /* SPEC.md §5.5: reduced motion is a real branch, not a blanket kill. The
    sound bars still show state (they just hold still), the scroll cue and
-   ping stop pulsing, and the marquee stops travelling — the words stay
-   readable rather than disappearing. */
+   ping stop pulsing, the marquee stops travelling, and the blob holds its
+   first shape — motion stops, the words and shapes stay in place rather
+   than disappearing. */
 @media (prefers-reduced-motion: reduce) {
   .animate-sound-bar,
   .animate-sound-ping,
   .animate-scroll-cue,
-  .animate-marquee {
+  .animate-marquee,
+  .animate-blob {
     animation: none;
   }
 }
 
 /**
- * Marble surface — SPEC.md §5.4 calls for "real PBR materials" in 3D
- * (Phase 5+); until then, this is the 2D approximation. A real
- * photographed Carrara marble slab (Unsplash, hotlinked per the
- * Unsplash License — free for commercial/noncommercial use) sits under
- * a warm grey-marble-tinted wash so the veining reads as actual stone
- * grain rather than a hinted pattern, plus a fine grain texture on top
- * for close-up tactility. The wash keeps contrast unaffected (verified:
- * charcoal-on-marble stays >11:1, nowhere near the 4.5:1 floor).
- *
- * Wash opacity was lowered from an earlier 0.82 to 0.72 (user feedback:
- * "emphasize the marble" as part of the same pass that moved the base
- * tone from near-white to a light grey) — more of the photo's actual
- * veining shows through now rather than reading mostly as a flat tint
- * with a hint of stone underneath.
- *
- * The photo is on a `position: fixed` pseudo-element (sized to the
- * viewport, not this element's full scrollable height) rather than a
- * `background-size: cover` on `.marble-surface` itself — the page's
- * real height can be several viewports tall, and `cover` against that
- * would scale the image far past its native resolution, blurring the
- * veining into mush. Fixed sizing keeps it crisp at any page length.
- * Applied to every top-level page surface via this class — never a flat
- * `bg-marble` fill on a full-page container, or the texture disappears
- * behind it.
+ * Paper surface — the flat light canvas (renamed from `.marble-surface`;
+ * this class replaces the photographed-marble treatment entirely, not
+ * just its colors — no more hotlinked Unsplash image, no SVG grain, no
+ * radial-gradient wash). A flat fill is the deliberate choice here: the
+ * new design's texture comes from motion and section-to-section contrast
+ * (see `.ink-surface` below), not from a static background image.
  */
-.marble-surface {
-  position: relative;
-  z-index: 0;
+.paper-surface {
   background-color: var(--color-marble);
 }
 
-.marble-surface::before {
-  content: '';
-  position: fixed;
-  inset: 0;
-  z-index: -1;
-  background-image:
-    radial-gradient(ellipse 60% 50% at 12% -5%, rgba(166, 132, 92, 0.16), transparent 55%),
-    radial-gradient(ellipse 55% 50% at 100% 10%, rgba(111, 95, 73, 0.13), transparent 55%),
-    linear-gradient(rgba(230, 228, 224, 0.72), rgba(230, 228, 224, 0.72)),
-    url('https://images.unsplash.com/photo-1558346648-9757f2fa4474?q=60&w=1920&auto=format&fit=crop'),
-    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix type='matrix' values='0 0 0 0 0.169  0 0 0 0 0.161  0 0 0 0 0.149  0 0 0 0.035 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
-  background-repeat: no-repeat, no-repeat, no-repeat, no-repeat, repeat;
-  background-position:
-    top left,
-    top right,
-    center,
-    center,
-    top left;
-  background-size:
-    cover,
-    cover,
-    cover,
-    cover,
-    180px 180px;
+/**
+ * Ink surface — the dark canvas counterpart, used for full-bleed "moment"
+ * sections (hero, the matchup journey, game-of-the-week) that alternate
+ * with paper "data" sections. This alternation is the redesign's version
+ * of "clean transitions": a section boundary is a real color/contrast
+ * snap, not a continuous wash bleeding through the whole scroll.
+ */
+.ink-surface {
+  background-color: var(--color-ink);
+  color: var(--color-marble);
 }
 
 /**
- * Gallery card — the ivory "placard" surface for grouped content
- * (results, standings, records). Near-opaque ivory (94%, up from an
- * earlier 72% that let the marble grain bleed through and killed the
- * card/background separation) plus a heavier gold-tinted border and a
- * two-layer shadow — a tight near shadow for a crisp physical edge, a
- * wide soft one tinted with the *darker* --color-gold (reserved for
- * shadow/depth per the palette comment above, never the visible gold
- * itself) — so the card reads as a lifted museum placard, not a wash.
+ * Panel card — the raised surface for grouped content (results, standings,
+ * records). Flat paper-raised fill, a hairline border, and a shadow tinted
+ * to the ink hue rather than pure black, per the redesign's flat-materials
+ * direction (no more metallic gradient border/top-bar). The 2px solid
+ * ignite top edge is the one accent kept from the old gold top-bar — a
+ * flat color instead of a 3-stop metallic gradient.
  */
 .gallery-card {
   position: relative;
-  background-color: rgb(239 235 228 / 94%);
-  border: 1.5px solid rgb(166 132 92 / 55%);
+  background-color: rgb(234 231 223 / 94%);
+  border: 1px solid rgb(11 11 14 / 10%);
   border-radius: 1rem;
   box-shadow:
-    0 1px 2px rgb(43 41 38 / 8%),
-    0 4px 10px -4px rgb(43 41 38 / 12%),
-    0 24px 48px -20px rgb(107 86 55 / 55%);
+    0 1px 2px rgb(11 11 14 / 6%),
+    0 12px 32px -16px rgb(11 11 14 / 18%);
 }
 
 .gallery-card::before {
   content: '';
   position: absolute;
-  inset: -1.5px -1.5px auto -1.5px;
-  height: 3px;
+  inset: -1px -1px auto -1px;
+  height: 2px;
   border-radius: 1rem 1rem 0 0;
-  background: var(--gradient-gold-metal);
+  background-color: var(--color-gold-bright);
 }
 
-/**
- * Shared metallic-gold gradient — three real tones (dark/shadow, bright/
- * primary, light/specular) rather than one flat hex, so gold surfaces
- * (dividers, card inlay strips, avatar frames) read as brushed metal
- * catching light rather than a painted line. Bright is the dominant
- * stop; dark only appears at the fading edges.
- */
-:root {
-  --gradient-gold-metal: linear-gradient(
-    90deg,
-    transparent,
-    var(--color-gold) 6%,
-    var(--color-gold-bright) 30%,
-    var(--color-gold-light) 50%,
-    var(--color-gold-bright) 70%,
-    var(--color-gold) 94%,
-    transparent
-  );
-}
-
-/** Gradient-gold "shine" for large display numerals (High score, League
- * History records) — the same metallic gradient as the borders/dividers
- * above, clipped to the glyphs themselves via `background-clip: text` so
- * the numeral catches light like brushed metal instead of sitting as a
- * flat, mustard-looking fill. `color: transparent` is the standard
- * fallback for browsers without background-clip: text support (the
- * numeral would render solid black) — acceptable here since every
- * evergreen browser this project targets (CLAUDE.md) supports it. */
-.text-gold-metal {
-  background: var(--gradient-gold-metal);
-  background-clip: text;
-  -webkit-background-clip: text;
-  color: transparent;
-  -webkit-text-fill-color: transparent;
-}
-
-/** A brushed-gold bar — replaces flat `bg-gold` dividers/underlines. */
+/** Flat ignite bar — replaces the metallic gradient divider. */
 .gold-divider {
   height: 3px;
-  background: var(--gradient-gold-metal);
+  background-color: var(--color-gold-bright);
+  border-radius: 999px;
 }
 
-/** Metallic-gradient frame for the "trophy portrait" avatars (TeamAvatar
- * md/lg) — border-image gives the frame edge itself tonal variation, and
- * a soft gold-tinted shadow lifts the portrait off the page the way a
- * real gallery frame throws a shadow off the wall. */
+/** Flat ignite fill for large display numerals (High score, League History
+ * records) — replaces the `background-clip: text` metallic gradient.
+ * Ignite is decorative-only per the token comment above; this class is
+ * only ever applied to display-scale numerals (24px+), the one context
+ * that rule allows literal text color. */
+.text-gold-metal {
+  color: var(--color-gold-bright);
+}
+
+/** Flat ignite frame for the "portrait" avatars (TeamAvatar md/lg) —
+ * replaces the metallic border-image gradient with a solid border and a
+ * shadow tinted to ink rather than gold. The square "gallery frame" motif
+ * itself is still up for reconsideration in a later redesign phase; this
+ * is a like-for-like flat version of what already existed. */
 .gold-frame {
   border-style: solid;
-  border-image: linear-gradient(
-      135deg,
-      var(--color-gold-light),
-      var(--color-gold-bright) 45%,
-      var(--color-gold) 100%
-    )
-    1;
-  box-shadow:
-    0 0 0 1px rgb(166 132 92 / 22%),
-    0 10px 22px -10px rgb(107 86 55 / 60%);
+  border-color: var(--color-gold-bright);
+  box-shadow: 0 8px 20px -12px rgb(11 11 14 / 45%);
 }
 
 body {

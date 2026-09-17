@@ -44,7 +44,7 @@ function NavOverlay({ onClose }: { onClose: () => void }) {
       role="dialog"
       aria-modal="true"
       aria-label="Site navigation"
-      className="marble-surface fixed inset-0 z-50 flex flex-col overflow-y-auto"
+      className="paper-surface fixed inset-0 z-50 flex flex-col overflow-y-auto"
     >
       <div className="flex items-center justify-between px-6 py-4">
         <span className="font-display text-charcoal text-lg">Trophy Room</span>
@@ -93,7 +93,7 @@ export function Layout({ children }: { children: ReactNode }) {
     // is genuinely observable from outside React (Playwright/devtools),
     // and a legitimate CSS hook if a future tier-gated 2D style ever
     // needs one -- not a throwaway debug attribute to strip out later.
-    <div className="marble-surface text-charcoal min-h-svh" data-effects-tier={effectsTier}>
+    <div className="paper-surface text-charcoal min-h-svh" data-effects-tier={effectsTier}>
       <header className="border-charcoal/10 flex items-center justify-between border-b px-6 py-4">
         <NavLink to="/" className="font-display text-charcoal text-lg">
           Trophy Room

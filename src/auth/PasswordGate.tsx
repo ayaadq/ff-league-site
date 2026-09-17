@@ -16,7 +16,7 @@ export function PasswordGate({ onUnlock }: { onUnlock: () => void }) {
   }
 
   return (
-    <main className="marble-surface fixed inset-0 flex items-center justify-center px-6">
+    <main className="paper-surface fixed inset-0 flex items-center justify-center px-6">
       <div className="w-full max-w-sm px-10 py-12 text-center">
         <div className="bg-gold mx-auto mb-6 h-px w-16" aria-hidden="true" />
 
@@ -49,7 +49,7 @@ export function PasswordGate({ onUnlock }: { onUnlock: () => void }) {
           )}
           <button
             type="submit"
-            className="border-gold text-charcoal hover:bg-gold hover:text-marble mt-2 border px-4 py-2 text-sm tracking-widest uppercase transition-colors duration-300"
+            className="border-gold text-charcoal hover:bg-charcoal hover:text-marble mt-2 border px-4 py-2 text-sm tracking-widest uppercase transition-colors duration-300"
           >
             Enter
           </button>

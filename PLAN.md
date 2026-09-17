@@ -667,3 +667,70 @@ re-synthesized.** Three items closed out of this phase's known issues.
   → 124 KB) rather than shipping raw 16-bit PCM. `SoundProvider.tsx` was
   already wired to `/audio/ambience.mp3` and `/audio/roar.mp3` from
   Phase 11 — only the asset files changed, no code.
+
+## Phase 13 — Full visual redesign: marble/gold → ink/paper/ignite
+
+Full pivot away from the "trophy room" marble/gold aesthetic to a new
+system inspired by foodnia.co.jp, lisa.locomotive.ca/en, and
+designbomb.it — an alternating ink/paper canvas, a single "ignite" accent,
+Space Grotesk display type, and "liquid motion" GSAP techniques (blob
+morphs, clip-path wipes, velocity-skew). GSAP + ScrollTrigger stays the
+only motion library — Framer Motion/Motion was explicitly considered and
+rejected for this project. The full plan (token decisions, phase-by-phase
+file list, the four open-decision resolutions for smack talk/game-of-the-
+week/video/player cards) is in the session's plan file; this entry tracks
+shipped status only. SPEC.md §5 now describes this system as binding; its
+marble/gold section is kept as a historical record.
+
+**Phase A — Tokens + static chrome. Status: complete, verified locally.**
+`src/index.css`'s `@theme` block was remapped in place: the eight
+marble/gold token _names_ kept their utility classes working everywhere
+(`bg-marble`, `text-gold-bright`, etc. all still resolve), only their hex
+values and roles changed (paper/ink/ignite/current), plus three new
+tokens (`--color-ink`, `--color-ink-raised`, `--color-mute-on-ink`) for
+the alternating-canvas pattern the old single-background model didn't
+have. `--font-display` moved from Cormorant Garamond to Space Grotesk
+(`@fontsource/cormorant-garamond` uninstalled, `@fontsource/space-grotesk`
+installed) — a single token flip that retargets every `h1`-`h4` and
+`font-display` usage app-wide with no per-component edits. The five
+marble/gold-specific CSS classes (`.marble-surface`, renamed to
+`.paper-surface`, plus `.gallery-card`, `.gold-divider`,
+`.text-gold-metal`, `.gold-frame`) were redefined as flat equivalents —
+no more hotlinked Unsplash marble photo, no more 3-stop metallic
+gradients — while the latter four keep their original names since
+they're still consumed by components not yet touched (Phases B–E). A
+blob-morph keyframe (`--animate-blob`) was added for later liquid-motion
+work, wired into the existing `prefers-reduced-motion` disable block
+alongside the other ambient loops. `src/content/teamColors.ts`'s
+`FALLBACK_PALETTE` got new, more saturated hex values — the old ones were
+tuned to blend toward a warm neutral under `JourneyScene`'s 3D lighting
+and would have read muddy as flat 2D fills. `PasswordGate.tsx`'s
+submit-button hover state was changed from an ignite fill to a charcoal
+(ink) fill with paper text — the direct gold-to-ignite swap would have
+sat right at the edge of WCAG AA for a small button label, so this uses
+the dark/light pair instead of the accent color as a
+background-with-text-on-top.
+
+Verified: `tsc -b`, `oxlint` (same pre-existing warnings, zero new),
+`prettier --write`, and a production `vite build` all pass. Checked live
+in the dev server at true 390×844 (an initial Playwright pass used an
+unrecognized `--device` string and silently rendered at 569px wide —
+caught by checking `window.innerWidth` before trusting the screenshots,
+then re-verified at the real width): the gate screen, header nav,
+full-screen nav overlay, and the still-unmigrated homepage content below
+the fold all render coherently — new chrome and new type throughout,
+ignite used only decoratively (dividers, borders, active-link underline,
+scroll cue), and not-yet-restyled sections stay legible since they were
+already consuming the same remapped tokens rather than hand-picked hex
+values.
+
+Not yet deployed to the production URL or checked on a real device —
+that lands with the phase(s) that follow, per this project's own "deploy
+every phase, real-device-check anything touching 3D/motion" pattern. No
+3D/motion work happened in this phase, so a real-device check isn't
+blocking yet, but is still owed before the redesign as a whole is called
+done.
+
+**Phases B–F (hero + scroll-velocity audio; rotating player cards;
+homepage rebuild plus smack-talk/game-of-the-week; team/history restyle;
+cross-cutting a11y/perf/real-device plus final docs pass): not started.**

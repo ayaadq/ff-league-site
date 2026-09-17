@@ -74,50 +74,70 @@ Two things it must do well:
 
 ## 5. Visual design system
 
-**Direction: minimalist luxury / private gallery.** Restraint over density.
-One thing at a time. If in doubt, remove an element rather than add one.
+**Direction, revised (full redesign, superseding the section below where
+they conflict): confident, high-contrast, motion-forward — an alternating
+ink/paper canvas rather than one continuous marble wash, with a single
+"ignite" accent.** Decided against foodnia.co.jp, lisa.locomotive.ca/en,
+and designbomb.it as reference direction (minimal chrome, oversized
+grotesk type, full-bleed motion, hard section-to-section transitions).
+This is a full pivot away from the "minimalist luxury / private gallery"
+marble/gold direction below, not an evolution of it — that direction is
+kept in this document as a historical record of what shipped first, per
+this project's own convention of not rewriting completed-phase notes.
+Status of the rollout (which pages/components have actually moved to the
+new tokens vs. still show marble/gold) is tracked in PLAN.md's redesign
+phase entries, not here — this section describes the target system.
+
+Restraint is still a value, but it now lives in palette discipline (one
+accent color, flat surfaces, no decorative photography) and content
+density, not in muted/quiet motion — see §5.5, unchanged in spirit: motion
+and 3D are a showpiece, not an afterthought.
 
 ### 5.1 Palette
 
-**Revised post-Phase-5** (user feedback on the live deployed site: the
-original bright yellow gold on near-white marble didn't read as modern/
-minimalist/luxurious). Marble/ivory moved from near-white to a light
-warm grey so the stone grain reads more prominently; gold/brass moved
-from a saturated yellow-gold to a desaturated champagne/antique-brass.
-Re-sourced via the ui-ux-pro-max palette database (`--domain color`,
-"editorial minimalist neutral warm grey") rather than hand-picked — see
-`src/index.css` for the full sourcing note. The hex values below are the
-actual shipped tokens (`src/index.css` `@theme` block and
-`src/three/materials.ts`, kept in sync by hand); this table is the
-canonical reference going forward.
+The eight original token _names_ from the marble/gold system are kept in
+`src/index.css` — every `bg-marble`/`text-gold-bright`/`border-charcoal`
+utility already in use across the app keeps working — only their hex
+values and roles changed. Two new tokens (`--color-ink`, `--color-ink-raised`,
+`--color-mute-on-ink`) support the new alternating dark/light canvas
+pattern, which didn't exist in the old single-background model.
 
-| Token                   | Hex                   | Use                                                                                                                                                                     |
-| ----------------------- | --------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `--color-marble`        | `#E6E4E0`             | Primary background (light warm grey marble)                                                                                                                             |
-| `--color-ivory`         | `#EFEBE4`             | Secondary surfaces, cards, panels                                                                                                                                       |
-| `--color-charcoal`      | `#2B2926`             | Primary text — the only color allowed for body copy and any text below 24px                                                                                             |
-| `--color-charcoal-soft` | `#57534C`             | Secondary/muted text, still passes contrast on marble & ivory                                                                                                           |
-| `--color-gold`          | `#6B5637`             | Metal shadow/depth (card elevation, gradient edges) — not the visible gold itself                                                                                       |
-| `--color-gold-bright`   | `#A6845C`             | Primary visible gold — borders, dividers, icons, large display numerals, hover states, 3D materials                                                                     |
-| `--color-gold-light`    | `#D9C7A8`             | Specular highlight stop in metallic gradients only                                                                                                                      |
-| `--color-brass`         | `#6F5F49`             | Secondary metal accent, used to differentiate from gold sparingly                                                                                                       |
-| Team colors             | (from Sleeper/manual) | **Accent only** — a small dot, underline, or 4–8px edge. Never a background, never large-area fill. Must never be the sole differentiator (pair with team name/avatar). |
+| Token                   | Hex                                | Use                                                                                                                                                                     |
+| ----------------------- | ---------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `--color-marble`        | `#F5F3EE`                          | "Paper" — primary light canvas (standings, chart, team pages)                                                                                                           |
+| `--color-ivory`         | `#EAE7DF`                          | "Paper-raised" — card/panel surface on paper                                                                                                                            |
+| `--color-charcoal`      | `#0B0B0E`                          | Primary text (near-black) — the only color allowed for body copy and any text below 24px. Also the "ink" canvas fill via `bg-charcoal`                                  |
+| `--color-charcoal-soft` | `#57534C`                          | Secondary/muted text on paper, passes WCAG AA                                                                                                                           |
+| `--color-ink`           | `#0B0B0E`                          | Primary dark canvas — full-bleed "moment" sections (hero, matchup journey, game of the week)                                                                            |
+| `--color-ink-raised`    | `#17171C`                          | Card/panel surface on ink                                                                                                                                               |
+| `--color-mute-on-ink`   | `#9C9AA6`                          | Secondary/muted text on ink                                                                                                                                             |
+| `--color-gold`          | `#C2451F`                          | "Ignite-deep" — borders, dividers, depth accents, decorative only                                                                                                       |
+| `--color-gold-bright`   | `#FF5A36`                          | "Ignite" — primary visible accent — borders, dividers, icons, large display numerals, hover states, 3D materials, decorative only                                       |
+| `--color-gold-light`    | `#FFE2D6`                          | "Ignite-soft" — light tint for badges/backgrounds on paper                                                                                                              |
+| `--color-brass`         | `#2EE6D6`                          | "Current" — secondary accent (teal), used sparingly (e.g. the second gradient stop where two teams' colors need contrast)                                               |
+| Team colors             | (from `src/content/teamColors.ts`) | **Accent only** — a small dot, underline, or 4–8px edge. Never a background, never large-area fill. Must never be the sole differentiator (pair with team name/avatar). |
 
-**Hard rule:** gold and brass fail accessibility contrast as text on both
-marble and ivory. They are decorative only. Anything that must be read —
-body text, labels, table data, nav — uses charcoal or charcoal-soft,
-both of which pass WCAG AA on marble/ivory backgrounds.
+**Hard rule, unchanged in substance:** ignite and current fail accessibility
+contrast as text on both paper and ink. They are decorative only. Anything
+that must be read — body text, labels, table data, nav — uses charcoal or
+charcoal-soft (on paper) or paper/mute-on-ink (on ink).
+
+**Page theme lock:** a given section is either paper or ink, never a
+gradient between them mid-section. Alternation happens at section
+boundaries (a real color/contrast snap = the "clean transition" language
+from the reference direction), not as a continuous wash.
 
 ### 5.2 Typography
 
-- **Display / headings:** a high-contrast serif — Cormorant Garamond (or
-  Playfair Display as fallback choice) — self-hosted via `@fontsource`.
-  Used for team names, page titles, big score numerals, section headers.
-- **Data / UI / body:** a clean humanist sans with good tabular figures —
-  Inter — for tables, stats, nav, body copy, form elements.
-- Generous line-height and letter-spacing on display type; tight, legible
-  sizing on data type. Numbers in tables/scores use `font-variant-numeric:
-tabular-nums`.
+- **Display / headings:** Space Grotesk (self-hosted via `@fontsource`,
+  weights 500/600/700) — a confident geometric grotesk, used for team
+  names, page titles, big score numerals, section headers. Replaces
+  Cormorant Garamond; the serif direction didn't fit the new reference
+  direction (none of the three reference sites read as editorial-serif).
+- **Data / UI / body:** unchanged — Inter, for tables, stats, nav, body
+  copy, form elements. Already tuned for `tabular-nums`, no coupling to
+  the old marble/gold system.
+- Numbers in tables/scores use `font-variant-numeric: tabular-nums`.
 
 ### 5.3 Layout & spacing
 

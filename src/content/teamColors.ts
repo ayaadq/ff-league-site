@@ -28,22 +28,27 @@ export const teamColors: TeamColor[] = []
 
 /** A spread of distinct, moderately saturated hues — not tuned to any
  * particular real team, just varied enough that a 12-team league's
- * unauthored managers don't visually collide. The accent light blends
- * heavily toward a warm neutral before use (JourneyScene's ACCENT_MIX),
- * so these don't need to be subtle on their own. */
+ * unauthored managers don't visually collide.
+ *
+ * Redesign note: these used to blend heavily toward a warm neutral before
+ * use (JourneyScene's old ACCENT_MIX under 3D lighting), so the raw values
+ * were deliberately muted and didn't need to read well on their own. The
+ * new flat 2D UI (player-card accents, badges) shows these hexes directly
+ * with no lighting blend, so they're re-tuned brighter/more saturated to
+ * read clearly as flat fills and against both the paper and ink canvases. */
 const FALLBACK_PALETTE = [
-  '#8a3b3b', // brick red
-  '#3b5d8a', // steel blue
-  '#3b8a5d', // forest green
-  '#8a6f3b', // amber
-  '#5d3b8a', // violet
-  '#3b8a8a', // teal
-  '#8a3b6f', // magenta
-  '#6f8a3b', // olive
-  '#3b4f8a', // indigo
-  '#8a5d3b', // rust
-  '#3b8a3b', // green
-  '#6f3b8a', // purple
+  '#e0403d', // brick red
+  '#3f7fd6', // steel blue
+  '#2fa869', // forest green
+  '#d69a2e', // amber
+  '#8a4fd6', // violet
+  '#2ba6a6', // teal
+  '#d63f8f', // magenta
+  '#8fae2e', // olive
+  '#4a5fd6', // indigo
+  '#d67a2e', // rust
+  '#2ea84a', // green
+  '#a03fd6', // purple
 ]
 
 function hashUserId(userId: string): number {
