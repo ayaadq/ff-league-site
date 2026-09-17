@@ -11,7 +11,11 @@
  * ref-mutation idiom the rest of this project's scroll-driven 3D already
  * uses (ScrollCameraRig, PlayerCardArc). */
 
-const BODY_COLOR = '#5c5a62'
+// Warm pigskin brown (PLAN.md Phase H.3) -- Phase H's grey (#5c5a62) read
+// as a generic plastic prop rather than leather. Laces stay whatever
+// accentColor the caller passes (ignite in both current call sites),
+// unchanged by this.
+const BODY_COLOR = '#7a4526'
 const LACE_OFFSETS = [-0.5, -0.25, 0, 0.25, 0.5]
 
 export function Football({ accentColor }: { accentColor: string }) {

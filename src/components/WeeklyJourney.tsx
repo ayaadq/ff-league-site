@@ -140,9 +140,21 @@ export function WeeklyJourney({
     <>
       <ConfettiLayer ref={confettiRef} />
 
+      {/* Full-bleed breakout (PLAN.md Phase H.3) -- HomePage.tsx wraps
+        every Act in a `max-w-4xl` reading column, which left visible
+        paper-colored margins on either side of the journey's own sticky
+        canvas, breaking the "fills the whole screen" immersion the kick
+        scene is going for. `w-screen` + the calc-based negative margin is
+        the standard full-bleed-inside-a-centered-container trick; it's
+        safe here specifically because `overflow-x: clip` is already set
+        on html/body (index.css, the pinch-zoom fix) so any rounding
+        between 100vw and the actual viewport width is clipped rather than
+        creating real horizontal scroll. The scorecards underneath stay
+        readable-width regardless -- they carry their own `max-w-2xl` /
+        `mx-auto`, independent of this section's width. */}
       <section
         id={TRACK_ID}
-        className="relative mt-16 md:mt-24"
+        className="relative mx-[calc(50%-50vw)] mt-16 w-screen md:mt-24"
         aria-label={`Week ${week} matchups`}
       >
         <div className="bg-charcoal pointer-events-none sticky top-0 h-svh w-full overflow-hidden">
@@ -297,7 +309,7 @@ export function WeeklyJourney({
           how fast someone scrolls through it. */}
       <div
         aria-hidden="true"
-        className="h-[45svh] w-full bg-[linear-gradient(to_bottom,#0B0B0E_0%,#0B0B0E_35%,transparent_100%)]"
+        className="mx-[calc(50%-50vw)] h-[45svh] w-screen bg-[linear-gradient(to_bottom,#0B0B0E_0%,#0B0B0E_35%,transparent_100%)]"
       />
     </>
   )

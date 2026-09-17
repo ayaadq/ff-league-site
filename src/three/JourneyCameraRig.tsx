@@ -9,6 +9,9 @@ import {
   ballSpinAtFlightT,
   cameraPoseAtFlightT,
   cameraPullback,
+  finaleZoomDistanceFactor,
+  finaleZoomFactor,
+  finaleZoomFovFactor,
   flightProgress,
   KICK_POSITION,
   matchupIndexAtProgress,
@@ -107,11 +110,27 @@ export function JourneyCameraRig({
         y: ball.y + (pose.position.y - ball.y) * pullback,
         z: ball.z + (pose.position.z - ball.z) * pullback,
       }
+
+      // The ball-through-the-uprights climax (PLAN.md Phase H.3) -- an
+      // isolated extra push-in applied only in the flight's final
+      // stretch, on top of the pullback above rather than folded into it
+      // (see journeyLayout.ts's own comment on why: moving END_CAM itself
+      // closer would also tighten the mid-flight framing Phase H already
+      // tuned, since `cameraT` is most of the way to 1 by the flight's
+      // midpoint).
+      const zoom = finaleZoomFactor(flightT)
+      if (zoom > 0) {
+        const distanceFactor = finaleZoomDistanceFactor(zoom)
+        pulled.x = ball.x + (pulled.x - ball.x) * distanceFactor
+        pulled.y = ball.y + (pulled.y - ball.y) * distanceFactor
+        pulled.z = ball.z + (pulled.z - ball.z) * distanceFactor
+      }
+
       camera.position.set(pulled.x, pulled.y, pulled.z)
       camera.lookAt(ball.x, ball.y, ball.z)
 
       const perspectiveCamera = camera as PerspectiveCamera
-      perspectiveCamera.fov = pose.fov
+      perspectiveCamera.fov = zoom > 0 ? pose.fov * finaleZoomFovFactor(zoom) : pose.fov
       perspectiveCamera.updateProjectionMatrix()
     }
 

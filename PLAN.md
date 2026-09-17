@@ -1450,7 +1450,7 @@ Three fixes to `NextWeekPreview.tsx`'s flip-card matchup preview
    card explodes, it's still showing its back face at 180°, which read as
    the card flipping upside-down mid-explosion rather than disintegrating
    in place. Fixed with an explicit `.set(cardRef.current, { rotateY: 0
-   })` as the first step of the disintegration timeline, forcing the card
+})` as the first step of the disintegration timeline, forcing the card
    upright at the exact instant the explosion starts. This is a
    deliberate override, not a race with the flip's own tween — the flip's
    scroll range has long since ended by the time this trigger fires, so
@@ -1480,3 +1480,67 @@ cards, upright disintegration, and how the pixel burst actually reads —
 "satisfying card destruction" is a real-device/visual judgment call this
 environment can't make) — same carried-forward gap as every phase since
 the redesign began.
+
+## Phase H.3 — Football realism, fullscreen journey, pronounced goal moment
+
+Four changes to the kick journey's realism and impact.
+
+1. **Football material.** `Football.tsx`'s `BODY_COLOR` was `#5c5a62` — a
+   grey that read as a generic plastic prop. Changed to `#7a4526`, a warm
+   pigskin brown; laces are unaffected (still whatever `accentColor` the
+   caller passes, ignite at both call sites).
+2. **Procedural grass texture.** New `three/grassTexture.ts` — a small
+   (128×128, the same order of magnitude as every other texture-size
+   lesson this project has already learned about WebGL memory) canvas
+   filled with mottled blade-like flecks in four dark-green tones, tiled
+   across the field via `RepeatWrapping` rather than drawn at high
+   resolution (repetition at this texel density isn't perceptible on a
+   pattern this irregular, unlike something with sharp repeating features
+   like yard numbers). Replaces Phase H.1's flat `FIELD_COLOR` fill, which
+   under the scene's HDRI lighting read as smooth CGI plastic regardless
+   of which green it was set to.
+3. **Full-bleed journey.** `HomePage.tsx` wraps every Act in a `max-w-4xl`
+   reading column, which the journey's own `<section>` had been sitting
+   inside since Phase H — leaving visible paper-colored margins on either
+   side of the sticky canvas as you scrolled through it, undercutting the
+   "fills the whole screen" immersion the kick is going for. Fixed with
+   the standard full-bleed-breakout trick (`w-screen` plus a
+   `calc(50% - 50vw)` negative margin) on both the journey's own
+   `<section>` and the boundary-transition gradient right after it —
+   scoped to `WeeklyJourney.tsx` alone rather than restructuring
+   `HomePage.tsx`'s column. Safe specifically because `overflow-x: clip`
+   is already set on `html`/`body` (the pinch-zoom fix, PLAN.md Phase G),
+   so any rounding between `100vw` and the real viewport width is clipped
+   rather than becoming real horizontal scroll. The matchup scorecards
+   underneath needed no change — they already carry their own
+   `max-w-2xl`/`mx-auto`, independent of the section's own width.
+4. **Climax zoom on the final kick.** The ball passing through the
+   uprights is the same moment `flightT` reaches 1 for the week's one
+   continuous flight, but the existing end-of-flight camera pose
+   (`END_CAM`, journeyLayout.ts) is deliberately wide/elevated — Phase H's
+   own "pulled back" establishing shot, tuned to stop the ball from
+   swelling to fill the frame too early. Simply moving `END_CAM` closer
+   would have re-broken that (`cameraT`'s sqrt easing already reaches most
+   of the way to `END_CAM` by the flight's midpoint), so this is a
+   separate, isolated push-in layered on top: three new pure functions in
+   `journeyLayout.ts` (`finaleZoomFactor`, `finaleZoomDistanceFactor`,
+   `finaleZoomFovFactor`) ramp linearly from 0 at `flightT = 0.88` to 1 at
+   `flightT = 1`, and `JourneyCameraRig.tsx`'s `place()` uses that ramp to
+   pull the already-computed camera position 30% closer to the ball and
+   narrow the FOV to 88% of normal — both effects compounding so the
+   uprights read as unmistakably larger right at the pass-through, without
+   touching anything before `flightT = 0.88`.
+
+**Verified:** `tsc -b`, `oxlint` (same eight pre-existing warnings, zero
+new), `prettier --write`, and a production `vite build` all pass (the
+journey's own lazy chunk grew from ~3.7KB to ~4.5KB with the grass
+texture module added, still small).
+
+**Not done:** real-device check on the live Vercel URL — whether the
+brown football/grass texture actually read as "realistic, not CGI" versus
+"looks fine in a screenshot," whether the full-bleed fix holds under
+iOS Safari's own viewport quirks (the project's pinch-zoom fix already
+had one browser-specific surprise in this exact area), and whether the
+climax zoom's magnitude feels right rather than jarring, are all
+real-device/visual judgment calls this environment can't make — same
+carried-forward gap as every phase since the redesign began.

@@ -1,15 +1,11 @@
 import { useMemo, type RefObject } from 'react'
 import type { Group } from 'three'
 import { Football } from './Football'
+import { grassTexture } from './grassTexture'
 import { KICK_POSITION, UPRIGHT_POSITION } from './journeyLayout'
 
 const IGNITE = '#ff5a36'
 const CURRENT = '#2ee6d6'
-// Dark turf green, not the flat near-black grey Phase H shipped with --
-// under the HDRI studio lighting this scene already uses, near-black reads
-// as CGI-grey/silver rather than a field (PLAN.md Phase H.1). Picked
-// saturated enough to survive that brightening and still read as grass.
-const FIELD_COLOR = '#17371d'
 const POST_COLOR = IGNITE
 
 /** Crossbar height and upright reach, in world units — chosen so
@@ -83,10 +79,19 @@ function YardLines() {
 function Field() {
   const centerZ = (KICK_POSITION.z + UPRIGHT_POSITION.z) / 2
   const depth = Math.abs(UPRIGHT_POSITION.z - KICK_POSITION.z) + 30
+  // Tiled at ~2 world units per repeat -- fine enough to read as blades
+  // of grass rather than a handful of oversized smears, coarse enough
+  // that 128px of source texture per tile still looks sharp up close
+  // (PLAN.md Phase H.3, replacing Phase H.1's flat color fill).
+  const texture = useMemo(() => {
+    const t = grassTexture()
+    t.repeat.set(20, depth / 2)
+    return t
+  }, [depth])
   return (
     <mesh position={[0, 0, centerZ]} rotation={[-Math.PI / 2, 0, 0]}>
       <planeGeometry args={[40, depth]} />
-      <meshStandardMaterial color={FIELD_COLOR} roughness={0.92} metalness={0} />
+      <meshStandardMaterial map={texture} roughness={0.92} metalness={0} />
     </mesh>
   )
 }

@@ -105,6 +105,41 @@ export function cameraPoseAtFlightT(t: number): CameraPose {
   }
 }
 
+/** An extra, isolated push-in for the ball's actual pass through the
+ * uprights (PLAN.md Phase H.3) — layered on top of the start->end camera
+ * lerp above rather than folded into it, so it only affects the flight's
+ * final stretch and leaves the mid-flight pacing already tuned in Phase H
+ * (the sqrt easing on `cameraT`, JourneyCameraRig.tsx) untouched. Without
+ * this isolation, simply moving `END_CAM` closer would also pull the
+ * camera in during the middle of the flight (`cameraT` is already most of
+ * the way to 1 by the flight's midpoint), re-introducing the "ball fills
+ * the frame too early" bug Phase H fixed. */
+const FINALE_ZOOM_START = 0.88
+/** Camera-to-ball offset at flightT=1 is this fraction of what the normal
+ * end-of-flight pose alone would put it at — 0.7 means ~30% closer, the
+ * middle of the brief's own 25-35% figure. */
+const FINALE_ZOOM_DISTANCE = 0.7
+/** FOV at flightT=1 is this fraction of the normal end pose's FOV — a
+ * narrower lens compounds the physical push-in above so the uprights
+ * read as unmistakably larger, not just marginally closer. */
+const FINALE_ZOOM_FOV = 0.88
+
+/** 0 before the finale window starts, ramping linearly to 1 exactly as
+ * the ball reaches the uprights. */
+export function finaleZoomFactor(flightT: number): number {
+  const clamped = Math.min(Math.max(flightT, 0), 1)
+  if (clamped <= FINALE_ZOOM_START) return 0
+  return (clamped - FINALE_ZOOM_START) / (1 - FINALE_ZOOM_START)
+}
+
+export function finaleZoomDistanceFactor(zoom: number): number {
+  return 1 - zoom * (1 - FINALE_ZOOM_DISTANCE)
+}
+
+export function finaleZoomFovFactor(zoom: number): number {
+  return 1 - zoom * (1 - FINALE_ZOOM_FOV)
+}
+
 /** The aspect the two poses above were framed at, and the pullback cap
  * for narrower canvases — same "fov is vertical, a portrait viewport
  * needs to dolly back or it crops" mechanism this journey has used since
