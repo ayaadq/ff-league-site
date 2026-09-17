@@ -1355,3 +1355,69 @@ clearly visible in every frame of the flight in this pass's screenshots
 functionally harmless (the celebration reads fine without them being
 prominent), but worth a closer look on a real screen rather than
 assuming the framing is optimal.
+
+## Phase H.1 — Realism + visual hotfix
+
+Four targeted fixes reported after a real-device pass on Phase H's kick
+journey, none touching the camera/scroll math itself.
+
+1. **Ball buried in the ground.** Phase H's `KICK_POSITION.y = 0.18` was
+   tuned assuming the ball rests lying on its side, but its rotation was
+   never set that way — at kickoff the ball actually sits at rotation
+   zero, i.e. standing on its long axis with no tilt applied, so its
+   bottom tip was poking well below the field plane. Fixed by adding a
+   local tilt to the ball's own wrapper group in `JourneyScene.tsx`
+   (`rotation={[0.15, 0, Math.PI / 2]}` — the 90° Z turn stands
+   Football.tsx's long axis upright, matching "on a tee"; the small X
+   tilt is the backward lean a real tee'd-up ball sits at) and raising
+   `KICK_POSITION.y` to `0.54` (the ball's effective standing half-height:
+   1.55 long semi-axis × 0.35 scene scale). The camera rig's own per-frame
+   `rotation.z` spin during flight is untouched — it composes with this
+   rest tilt rather than replacing it, so the ball still visibly tumbles
+   in the air.
+2. **Field read as CGI grey/silver, not turf.** `FIELD_COLOR` was
+   `#111116`, a near-black that the scene's HDRI studio lighting was
+   brightening into flat grey. Replaced with `#17371d`, a saturated dark
+   green picked to survive that same brightening and still read as grass
+   rather than washing out. Ignite/current yard-line and lace colors
+   untouched.
+3. **Finale confetti read as blocked by the scorecard.** `ConfettiLayer`'s
+   container was mounted in place with `z-40 fixed`, which should already
+   out-rank the scorecard's unset z-index — rather than hunt for exactly
+   which ancestor was quietly turning it into a containing block (GSAP's
+   `Reveal` wrapper sets inline transforms on nearby DOM, which is exactly
+   the kind of ancestor that can confine a `position: fixed` child to its
+   own box), the container is now portaled straight to `document.body`
+   with an explicit maximal inline `zIndex`, removing the dependency on
+   this component's mount point entirely. The finale burst's spawn origins
+   were also widened from a narrow top-of-screen strip to a taller band
+   (10%–55% of viewport height) so some particles now originate around the
+   scorecard's own height, not just above it.
+4. **Finale burst too small.** `finaleBurst()`'s `originCount`/`perOrigin`
+   went from 6×22 (132 particles) to 9×40 (360, ~2.7x), particle size from
+   6–15px to 10–25px, and radial spread from `vw × 0.08–0.24` to
+   `vw × 0.2–0.6`; fall distance can now go either up or down from each
+   origin so the burst reads as filling the screen rather than only
+   raining downward.
+
+A fifth item in the original report — "a leftover white box with avatar
+icons near the trading-card preview" — could not be located: every
+avatar-rendering spot in `src/` was checked (`WeeklyJourney.tsx`,
+`JourneyScene.tsx`, `NextWeekPreview.tsx`, the Standings table, Results,
+Week Highlights, `ActivityFeed.tsx`, `WeeklySummaryScene.tsx`) and each is
+either already avatar-free (the journey, post-Phase-H) or is currently
+wired to real, current-design data, not a dead component. No browser tool
+was available this session to load the live page and see the box
+directly. Confirmed with the user this is genuinely unresolved rather
+than silently skipped — holding for a screenshot before touching anything
+here, since a guess-and-delete on a page section is not worth the risk of
+removing something real.
+
+**Verified:** `tsc -b`, `oxlint` (same eight pre-existing warnings, zero
+new), `prettier --write` (no files needed reformatting), and a production
+`vite build` all pass.
+
+**Not done:** real-device check of all four fixes (this environment still
+has no way to load the live Vercel URL or a real phone) — same
+carried-forward gap as every phase since the redesign began. The avatar
+box (item 5) is tracked above as blocked on a screenshot, not fixed.

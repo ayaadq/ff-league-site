@@ -5,7 +5,11 @@ import { KICK_POSITION, UPRIGHT_POSITION } from './journeyLayout'
 
 const IGNITE = '#ff5a36'
 const CURRENT = '#2ee6d6'
-const FIELD_COLOR = '#111116'
+// Dark turf green, not the flat near-black grey Phase H shipped with --
+// under the HDRI studio lighting this scene already uses, near-black reads
+// as CGI-grey/silver rather than a field (PLAN.md Phase H.1). Picked
+// saturated enough to survive that brightening and still read as grass.
+const FIELD_COLOR = '#17371d'
 const POST_COLOR = IGNITE
 
 /** Crossbar height and upright reach, in world units — chosen so
@@ -117,8 +121,19 @@ export function JourneyScene({ ballRef }: { ballRef: RefObject<Group | null> }) 
             barely a tenth of the way through the flight. 0.35 brings its
             effective size to ~1 unit, proportionate to the goalposts
             (POST_HALF_SPREAD*2 = 3.6 units apart) and the ~20-unit field
-            it's flying across. */}
-        <group scale={0.35}>
+            it's flying across.
+
+            The extra rotation stands the ball on its tip on the kicking
+            tee -- Football's long axis is local X, so a 90° Z-rotation
+            points it up; the small X-tilt is the slight backward lean a
+            real tee'd-up ball sits at, not perfectly vertical (PLAN.md
+            Phase H.1 -- Phase H left this at rotation 0, which is the
+            ball lying flat on its side, poking through the ground plane
+            since KICK_POSITION.y was tuned for the wrong axis). This local
+            tilt only sets the *rest* pose: JourneyCameraRig's per-frame
+            `ballGroup.rotation.z` spin lives on the outer group above and
+            composes with it during flight, same as before. */}
+        <group scale={0.35} rotation={[0.15, 0, Math.PI / 2]}>
           <Football accentColor={IGNITE} />
         </group>
       </group>

@@ -1,5 +1,6 @@
 import { gsap } from 'gsap'
 import { forwardRef, useImperativeHandle, useRef } from 'react'
+import { createPortal } from 'react-dom'
 import { setupGsap } from '../motion/gsapSetup'
 import { useReducedMotion } from '../motion/reducedMotionContext'
 
@@ -90,16 +91,21 @@ export const ConfettiLayer = forwardRef<ConfettiHandle>(function ConfettiLayer(_
 
       const vw = window.innerWidth
       const vh = window.innerHeight
-      const originCount = 6
-      const perOrigin = 22
+      // 2-3x Phase H's counts, spread over a taller origin band (10%-55%
+      // of viewport height, not just a strip near the top) so bursts
+      // originate at the scorecard's own height too, not only above it --
+      // that's what actually reads as "explodes around the card" rather
+      // than raining down from above it (PLAN.md Phase H.1).
+      const originCount = 9
+      const perOrigin = 40
 
       for (let o = 0; o < originCount; o++) {
         const originX = (vw * (o + 0.5)) / originCount
-        const originY = vh * (0.15 + Math.random() * 0.15)
+        const originY = vh * (0.1 + Math.random() * 0.45)
 
         for (let i = 0; i < perOrigin; i++) {
           const el = document.createElement('div')
-          const size = 6 + Math.random() * 9
+          const size = 10 + Math.random() * 15
           el.style.position = 'absolute'
           el.style.width = `${size}px`
           el.style.height = `${size * 0.4}px`
@@ -111,8 +117,8 @@ export const ConfettiLayer = forwardRef<ConfettiHandle>(function ConfettiLayer(_
           container.appendChild(el)
 
           const angle = Math.random() * Math.PI * 2
-          const spread = vw * (0.08 + Math.random() * 0.16)
-          const fallY = vh * (0.55 + Math.random() * 0.5)
+          const spread = vw * (0.2 + Math.random() * 0.4)
+          const fallY = vh * (0.5 + Math.random() * 0.7) * (Math.random() < 0.5 ? 1 : -1)
           const rotate = (Math.random() - 0.5) * 1080
           const duration = 1.6 + Math.random() * 0.8
 
@@ -134,11 +140,24 @@ export const ConfettiLayer = forwardRef<ConfettiHandle>(function ConfettiLayer(_
     },
   }))
 
-  return (
+  // Portaled straight to document.body with a maximal inline z-index
+  // (PLAN.md Phase H.1) -- rendered in place, the finale burst was reading
+  // as blocked by the matchup scorecard despite the old `z-40`, which
+  // should already have out-ranked the scorecard's own unset (auto)
+  // z-index. A portal removes any dependency on this component's mount
+  // point never picking up a transformed/will-change ancestor (GSAP's
+  // Reveal wrapper sets inline transforms on nearby DOM, which is exactly
+  // the kind of ancestor that turns a `position: fixed` child into
+  // something confined to that ancestor's box instead of the viewport) --
+  // cheaper to make this unconditionally correct than to prove which
+  // ancestor was the culprit.
+  return createPortal(
     <div
       ref={containerRef}
       aria-hidden="true"
-      className="pointer-events-none fixed inset-0 z-40 overflow-hidden"
-    />
+      className="pointer-events-none fixed inset-0 overflow-hidden"
+      style={{ zIndex: 2147483647 }}
+    />,
+    document.body,
   )
 })

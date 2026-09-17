@@ -18,8 +18,15 @@ export interface Vec3 {
 }
 
 /** Kick setup (ground, pre-launch) position — center-left of frame, on a
- * tee. */
-export const KICK_POSITION: Vec3 = { x: -1.6, y: 0.18, z: 5 }
+ * tee. Y is set for a ball standing on its tip (JourneyScene.tsx tilts the
+ * ball's local rotation so its long axis points up) — the effective
+ * standing half-height is 1.55 (Football.tsx's long semi-axis) * 0.35
+ * (JourneyScene's scale wrapper) ≈ 0.54, so this is "one tip touching the
+ * ground, the rest of the ball visible above it," not the short-axis
+ * clearance a ball lying on its side would need. Phase H's original 0.18
+ * was tuned for lying flat and read as buried once actually checked
+ * against the ball's real scaled radius (PLAN.md Phase H.1). */
+export const KICK_POSITION: Vec3 = { x: -1.6, y: 0.54, z: 5 }
 /** Where the ball ends up: dead center between the uprights, above the
  * crossbar (see GoalPosts in JourneyScene.tsx — crossbar sits at y≈2.2,
  * uprights run to y≈5.2, so 3.1 is a real "through the gap" height, not
