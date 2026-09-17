@@ -935,5 +935,69 @@ its render-nothing path was verified instead; the render-something path
 is a real gap to check once a week with an authored `gameOfTheWeek` flag
 exists, or with deliberately temporary local content that gets reverted.
 
-**Phases E–F (team/history restyle; cross-cutting a11y/perf/real-device
-plus final docs pass): not started.**
+**Phase E — Team/History restyle. Status: complete, verified locally.**
+Reading `TeamPage.tsx`, `HistoryPage.tsx`, and `TrophyRoomScene.tsx`
+confirmed all three needed **zero code edits** — the same payoff Phase D
+found for the Recap*/ActivityFeed components. They only ever reference
+tokens/classes (`gold-divider`, `gallery-card`, `text-gold-metal`,
+`border-gold-bright`) and shared material presets
+(`MARBLE_MATERIAL_PROPS`, `GOLD_MATERIAL_PROPS`, etc.) that Phases A and
+D already remapped, so both pages and the trophy room scene picked up
+the full ink/paper/ignite system automatically. Verified live rather
+than assumed: League History's trophy toppers, portrait-wall frames, and
+large record numerals all render in ignite against the new paper canvas,
+and a team page's avatar frame, season tabs, and week-row cards all
+match, with no console errors.
+
+**Scope note, same reasoning as Phase D's JourneyScene decision:**
+`TrophyRoomScene.tsx` (plinths, trophy toppers, portrait wall, podium)
+was retinted via the shared `materials.ts` edit rather than rebuilt with
+new geometry. Its motifs (trophies, records, a podium) are generic
+"league record room" content that reads fine recolored, not something
+inherently tied to the old marble/gold system the way, say, a literal
+photographed-marble texture was — so a geometry rebuild here would have
+been a bigger swing for less actual payoff than the journey's stadium
+got from the same treatment. Also **not deleted**, contrary to the
+original plan text's assumption: `three/materials.ts` is still a live
+dependency of `JourneyScene.tsx`, `Portrait.tsx`, `SceneFloor.tsx`, and
+`TrophyRoomScene.tsx` — the plan's "delete once nothing references it"
+line assumed a full geometry rebuild of both 3D content scenes that,
+per both this phase's and Phase D's scope notes, didn't happen.
+
+**Real bug found and fixed during this phase's verification, not just a
+restyle:** `audio/EnableSoundPrompt.tsx` was hard-coded ink-only in Phase
+B on the documented assumption that it "only ever renders inside
+HeroSection.tsx" — wrong, `HistoryPage.tsx` renders it too, on paper.
+That silently dropped its text below WCAG AA contrast on History
+specifically (confirmed by screenshot: legible-looking but the wrong,
+too-light token) until caught here. Fixed by giving it the same `tone`
+prop pattern `ScrollCue`/`SectionKicker` already use (`'paper'` default,
+restoring History's original correct behavior; `HeroSection.tsx` now
+passes `tone="ink"` explicitly). Worth flagging as a class of bug for
+Phase F's sweep: any component styled for "the one place it renders"
+during this redesign is worth re-checking for a second, forgotten call
+site before trusting that assumption.
+
+Team pages still have no dedicated 3D scene of their own — unchanged
+from before this redesign, an open question this phase didn't need to
+resolve (PLAN.md Phase 7 already flagged this as open, not a gap this
+redesign introduced). `TeamAvatar.tsx`'s square "gallery frame" motif
+(flagged in the original plan as worth reconsidering for a flat
+teamColorFor-keyed ring) was left as-is — it already renders correctly
+in ignite via the Phase A `.gold-frame` class redefinition, and swapping
+the motif itself is a design change beyond what this restyle phase asked
+for, not a blocker.
+
+Verified: `tsc -b`, `oxlint`, `prettier --write`, and a production
+`vite build` all pass. Checked live in the dev server at true 390×844:
+History's header, trophy room scene, championships list, and records
+numerals all screenshot correctly (before and after the
+`EnableSoundPrompt` fix, confirming the fix actually changed the
+rendered contrast rather than being a no-op); a team page
+(`/team/859328673705230336`) renders its avatar frame, season tabs, and
+week-by-week card correctly. Zero console errors on every check in this
+phase (the cleanest phase yet — no favicon 404 even showed up on some
+passes, apparently already cached).
+
+**Phase F (cross-cutting a11y/perf/real-device plus final docs pass):
+not started.**

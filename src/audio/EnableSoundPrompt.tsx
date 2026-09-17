@@ -1,19 +1,32 @@
 import { useSound } from './soundContext'
 
+const TONE_CLASSES = {
+  paper: 'text-charcoal-soft hover:text-charcoal',
+  ink: 'text-mute-on-ink hover:text-marble',
+} as const
+
 /** The landing affordance: an explicit invitation rather than autoplay.
  * Disappears for good once sound is on — at that point the header toggle
  * is the control, and leaving a second one on the page would just be
  * clutter over the hero.
  *
- * Styled for the ink hero (PLAN.md Phase 13B) — this only ever renders
- * inside HeroSection.tsx, so it's hard-coded for the dark canvas rather
- * than taking a tone prop the way ScrollCue does. (Restyle note: the
- * previous version referenced `border-gold-metal`/`bg-gold-metal`, which
- * were never real Tailwind utilities — `gold-metal` was only ever a CSS
- * variable name inside `.text-gold-metal`'s `background-clip: text`
- * trick, not a `--color-*` token, so those classes silently did nothing.
- * Fixed here to reference the real ignite token.) */
-export function EnableSoundPrompt() {
+ * `tone` defaults to 'paper' (History's header, its original correct
+ * behavior) — HomePage's ink hero (HeroSection.tsx) passes 'ink'. A real
+ * bug, not just a hardening: an earlier redesign pass hard-coded this
+ * component for the ink hero on the assumption it only rendered there,
+ * missing that HistoryPage.tsx renders it too, on paper — which quietly
+ * dropped that instance's text below WCAG AA contrast until this fix.
+ * (Separate restyle note: the pre-redesign version referenced
+ * `border-gold-metal`/`bg-gold-metal`, which were never real Tailwind
+ * utilities — `gold-metal` was only ever a CSS variable name inside
+ * `.text-gold-metal`'s `background-clip: text` trick, not a `--color-*`
+ * token, so those classes silently did nothing. Fixed to reference the
+ * real ignite token.) */
+export function EnableSoundPrompt({
+  tone = 'paper',
+}: {
+  tone?: keyof typeof TONE_CLASSES
+} = {}) {
   const { enabled, toggle } = useSound()
   if (enabled) return null
 
@@ -21,7 +34,7 @@ export function EnableSoundPrompt() {
     <button
       type="button"
       onClick={toggle}
-      className="group text-mute-on-ink hover:text-marble flex min-h-11 items-center gap-3 text-[0.7rem] tracking-[0.25em] uppercase transition-colors duration-500"
+      className={`group flex min-h-11 items-center gap-3 text-[0.7rem] tracking-[0.25em] uppercase transition-colors duration-500 ${TONE_CLASSES[tone]}`}
     >
       <span
         aria-hidden="true"

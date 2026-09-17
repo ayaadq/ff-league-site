@@ -83,7 +83,7 @@ export function HeroSection({ season }: { season?: string }) {
           <div className="gold-divider mx-auto mt-5 w-16" aria-hidden="true" />
 
           <div className="mt-8 flex flex-col items-center gap-9">
-            <EnableSoundPrompt />
+            <EnableSoundPrompt tone="ink" />
             <ScrollCue tone="ink" />
           </div>
         </div>
