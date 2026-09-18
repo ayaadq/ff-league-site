@@ -2025,3 +2025,58 @@ given scroll position.
 
 **Verified:** `tsc -b`, `oxlint` (same seven pre-existing warnings, zero
 new), `prettier --write`, and a production `vite build` all pass.
+
+### Journey fixes — finale dwell margin, turf field extension
+
+Two fixes to the football kick journey (Home), reported after the trophy
+line's own scroll-dwell bug turned out to have a twin here.
+
+**Finale dwell.** Same root cause as the trophy line's hotfix #4: the
+ball's flight reached the uprights (`flightProgress` hit 1) at the exact
+instant the journey track's own scrollable range ran out, since
+`flightProgress`'s old formula mapped flightT=1 to rawProgress=1 with no
+margin — leaving zero scroll room to actually watch the finale (confetti
+burst, the pass-through flourish) before the section released into
+`SeasonLeadersSection` below. Fixed with the same shape of fix: new
+`MATCHUP_SVH` (100, extracted from a hand-typed `'100svh'` literal that
+used to live only in `WeeklyJourney.tsx`) and `FINALE_DWELL_SVH` (60)
+exported from `journeyLayout.ts`, plus a `contentFraction(matchupCount)`
+helper that both `flightProgress` and `matchupIndexAtProgress` now
+compress their [0,1] logic into (instead of the raw [0,1] range) so the
+flight and the per-matchup audio/confetti triggers stay aligned with the
+real DOM article boundaries regardless of the dwell buffer appended after
+them. `WeeklyJourney.tsx` appends one `aria-hidden` buffer div
+(`FINALE_DWELL_SVH` tall, no scorecard) after the last matchup's
+`<article>`, and both it and every article's own height now read from
+`MATCHUP_SVH` rather than a hand-typed string, so DOM height and the
+progress math can't drift apart the way `Trophy.tsx`'s hand-copied
+numbers used to before those were fixed to export shared constants.
+
+The separate "boundary transition" gradient div (the ink-to-transparent
+fade into `SeasonLeadersSection`) needed no change — it's a sibling after
+the whole `<section>`, unaffected by how tall the track inside that
+section is.
+
+**Turf field extension.** `JourneyScene.tsx`'s `Field()` used a flat +30
+symmetric pad beyond the kickoff tee and uprights. Switched to asymmetric
+padding — `FIELD_NEAR_PAD = 10`, `FIELD_FAR_PAD = 45` — weighted toward
+the far side (past the uprights), since that's the edge the elevated
+finale sky-cam (`END_CAM`, y=12 above the field's own midpoint) actually
+looks across/down at; a symmetric pad left the turf visibly ending well
+within that shot's own frame rather than reading as an expansive field.
+The grass texture's tiling (`texture.repeat.set(20, depth / 2)`) already
+derives from `depth`, so it scales automatically with the new size.
+
+**Verified:** `tsc -b`, `oxlint` (same seven pre-existing warnings, zero
+new), `prettier --write`, and a production `vite build` all pass.
+
+**Not done:** real-device check on the live Vercel URL — whether 60svh of
+finale dwell is enough to watch the confetti/pass-through complete
+without feeling rushed (this project has now had to raise a scroll-dwell
+number more than once per feature without a way to see the actual
+result), and whether the extended turf actually reads as more expansive
+in the elevated finale shot or simply fades into fog before the extra
+length becomes visible (the fog's own far distance, `JourneyCanvas.tsx`,
+was deliberately left untouched — this fix only touched geometry, per the
+brief). Same carried-forward real-device gap as every phase since the
+redesign began.

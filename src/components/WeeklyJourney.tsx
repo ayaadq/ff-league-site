@@ -4,7 +4,7 @@ import { useSound } from '../audio/soundContext'
 import { matchupNoteFor, type WeekRecapContent } from '../content/recaps'
 import { Reveal } from '../motion/Reveal'
 import { StatCountUp } from '../motion/StatCountUp'
-import { closenessOf } from '../three/journeyLayout'
+import { closenessOf, FINALE_DWELL_SVH, MATCHUP_SVH } from '../three/journeyLayout'
 import { ChunkErrorBoundary } from './ChunkErrorBoundary'
 import { ConfettiLayer, type ConfettiHandle } from './ConfettiLayer'
 import { PlayerHeadshot } from './PlayerHeadshot'
@@ -185,7 +185,10 @@ export function WeeklyJourney({
                 // exactly one screen tall, matching the "divide total
                 // scroll by matchup count" brief. No more per-station
                 // weighting to keep in sync with a camera-dwell formula.
-                style={{ height: '100svh' }}
+                // Sourced from journeyLayout.ts's own MATCHUP_SVH rather
+                // than a hand-typed "100svh" so this can never drift out
+                // of sync with the progress math that assumes it.
+                style={{ height: `${MATCHUP_SVH}svh` }}
               >
                 {/* A scrim, not a card -- this text was tuned for a
                   uniformly dark backdrop and stays legible regardless of
@@ -293,6 +296,19 @@ export function WeeklyJourney({
               </article>
             )
           })}
+
+          {/* Finale dwell buffer -- pure extra scroll room after the last
+            matchup's own article, not another scorecard. Without this,
+            the ball's flight reached the uprights at the exact instant
+            this track's scrollable range ran out (journeyLayout.ts's
+            flightProgress hit 1 only at rawProgress === 1), leaving zero
+            time to actually watch the finale -- confetti burst, the
+            pass-through flourish -- before the section released into
+            whatever comes after it. journeyLayout.ts's own
+            FINALE_DWELL_SVH/contentFraction math reserves this same
+            buffer when converting scroll progress into flight progress,
+            so the two can't drift out of sync. */}
+          <div aria-hidden="true" style={{ height: `${FINALE_DWELL_SVH}svh` }} />
         </div>
       </section>
 

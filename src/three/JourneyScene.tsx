@@ -76,9 +76,20 @@ function YardLines() {
   )
 }
 
+// Asymmetric padding beyond the two landmarks the field has to cover
+// (kickoff tee, uprights) -- weighted toward the far side (past the
+// uprights) since that's the edge the elevated finale sky-cam actually
+// looks across/down at (END_CAM sits at y=12 above the field's midpoint,
+// journeyLayout.ts); a symmetric pad left the turf visibly ending well
+// within that shot's frame instead of reading as an expansive field.
+const FIELD_NEAR_PAD = 10
+const FIELD_FAR_PAD = 45
+
 function Field() {
-  const centerZ = (KICK_POSITION.z + UPRIGHT_POSITION.z) / 2
-  const depth = Math.abs(UPRIGHT_POSITION.z - KICK_POSITION.z) + 30
+  const nearZ = KICK_POSITION.z + FIELD_NEAR_PAD
+  const farZ = UPRIGHT_POSITION.z - FIELD_FAR_PAD
+  const depth = nearZ - farZ
+  const centerZ = (nearZ + farZ) / 2
   // Tiled at ~2 world units per repeat -- fine enough to read as blades
   // of grass rather than a handful of oversized smears, coarse enough
   // that 128px of source texture per tile still looks sharp up close

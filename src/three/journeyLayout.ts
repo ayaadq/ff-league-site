@@ -154,23 +154,60 @@ export function cameraPullback(aspect: number): number {
   return Math.min(Math.max(FRAMED_FOR_ASPECT / aspect, 1), MAX_PULLBACK)
 }
 
-/** Overall scroll progress (0..1 across the whole track) to flight
- * progress (0..1 across the kick+flight only) — the first matchup's
- * share is a static pre-kick beat, per the brief's "Matchup 1: sky cam
- * has NOT started rising yet." Every matchup after it shares the
- * remaining budget equally ("divide total scroll by matchup count"). */
+/** Per-matchup scroll dwell, in svh — `WeeklyJourney.tsx` sizes each
+ * matchup's `<article>` to this so the DOM height and this file's own
+ * progress math can never drift out of sync. */
+export const MATCHUP_SVH = 100
+/** Extra scroll room appended after the last matchup's article, purely
+ * for dwell — with no reservation, `flightProgress` reached 1 at the
+ * exact instant the track's own scrollable range ran out, leaving zero
+ * time to actually watch the finale (confetti burst, pass-through
+ * flourish) before the section released into whatever comes next. Same
+ * "the doc comment promised dwell that was never implemented" class of
+ * bug the trophy line's own `LEAD_FRACTION` fix (PLAN.md Phase H.5
+ * hotfix #4) turned out to be. */
+export const FINALE_DWELL_SVH = 60
+
+/** What fraction of the *whole* (content + dwell) track is real matchup
+ * content — `flightProgress`/`matchupIndexAtProgress` both compress their
+ * normal [0,1] logic into [0, contentFraction] instead of [0,1], so the
+ * flight/matchup-index math still lines up with the actual DOM article
+ * boundaries regardless of the dwell buffer appended after them. Reduces
+ * to 1 (no change from before this fix) when `FINALE_DWELL_SVH` is 0. */
+function contentFraction(matchupCount: number): number {
+  const contentSvh = matchupCount * MATCHUP_SVH
+  return contentSvh / (contentSvh + FINALE_DWELL_SVH)
+}
+
+/** Overall scroll progress (0..1 across the whole track, content plus the
+ * finale dwell buffer) to flight progress (0..1 across the kick+flight
+ * only) — the first matchup's share is a static pre-kick beat, per the
+ * brief's "Matchup 1: sky cam has NOT started rising yet." Every matchup
+ * after it shares the remaining *content* budget equally ("divide total
+ * scroll by matchup count"), and flightT reaches 1 at the end of content
+ * (`contentEnd`), holding there through the dwell buffer rather than
+ * reaching 1 only at the very end of the whole track. */
 export function flightProgress(rawProgress: number, matchupCount: number): number {
-  if (matchupCount <= 1) return Math.min(Math.max(rawProgress, 0), 1)
-  const kickStart = 1 / matchupCount
+  const contentEnd = contentFraction(matchupCount)
+  if (matchupCount <= 1) {
+    return Math.min(Math.max(rawProgress / contentEnd, 0), 1)
+  }
+  const kickStart = contentEnd / matchupCount
   if (rawProgress <= kickStart) return 0
-  return Math.min(Math.max((rawProgress - kickStart) / (1 - kickStart), 0), 1)
+  if (rawProgress >= contentEnd) return 1
+  return Math.min(Math.max((rawProgress - kickStart) / (contentEnd - kickStart), 0), 1)
 }
 
 /** Which matchup's equal-width segment a given overall progress falls
- * in. */
+ * in — the equal-width bins live in [0, contentEnd], same reasoning as
+ * `flightProgress` above, so a matchup's "active" trigger (audio duck/
+ * roar, per-matchup confetti) still lines up with its actual `<article>`
+ * regardless of the dwell buffer's extra scroll length after it. */
 export function matchupIndexAtProgress(rawProgress: number, matchupCount: number): number {
   if (matchupCount <= 0) return 0
-  const clamped = Math.min(Math.max(rawProgress, 0), 1 - 1e-6)
+  const contentEnd = contentFraction(matchupCount)
+  const contentProgress = Math.min(Math.max(rawProgress, 0), contentEnd) / contentEnd
+  const clamped = Math.min(contentProgress, 1 - 1e-6)
   return Math.min(matchupCount - 1, Math.floor(clamped * matchupCount))
 }
 
