@@ -1,44 +1,41 @@
-import { Trophy } from './Trophy'
+import { CUP_BASE_Y, Podium, TrophyCup } from './Trophy'
 import { SIDE_OFFSET, slotZ } from './trophyLineLayout'
 
 const IGNITE = '#ff5a36'
 const CURRENT = '#2ee6d6'
-// Scaled up from Trophy.tsx's authored size (PLAN.md Phase H.5 hotfix) --
-// at 1x the trophies read as too small/dark against the ink background,
-// especially on a phone screen. The gap between multiple trophies in one
-// slot scales with it so a 2-title slot's pair doesn't start overlapping.
-const TROPHY_SCALE = 1.8
-const TROPHY_GAP = 0.34 * TROPHY_SCALE
+// Spacing between multiple cups on the same podium — wide enough that a
+// 2-cup slot's pair doesn't overlap at TrophyCup's own footprint
+// (Trophy.tsx's CUP_FOOT_RADIUS * 1.15 ≈ 0.23 each side).
+const CUP_GAP = 0.75
 
 export interface TrophyLineEntry {
   playerName: string
   count: number
 }
 
-/** One champion's slot — one `<Trophy>` per title, spaced side by side
- * and centered on the slot's own X so a 2-title slot (Tejas) reads as
- * "one player, two trophies" rather than looking like two separate
- * people. A small accent point light per slot alternates ignite/current
- * along the line for some rhythm rather than every slot lighting
- * identically.
- *
- * The light sits toward +X, the same side the camera actually approaches
- * from (`SIDE_OFFSET` in trophyLineLayout.ts) -- Phase H.5's original
- * placement offset it in +Z instead, which doesn't face a side-view
- * camera at all and left the trophies relying on ambient/HDRI light
- * alone (PLAN.md Phase H.5 hotfix). */
+/** One champion's slot — exactly one `<Podium>`, with one `<TrophyCup>`
+ * per title standing side by side on top of it (PLAN.md Phase H.5
+ * hotfix #2, replacing the previous pass's design: a 2-title slot used
+ * to render two entire self-contained trophies, each with its own
+ * pedestal, which looked like two separate podiums rather than one
+ * player's two titles). A small accent point light per slot alternates
+ * ignite/current along the line for some rhythm rather than every slot
+ * lighting identically — on top of each cup's own self-illuminated
+ * material, this is extra ambient spill onto the podium below it, not
+ * what makes the cups themselves visible. */
 function TrophySlot({ entry, index }: { entry: TrophyLineEntry; index: number }) {
   const z = slotZ(index)
-  const trophyCount = Math.max(1, entry.count)
+  const cupCount = Math.max(1, entry.count)
   const accent = index % 2 === 0 ? IGNITE : CURRENT
 
   return (
     <group position={[0, 0, z]}>
-      {Array.from({ length: trophyCount }, (_, i) => {
-        const x = (i - (trophyCount - 1) / 2) * TROPHY_GAP
+      <Podium accentColor={accent} />
+      {Array.from({ length: cupCount }, (_, i) => {
+        const x = (i - (cupCount - 1) / 2) * CUP_GAP
         return (
-          <group key={i} position={[x, 0, 0]} scale={TROPHY_SCALE}>
-            <Trophy accentColor={accent} />
+          <group key={i} position={[x, CUP_BASE_Y, 0]}>
+            <TrophyCup accentColor={accent} />
           </group>
         )
       })}

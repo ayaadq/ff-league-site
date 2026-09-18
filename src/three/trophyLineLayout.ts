@@ -12,8 +12,13 @@
  * arc or a lookAt-the-whole-line-at-once shot. */
 
 export const SLOT_SPACING = 3.4
-export const SIDE_OFFSET = 3.8
-export const EYE_HEIGHT = 1.3
+// Widened/lowered for the hotfix #2 trophy assembly (podium + full-size
+// cup(s) is a noticeably bigger, taller object than the original combined
+// Trophy.tsx) -- SIDE_OFFSET pulled back so it doesn't feel cramped at
+// the new size, EYE_HEIGHT dropped to sit closer to the assembly's own
+// vertical center (podium top ~0.55, cup top ~1.45) rather than above it.
+export const SIDE_OFFSET = 4.4
+export const EYE_HEIGHT = 1.05
 
 export function slotZ(index: number): number {
   return -index * SLOT_SPACING

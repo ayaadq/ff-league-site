@@ -1746,7 +1746,7 @@ laces, JourneyScene's yard lines), colored via a new `accentColor` prop
 `TrophyLineScene.tsx`: trophies scaled 1.8x (`TROPHY_SCALE`, with the
 multi-trophy gap scaled alongside it so a 2-title slot's pair doesn't
 start overlapping), and the per-slot point light repositioned from an
-offset in +Z — which doesn't face a *side-view* camera at all — to +X
+offset in +Z — which doesn't face a _side-view_ camera at all — to +X
 (`SIDE_OFFSET`'s own direction, the side the camera actually approaches
 from), with intensity raised 2.6→4.5 and distance 3.8→5.5.
 
@@ -1759,5 +1759,52 @@ than before," and whether the new light position/intensity looks right
 rather than blown out, are real-device/visual judgment calls this
 environment can't make. Worth also spot-checking the Championships tab
 directly against this same live-fetch approach once real users can look
-at it, in case any of the *other* 11 team names have since been renamed
+at it, in case any of the _other_ 11 team names have since been renamed
 again since this fix was written.
+
+## Phase H.5 hotfix #2 — one podium per player, hero-sized self-illuminated cups
+
+Two fixes, both purely to `Trophy.tsx`/`TrophyLineScene.tsx`/
+`trophyLineLayout.ts` — no data-layer changes this time (the previous
+hotfix's real bug fix already made Tejas's count/sort correct; this pass
+is entirely about how a multi-title slot is *built* and how visible the
+cups are).
+
+**One podium, multiple cups.** The previous design's `Trophy` component
+bundled its own pedestal, cup, and base into one self-contained unit, so
+a 2-title slot rendered two of those side by side — two full podiums,
+not one podium with two trophies on it. Split `Trophy.tsx` into two
+components: `Podium` (the marble base + glow disc, exactly one per slot
+regardless of title count) and `TrophyCup` (foot + tapered stem + bowl,
+one per actual championship). `TrophyLineScene.tsx`'s `TrophySlot` now
+renders a single `<Podium>` and loops `<TrophyCup>` `Math.max(1,
+entry.count)` times, offset side by side on top of it via a new
+`CUP_BASE_Y` export (the podium's own top-surface Y, so the cups' Y
+position can't drift out of sync with `PODIUM_HEIGHT` the way a
+hand-copied number could).
+
+**Hero-sized, self-illuminated cups.** Every part of `TrophyCup` (foot,
+stem, bowl) switched from `meshStandardMaterial` (a lit material whose
+visible brightness depends on scene/point lighting actually reaching it)
+to `meshBasicMaterial` with `toneMapped={false}` — fully unlit, so the
+cup renders at its exact, saturated ignite/current color regardless of
+lighting. This project avoids bloom/post-processing on mobile (SPEC.md
+§7.2), so an unlit material is the actual mechanism available for
+"glows regardless of lighting," not just a light repositioned again.
+Bowl radius went from the first hotfix's 0.14×1.8≈0.25 to 0.5 (roughly
+2x that, erring toward "clearly the hero element" over hitting an exact
+multiplier that risked looking oversized against `SLOT_SPACING`), the
+podium's glow disc radius from 0.24 to 0.75, and `SIDE_OFFSET`/
+`EYE_HEIGHT` in `trophyLineLayout.ts` adjusted (3.8→4.4, 1.3→1.05) so the
+camera doesn't feel cramped against the now-noticeably-bigger assembly
+and centers closer to its actual vertical midpoint.
+
+**Verified:** `tsc -b`, `oxlint` (same seven pre-existing warnings, zero
+new), `prettier --write`, and a production `vite build` all pass.
+
+**Not done:** real-device check on the live Vercel URL — whether the
+cups now genuinely read as "hero element, immediately visible, premium"
+rather than just bigger, and whether the retuned camera offset/height
+frames the new assembly well, are real-device/visual judgment calls this
+environment can't make. Same carried-forward gap as every phase since
+the redesign began.
