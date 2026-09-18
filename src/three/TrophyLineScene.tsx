@@ -1,12 +1,14 @@
-import { CUP_BASE_Y, Podium, TrophyCup } from './Trophy'
+import { CUP_BASE_Y, CUP_WIDEST_RADIUS, Podium, TrophyCup } from './Trophy'
 import { SIDE_OFFSET, slotZ } from './trophyLineLayout'
 
 const IGNITE = '#ff5a36'
 const CURRENT = '#2ee6d6'
-// Spacing between multiple cups on the same podium — wide enough that a
-// 2-cup slot's pair doesn't overlap at TrophyCup's own footprint
-// (Trophy.tsx's CUP_FOOT_RADIUS * 1.15 ≈ 0.23 each side).
-const CUP_GAP = 0.75
+// Comfortably more than 2x CUP_WIDEST_RADIUS (0.38) so two bowls at
+// full width never overlap, plus real breathing room between them
+// (PLAN.md Phase H.5 hotfix #3 -- the previous pass's 0.75 gap was
+// smaller than the bowl's own 0.5 radius, so a 2-cup slot's pair
+// genuinely overlapped).
+const CUP_GAP = Math.max(1.1, CUP_WIDEST_RADIUS * 2.4)
 
 export interface TrophyLineEntry {
   playerName: string
@@ -15,27 +17,39 @@ export interface TrophyLineEntry {
 
 /** One champion's slot — exactly one `<Podium>`, with one `<TrophyCup>`
  * per title standing side by side on top of it (PLAN.md Phase H.5
- * hotfix #2, replacing the previous pass's design: a 2-title slot used
- * to render two entire self-contained trophies, each with its own
- * pedestal, which looked like two separate podiums rather than one
- * player's two titles). A small accent point light per slot alternates
- * ignite/current along the line for some rhythm rather than every slot
- * lighting identically — on top of each cup's own self-illuminated
- * material, this is extra ambient spill onto the podium below it, not
- * what makes the cups themselves visible. */
+ * hotfix #2). Cups are offset along *Z*, not X (PLAN.md Phase H.5
+ * hotfix #3 -- the previous pass offset them along X, which is the
+ * camera's own viewing axis here: `TrophyLineCameraRig.tsx` sits at a
+ * fixed X and looks down -X, so an X offset foreshortens toward zero
+ * separation on screen instead of actually separating two cups
+ * left/right the way a Z offset does). Each cup swaps which accent is
+ * dominant (`bowlColor` vs `baseColor`) relative to its neighbor, so two
+ * cups on the same podium read as visually distinct trophies, not one
+ * cup duplicated.
+ *
+ * A small accent point light per slot alternates ignite/current along
+ * the line for some rhythm rather than every slot lighting identically
+ * — on top of each cup's own self-illuminated material, this is extra
+ * ambient spill onto the podium below it, not what makes the cups
+ * themselves visible. */
 function TrophySlot({ entry, index }: { entry: TrophyLineEntry; index: number }) {
   const z = slotZ(index)
   const cupCount = Math.max(1, entry.count)
   const accent = index % 2 === 0 ? IGNITE : CURRENT
+  const otherAccent = accent === IGNITE ? CURRENT : IGNITE
 
   return (
     <group position={[0, 0, z]}>
       <Podium accentColor={accent} />
       {Array.from({ length: cupCount }, (_, i) => {
-        const x = (i - (cupCount - 1) / 2) * CUP_GAP
+        const cupZ = (i - (cupCount - 1) / 2) * CUP_GAP
+        const swapped = i % 2 === 1
         return (
-          <group key={i} position={[x, CUP_BASE_Y, 0]}>
-            <TrophyCup accentColor={accent} />
+          <group key={i} position={[0, CUP_BASE_Y, cupZ]}>
+            <TrophyCup
+              bowlColor={swapped ? otherAccent : accent}
+              baseColor={swapped ? accent : otherAccent}
+            />
           </group>
         )
       })}

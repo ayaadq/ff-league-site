@@ -1767,7 +1767,7 @@ again since this fix was written.
 Two fixes, both purely to `Trophy.tsx`/`TrophyLineScene.tsx`/
 `trophyLineLayout.ts` — no data-layer changes this time (the previous
 hotfix's real bug fix already made Tejas's count/sort correct; this pass
-is entirely about how a multi-title slot is *built* and how visible the
+is entirely about how a multi-title slot is _built_ and how visible the
 cups are).
 
 **One podium, multiple cups.** The previous design's `Trophy` component
@@ -1808,3 +1808,67 @@ rather than just bigger, and whether the retuned camera offset/height
 frames the new assembly well, are real-device/visual judgment calls this
 environment can't make. Same carried-forward gap as every phase since
 the redesign began.
+
+## Phase H.5 hotfix #3 — trophy geometry redesign + a real overlap bug
+
+Two fixes: a genuine geometry redesign (base plate, tapered stem, flared
+bowl with rim and handles, replacing the previous pass's plain
+foot/stem/dome), and a real bug behind "both trophies overlap" that
+turned out to have two independent causes, not one.
+
+**The overlap bug.** Two things were each wrong on their own, and
+together fully explain why a 2-title slot's cups were indistinguishable:
+1. The previous pass offset multiple cups along **X**. The trophy line's
+   camera (`TrophyLineCameraRig.tsx`) sits at a fixed X and looks down
+   -X — X is its *depth* axis, not a left-right screen axis, so an X
+   offset between two cups foreshortens toward near-zero separation on
+   screen instead of actually placing them side by side. Z is the axis
+   that reads as "sideways" to this camera (it's also the axis the whole
+   line itself runs along), so cups now offset along Z instead. The
+   brief's own option (B) — offset one forward/back for depth separation
+   — would have hit the exact same problem, since "forward/back" *is* X
+   here; documented in `TrophyCup`'s own comment so this doesn't get
+   re-introduced by a future pass reaching for the intuitive-sounding
+   fix.
+2. Even correctly offset, the gap (0.75) was smaller than the bowl's own
+   radius (0.5 from hotfix #2) — two 0.5-radius bowls need centers more
+   than 1.0 apart to avoid overlapping at all, so they'd have collided
+   regardless of axis. `CUP_GAP` is now derived from the cup's own
+   `CUP_WIDEST_RADIUS` export (`Math.max(1.1, CUP_WIDEST_RADIUS * 2.4)`)
+   rather than a hand-picked number that can silently drift out of sync
+   with the geometry again.
+
+**The geometry redesign.** `TrophyCup` (`Trophy.tsx`) is now base plate
+→ tapered stem → flared bowl (a cone opening wider at the top, capped at
+its narrow bottom, open at its wide mouth) → a torus rim → two partial-
+torus handles on the sides. Two-tone: the bowl/rim/handles carry one
+accent (`bowlColor`), the stem/base the other (`baseColor`) — every cup
+now genuinely uses both ignite and current rather than one per slot —
+and `TrophyLineScene.tsx` swaps which is dominant between a podium's two
+cups (Tejas) so they read as visually distinct trophies, not one cup
+duplicated. Every part stays unlit `meshBasicMaterial`/
+`toneMapped={false}` from the previous hotfix (self-illuminated
+regardless of scene lighting — this project's actual "glows" mechanism
+given it avoids bloom/post-processing on mobile, SPEC.md §7.2). The
+podium (`Podium`) widened again (0.85/0.95, up from 0.55/0.62) to
+actually cover the ground beneath two now-properly-separated cups.
+
+**Handle orientation is a best-effort.** The two handles are partial tori
+rotated ±90° around Y so their hole faces the camera's own viewing axis
+(X) rather than sitting edge-on — reasoned through from first-principles
+three.js torus/rotation math, not confirmed by looking at a render, since
+this environment has no way to open a browser and see the actual scene.
+Documented plainly in `Handle`'s own comment rather than asserted as
+correct.
+
+**Verified:** `tsc -b`, `oxlint` (same seven pre-existing warnings, zero
+new), `prettier --write`, and a production `vite build` all pass.
+
+**Not done:** real-device check on the live Vercel URL — specifically
+whether the handles read as cleanly attached to the bowl or slightly
+off/floating (flagged above as unverified geometry math), whether the
+two cups now read as clearly separate trophies rather than merely
+non-overlapping, and whether the redesigned silhouette is "immediately
+recognizable as a championship trophy" are all real-device/visual
+judgment calls this environment can't make. Same carried-forward gap as
+every phase since the redesign began.
