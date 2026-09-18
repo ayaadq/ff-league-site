@@ -2728,7 +2728,7 @@ rather than done anyway:
   1×, always positive).
 - **`pages/HomePage.tsx`** — three small `useEffect`s sync `week`/
   `season`/`standings` into the store once React Query resolves them, and
-  derive sponge size per roster's `owner_id` at the same time. Did *not*
+  derive sponge size per roster's `owner_id` at the same time. Did _not_
   do the broader "remove prop drilling" pass the request also asked for
   (rewiring `GameOfTheWeekHero`/`WeeklyJourney`/`RecapAwards`/etc. to read
   `nameFor`/`avatarFor` from global state instead of the props they
@@ -2740,7 +2740,7 @@ rather than done anyway:
   `avatarFor`/`authorUserId` as props, same pattern as
   `RecapAwards`/`RecapRankings`, no Sleeper calls of its own); post form,
   post list, a +1 button per post attributed to its author. Deliberately
-  did *not* build the "which trash talkers unblocked" points-gate the
+  did _not_ build the "which trash talkers unblocked" points-gate the
   original request's own comment gestured at — there's no spec for what a
   point unlocks, and inventing one would be designing a feature, not
   implementing one. **Not wired into any route** — same "prep, not
@@ -2763,3 +2763,78 @@ desyncs any ScrollTrigger-driven animation in practice — same real-device
 gap as every phase in this document, and the one this change is most
 likely to actually need it for, since scroll physics is exactly the kind
 of thing a devtools emulator can't reproduce.
+
+## Fun Tab — gesture-driven anime scene playground
+
+A standalone `/fun-tab` route: a gesture-triggered mini "highlight reel"
+unrelated to and untouched-by the homepage's own sky-cam Journey. The
+request's Phase 1 asked for 5 Stable Diffusion-generated anime football
+images (via a HuggingFace Space) — **not done, and not doable from this
+environment**: no browser, no image-generation tool, no way to interact
+with that Space exists here. Rather than block on that or fabricate
+placeholder art and call it finished, everything downstream was built
+fully working against the exact asset paths the images are expected at
+(`public/assets/anime-scenes/scene-{1-5}.png`), with each scene falling
+back to a labeled placeholder panel when the file 404s. Dropping in the
+5 real PNGs later (generate them at
+https://huggingface.co/spaces/stabilityai/stable-diffusion-3 with the
+prompts already provided, export 1920×1080, save to that exact path)
+needs no further code changes — the `<img onError>` fallback just stops
+firing once a real file is there.
+
+**`components/AnimeFootballScene.tsx`** — the interactive piece. State
+machine: `approaching` → (gesture) → `spin`/`hurdle`/`stiffarm` → (auto,
+900ms) → `celebration` → (auto, 2200ms) → back to `approaching`. Gestures:
+swipe right / → for spin, swipe up / ↑ for hurdle, three rapid taps
+(touch or spacebar) within 600ms for a stiff arm — hand-rolled via
+`touchstart`/`touchend` deltas and a timestamp-window tap counter, not
+`hammerjs` as originally asked. hammerjs has had no meaningful
+maintenance in years and three directional/tap checks don't need a
+general gesture-recognition dependency — skipped it and wrote the ~15
+lines it would have taken instead. Also added visible on-screen buttons
+for the same three moves (Spin move / Hurdle / Stiff arm) as an
+accessible fallback for anyone who can't perform the gesture — swipe/
+keyboard-only would have left no way to trigger this for a chunk of
+users. Scene crossfades use this project's own `EASE.weighted`/
+`MOTION.minor` tokens via GSAP (not a raw CSS transition) for the same
+"one consistent motion texture" reason everywhere else in the project
+does, and skip the tween entirely under `prefers-reduced-motion`, same
+discipline as `Reveal.tsx`.
+
+**`pages/FunTabPage.tsx`** — full-bleed (`mx-[calc(50%-50vw)] w-screen`,
+the same trick `WeeklyJourney.tsx`/`WeeklyRecapSection.tsx` already use)
+plus a `-my-10` to cancel `Layout.tsx`'s own `py-10` on `{children}`, so
+the scene fills the space below the header edge-to-edge rather than
+sitting in the usual reading-column padding. Deliberately did *not*
+render this route outside `Layout` for a truly bypassed fullscreen (the
+request's own `h-screen` snippet would have implied that) — keeping the
+header/menu visible means there's always a way back to the rest of the
+site, which matters more than a few extra vertical pixels for a page
+whose whole point is to be a lightweight diversion, not the product.
+
+**`App.tsx`**/**`Layout.tsx`** — added the `/fun-tab` route and a "Fun
+Tab" entry in the existing `NavOverlay` menu, right after "League
+History." The request's own nav list ("Dashboard | Teams | Fun Tab |
+League History | Weekly Recaps") doesn't match this site's actual routes
+(there's no "Dashboard" or "Teams" index page, only Home/History/
+per-team/Weekly Recaps) and reads like a horizontal tab strip — added
+the one real new item to the existing menu/overlay instead of building
+anything resembling a tab bar (SPEC.md §7.1's overlay-not-tabs rule is
+explicit that this was a deliberate fix, not negotiable per phase). Left
+the pre-existing gap where "Weekly Recaps" itself has no nav entry
+alone — unrelated to this task, not introduced by it.
+
+One commit, not the four originally listed — "generate anime football
+keyframes" isn't something to commit since it didn't happen, and the
+route/nav/component pieces are small enough, and load-bearing on each
+other, that splitting them into separate commits would be artificial.
+
+**Verified:** `tsc -b`, `oxlint` (same seven pre-existing warnings, zero
+new), `prettier --write`, and a production `vite build` all pass.
+
+**Not verifiable from here:** whether the swipe thresholds/tap window
+actually feel right on a real phone, and the same real-device gap as
+every phase in this document for frame pacing during the crossfade —
+though this page has no continuous render loop (no r3f canvas), so
+there's much less here that a device's GPU/thermal state could affect
+than in the homepage's own 3D sections.

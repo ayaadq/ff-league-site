@@ -6,6 +6,7 @@ import { Layout } from './components/Layout'
 import { useLenis } from './hooks/useLenis'
 import { EffectsTierProvider } from './motion/EffectsTierProvider'
 import { ReducedMotionProvider } from './motion/ReducedMotionProvider'
+import { FunTabPage } from './pages/FunTabPage'
 import { HistoryPage } from './pages/HistoryPage'
 import { HomePage } from './pages/HomePage'
 import { TeamPage } from './pages/TeamPage'
@@ -28,6 +29,7 @@ function App() {
                 <Route path="/" element={<HomePage />} />
                 <Route path="/team/:ownerId" element={<TeamPage />} />
                 <Route path="/history" element={<HistoryPage />} />
+                <Route path="/fun-tab" element={<FunTabPage />} />
                 <Route path="/weekly-recaps" element={<WeeklyRecapsPage />} />
                 <Route path="/weekly-recaps/week/:weekNumber" element={<WeeklyRecapsPage />} />
               </Routes>

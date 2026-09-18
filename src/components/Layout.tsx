@@ -65,6 +65,9 @@ function NavOverlay({ onClose }: { onClose: () => void }) {
         <NavLink to="/history" className={overlayLinkClass} onClick={onClose}>
           League History
         </NavLink>
+        <NavLink to="/fun-tab" className={overlayLinkClass} onClick={onClose}>
+          Fun Tab
+        </NavLink>
 
         <div className="gold-divider my-6 w-16" aria-hidden="true" />
 
