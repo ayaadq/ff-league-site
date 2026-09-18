@@ -37,6 +37,7 @@ import { NextWeekPreview } from '../components/NextWeekPreview'
 import { SeasonLeadersSection } from '../components/SeasonLeadersSection'
 import { SmackTalkFeed } from '../components/SmackTalkFeed'
 import { WeeklyJourney } from '../components/WeeklyJourney'
+import { WeeklyRecapSection } from '../components/WeeklyRecapSection'
 import { Marquee } from '../components/Marquee'
 import { Reveal } from '../motion/Reveal'
 import { SectionKicker } from '../components/SectionKicker'
@@ -180,6 +181,13 @@ export function HomePage() {
       <HeroSection season={season} />
 
       <section className="mx-auto max-w-4xl">
+        {/* Auto-generated trash-talk recap of last week (PLAN.md Phase
+          H.6) -- distinct from Act 1 below: this renders every week from
+          live Sleeper numbers via Claude, whether or not anyone has
+          hand-authored a recap for it. No Reveal wrapper -- it manages
+          its own scroll-scrubbed enter/exit animation. */}
+        <WeeklyRecapSection />
+
         {/* Act 1 -- Storylines: the recap's authored "what the hell just
           happened" openers (PLAN.md Phase 12). */}
         {recap.content && (

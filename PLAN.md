@@ -2080,3 +2080,121 @@ length becomes visible (the fog's own far distance, `JourneyCanvas.tsx`,
 was deliberately left untouched — this fix only touched geometry, per the
 brief). Same carried-forward real-device gap as every phase since the
 redesign began.
+
+## Phase H.6 — Hero text + dynamic AI recap section
+
+Two unrelated changes: a one-line hero text swap, and a new section that
+generates a trash-talk recap of the previous week's results via Claude.
+
+**Hero text.** `HeroSection.tsx`'s `<h1>` changed from "Scoreboard" to
+"WELCOME TO THE TROPHYROOM MFER!" — the clamp bounds came down
+(`clamp(2.75rem,9vw,4.5rem)` → `clamp(2.25rem,7vw,3.75rem)`) and gained a
+`max-w-3xl`, since a full sentence at the old single-word sizing would
+either overflow awkwardly on mobile or read as oversized poster type on
+desktop. Background footballs, scroll-driven drop, and everything else in
+that scene are untouched.
+
+**Architecture change from the brief, flagged before writing any code.**
+The brief specified calling `api.anthropic.com` directly from client-side
+`fetch`, "from the artifact." This project is not a claude.ai Artifact —
+it's a static SPA deployed on Vercel with no backend (CLAUDE.md's own
+stack section), and a real deployed website has no privileged bridge to
+an LLM API the way an Artifact's sandboxed runtime does. Calling
+Anthropic directly from the browser would mean shipping the API key
+inside the JS bundle every visitor downloads, readable from the network
+tab or the bundle itself — a real way to get the key stolen and the
+account billed by a stranger, not a theoretical concern. Asked the user
+directly (`AskUserQuestion`) rather than either silently building the
+insecure version or silently swapping in a different design without
+saying so; they chose the secure fix.
+
+**The fix: a Vercel serverless function.** New `api/weekly-recap.ts` (repo
+root, Vercel's own convention for auto-detected serverless functions,
+outside `src/` entirely) is the only place `ANTHROPIC_API_KEY` is ever
+read — from `process.env`, set as a Vercel project environment variable,
+never committed. It accepts a POST body (an already-computed, already
+player-named summary of a week — see below), builds a compact plain-text
+prompt from it, calls Anthropic's Messages API server-side, and returns
+the generated text. New `tsconfig.api.json` (included from the root
+`tsconfig.json` alongside `tsconfig.app.json`/`tsconfig.node.json`) so
+`tsc -b` actually typechecks this file — it lives outside `src`, which
+only `tsconfig.app.json` covers, and outside `vite.config.ts`, which is
+all `tsconfig.node.json` covers. New `@vercel/node` devDependency for the
+`VercelRequest`/`VercelResponse` types (Vercel supplies the actual
+runtime; the package is local types only). `vercel.json`'s SPA rewrite
+(`/((?!assets/|audio/).*)  → /index.html`) had to gain an `api/` exclusion
+too — without it, every request to `/api/weekly-recap` would have been
+silently rewritten to serve `index.html` instead of ever reaching the
+function.
+
+**Setup step only the user can do:** create an Anthropic API key and add
+it to this Vercel project's environment variables as `ANTHROPIC_API_KEY`
+(Vercel dashboard → Project → Settings → Environment Variables), then
+redeploy. This wasn't done as part of this phase — it requires access to
+accounts this session doesn't have. Until it's set, the function returns
+a clean 500 with `"ANTHROPIC_API_KEY is not configured on the server"`
+rather than crashing opaquely, and the section on the page falls back to
+its "Recap unavailable this week" state.
+
+**Client side.** New `src/api/weeklyRecapAi.ts` — the single typed client
+for this project's own `/api/weekly-recap` route, mirroring CLAUDE.md's
+"one typed client module" rule for the Sleeper API (nothing outside this
+file constructs the request). New `src/components/WeeklyRecapSection.tsx`
+computes the week's summary from data this project already fetches — the
+same `weekRecap()`/`weekAwards()` `useWeekRecap.ts` already uses for the
+journey/awards — resolved to real player names via `playerNameForUser()`
+(League History's Phase H.5 mapping, reused here rather than duplicated)
+for managers and `playerDisplayName()` for the actual NFL players in
+"top starter"/"player of the week." Mounted in `HomePage.tsx` right after
+the hero, before Act 1's authored storylines — it renders automatically
+from live numbers every week whether or not anyone has hand-written a
+recap, distinct from `RecapStorylines`/`RecapAwards` which only render
+when authored content exists for that week.
+
+**Caching, the idiomatic way.** Rather than a separate localStorage
+scheme, the Claude call is a plain `useQuery` with
+`staleTime: STALE_TIME.immutable` — the same "a completed week never
+changes, cache it forever" convention every other query in this project
+already follows (`api/staleTime.ts`), which means a week's recap is
+generated once, ever, and the existing global IndexedDB persister
+(`api/queryClient.ts`) already carries it across page reloads/sessions
+the same way it does every other query. No new caching mechanism needed.
+
+**States handled:** `week < 2` → "Check back after Week 1" (no fetch
+attempted at all); prerequisite Sleeper data or the Claude call still in
+flight → "Loading recap…"; no scores yet for the target week, or the
+Claude call errors → "Recap unavailable this week." The brief's fourth
+state ("after season ends, show a final championship recap") wasn't
+implemented — there's no existing signal in this codebase for "the
+season has concluded" to detect it from, and guessing at one felt riskier
+than leaving it as a known gap.
+
+**Animation.** The section manages its own scroll-scrubbed GSAP timeline
+(fade+lift on enter, fade+lift on exit) rather than using `Reveal` —
+`Reveal`'s own doc comment is explicit that it's one-shot by design
+(replaying an entrance on scroll-back "would turn a weekly scoreboard
+into a fairground"), which is the right choice for reference content but
+not for this section, which the brief specifically wants to also animate
+away on exit. The AI-generated paragraphs inside it still use `Reveal`
+for their own staggered per-paragraph entrance (split on blank lines from
+the plain-prose response), plus a small "Auto-generated from this week's
+box scores" footer note as the last staggered element.
+
+**Verified:** `tsc -b` (now covering `api/` via the new tsconfig
+reference), `oxlint` (same seven pre-existing warnings, zero new),
+`prettier --write`, and a production `vite build` all pass.
+
+**Not done — and this is the big one:** the actual Claude call has never
+run. There's no Anthropic API key configured yet (that's the user's own
+setup step above), and this environment has no way to deploy to Vercel,
+set an environment variable, or make a real network call to
+api.anthropic.com to see what actually comes back. Everything about
+whether the generated recap reads as genuinely funny/sharp trash talk
+rather than generic AI copy, whether the prompt produces consistent
+quality week to week, whether 900 max_tokens is enough or too much, and
+whether the model correctly picks up on the real stats rather than
+hallucinating, is completely unverified — this is fundamentally different
+from every other "not done: real-device check" note elsewhere in this
+document, which were about a rendering/animation detail on an already-
+working feature. This entire feature's actual output quality is unknown
+until the API key is configured and someone loads the page.

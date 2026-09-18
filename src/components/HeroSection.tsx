@@ -77,8 +77,8 @@ export function HeroSection({ season }: { season?: string }) {
           <SectionKicker tone="ink">
             {season ? `${season} Season` : 'Loading season…'}
           </SectionKicker>
-          <h1 className="font-display text-marble mt-2 text-[clamp(2.75rem,9vw,4.5rem)] leading-[0.95]">
-            Scoreboard
+          <h1 className="font-display text-marble mt-2 max-w-3xl text-[clamp(2.25rem,7vw,3.75rem)] leading-[0.95]">
+            WELCOME TO THE TROPHYROOM MFER!
           </h1>
           <div className="gold-divider mx-auto mt-5 w-16" aria-hidden="true" />
 
