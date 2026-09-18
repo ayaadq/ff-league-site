@@ -1,4 +1,4 @@
-import { useMemo } from 'react'
+import { useEffect, useMemo } from 'react'
 import { Link } from 'react-router'
 import {
   useAllPlayers,
@@ -27,6 +27,7 @@ import {
 } from '../api/standings'
 import { summarizeTransactions } from '../api/transactions'
 import { useWeekRecap } from '../api/useWeekRecap'
+import { useLeagueStore } from '../store/leagueStore'
 import { ActivityFeed } from '../components/ActivityFeed'
 import { EfficiencyChart } from '../components/EfficiencyChart'
 import { GameOfTheWeekHero } from '../components/GameOfTheWeekHero'
@@ -91,6 +92,32 @@ export function HomePage() {
   const hasResults = pairs.some((pair) => pair.some((m) => m.points > 0))
 
   const standings = useMemo(() => sortStandings(rosters.data ?? []), [rosters.data])
+
+  // Mirrors the current week/season/standings into the global store so
+  // components below don't each need these threaded down as props --
+  // TanStack Query above stays the one fetch/cache layer (CLAUDE.md);
+  // this is a one-way, read-only copy for global access, not a second
+  // place that fetches or owns this data. Sponge size (cosmetic, no real
+  // spec yet -- see leagueStore.ts) is derived here too since standings
+  // order is already computed.
+  useEffect(() => {
+    useLeagueStore.getState().setCurrentWeek(week)
+  }, [week])
+
+  useEffect(() => {
+    if (season) useLeagueStore.getState().setCurrentSeason(season)
+  }, [season])
+
+  useEffect(() => {
+    useLeagueStore.getState().setTeamStandings(standings)
+    standings.forEach((roster, index) => {
+      if (roster.owner_id) {
+        useLeagueStore
+          .getState()
+          .setSpongeSizeFromStanding(roster.owner_id, index + 1, standings.length)
+      }
+    })
+  }, [standings])
 
   // Current-season win/loss streaks — every week through resultsWeek,
   // weeks strictly before the live NFL week are immutable and cached
