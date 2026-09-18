@@ -30,6 +30,7 @@ import { ActivityFeed } from '../components/ActivityFeed'
 import { EfficiencyChart } from '../components/EfficiencyChart'
 import { GameOfTheWeekHero } from '../components/GameOfTheWeekHero'
 import { HeroSection } from '../components/HeroSection'
+import { PaperCrumpleSection } from '../components/PaperCrumpleSection'
 import { RecapAwards } from '../components/RecapAwards'
 import { RecapRankings } from '../components/RecapRankings'
 import { RecapStorylines } from '../components/RecapStorylines'
@@ -181,13 +182,6 @@ export function HomePage() {
       <HeroSection season={season} />
 
       <section className="mx-auto max-w-4xl">
-        {/* Auto-generated trash-talk recap of last week (PLAN.md Phase
-          H.6) -- distinct from Act 1 below: this renders every week from
-          live Sleeper numbers via Claude, whether or not anyone has
-          hand-authored a recap for it. No Reveal wrapper -- it manages
-          its own scroll-scrubbed enter/exit animation. */}
-        <WeeklyRecapSection />
-
         {/* Act 1 -- Storylines: the recap's authored "what the hell just
           happened" openers (PLAN.md Phase 12). */}
         {recap.content && (
@@ -219,6 +213,21 @@ export function HomePage() {
           nameFor={(userId) => (userId ? teamNameForUser(userId, users.data ?? []) : 'Unknown')}
           playerNameFor={(playerId) => playerDisplayName(players.data?.[playerId], playerId)}
         />
+
+        {/* Paper crumple transition into the full recap page -- self-
+          contained, own scroll track, no Reveal wrapper for the same
+          sticky/transform reason WeeklyJourney above has none. */}
+        <PaperCrumpleSection />
+
+        {/* Auto-generated trash-talk teaser of last week (PLAN.md Phase
+          H.6 Alternative) -- distinct from Act 1 above: this renders every
+          week from live Sleeper numbers via hand-authored templates,
+          whether or not anyone has hand-authored a recap for it. Sits
+          after the paper-crumple CTA now (moved from before Act 1) so the
+          "view full recap" button leads straight into this shorter teaser
+          before the rest of the page continues. No Reveal wrapper -- it
+          manages its own scroll-scrubbed enter/exit animation. */}
+        <WeeklyRecapSection />
 
         <SeasonLeadersSection leaders={leaders} />
 

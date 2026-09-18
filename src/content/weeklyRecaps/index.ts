@@ -4,6 +4,7 @@ import {
   CLOSINGS,
   EFFICIENCY_NOTES,
   HEADLINES,
+  MATCHUP_HEADLINES,
   OPENINGS,
   POWER_RANKINGS,
 } from './recapTemplates'
@@ -84,4 +85,22 @@ export function buildWeeklyRecap(stats: WeeklyRecapStats, season: string): strin
   paragraphs.push(fill(pick(CLOSINGS, season, week, 'closing'), values))
 
   return paragraphs.join('\n\n')
+}
+
+/** One roast line for a single matchup card (`WeeklyRecapsPage.tsx`) —
+ * picked per (season, week, matchupIndex) rather than per week, so a
+ * multi-game week doesn't repeat the same headline shape for every card. */
+export function buildMatchupHeadline(
+  game: { winner: string; winnerScore: number; loser: string; loserScore: number; margin: number },
+  season: string,
+  week: number,
+  matchupIndex: number,
+): string {
+  return fill(pick(MATCHUP_HEADLINES, season, week, `matchup-${matchupIndex}`), {
+    winner: game.winner,
+    winnerScore: game.winnerScore.toFixed(2),
+    loser: game.loser,
+    loserScore: game.loserScore.toFixed(2),
+    margin: game.margin.toFixed(2),
+  })
 }

@@ -8,6 +8,7 @@ import { ReducedMotionProvider } from './motion/ReducedMotionProvider'
 import { HistoryPage } from './pages/HistoryPage'
 import { HomePage } from './pages/HomePage'
 import { TeamPage } from './pages/TeamPage'
+import { WeeklyRecapsPage } from './pages/WeeklyRecapsPage'
 
 function App() {
   const { unlocked, unlock } = useAuthGate()
@@ -25,6 +26,8 @@ function App() {
                 <Route path="/" element={<HomePage />} />
                 <Route path="/team/:ownerId" element={<TeamPage />} />
                 <Route path="/history" element={<HistoryPage />} />
+                <Route path="/weekly-recaps" element={<WeeklyRecapsPage />} />
+                <Route path="/weekly-recaps/week/:weekNumber" element={<WeeklyRecapsPage />} />
               </Routes>
             </Layout>
           ) : (

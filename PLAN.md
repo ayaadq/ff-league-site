@@ -2328,3 +2328,112 @@ is understood didn't seem like the right call to make unprompted.
 
 **Verified:** `tsc -b`, `oxlint` (same seven pre-existing warnings, zero
 new), `prettier --write`, and a production `vite build` all pass.
+
+## Paper crumple animation + Weekly Recaps page
+
+A large, six-phase build: a new 3D scroll-transition effect on Home, and
+a dedicated `/weekly-recaps` page going far deeper than the homepage
+teaser (every matchup, a fuller award set, the full power-ranking table,
+an efficiency chart, and a previous-weeks browser).
+
+**Flagged before writing any content.** Several phases referenced "the
+PDF" (matchup breakdowns, award descriptions, per-team power-ranking
+commentary) — no PDF or document content was ever attached to this
+conversation at any point. Rather than fabricate specific quotes,
+opinions, or "roast" commentary about real league members with no factual
+basis (the same discipline CLAUDE.md's own lore/banter content already
+enforces — hand-authored is fine, invented-and-presented-as-real is not),
+every number and line of copy on the new page is generated from real
+Sleeper data through the same template mechanism already built and
+already approved for the homepage teaser (Phase H.6 Alternative) — not a
+transcription of a document this session never received.
+
+**Phase 1 — `three/PaperCrumpleAnimation.tsx` + `PaperCrumpleCanvas.tsx`.**
+Not a true cloth simulation — a lightweight procedural vertex
+displacement (a handful of summed sine terms at per-vertex random phases/
+frequencies, scaled by a `crumple` progress value, plus a quadratic
+"pull inward toward center" term that grows with the same progress) on a
+modestly-subdivided plane (26×36 segments), mutated in place every frame
+via direct `BufferGeometry` position-array writes. A true mass-spring/
+verlet cloth solver was deliberately not built — this project has learned
+the same "keep per-frame cost and poly count low for mobile" lesson
+directly, more than once, already (SPEC.md §7.2; the WebGL-context-loss
+incidents documented earlier in this file), and a solver's constraint-
+relaxation iterations are exactly the kind of per-frame cost that lesson
+is about. `progressRef` (a plain ref written directly by
+`PaperCrumpleCanvas.tsx`'s ScrollTrigger, read every frame via
+`useFrame`) drives both the wrinkle amplitude (0→70% of progress) and,
+past that point, an arc-launch (position, spin, scale-down, opacity fade)
+sharing one `launchFactor()` so all four read from the same number rather
+than four separately-eased approximations — the same "one shared progress
+value, not independently-computed copies of it" discipline this project's
+other camera rigs already follow. Shadow is a flat semi-transparent
+circle, not a real shadow map (this project doesn't use shadow maps
+anywhere, per the same mobile-budget note). Tried making the geometry a
+`useRef` instead of `useMemo` specifically to avoid an oxlint
+immutability warning on mutating it every frame — that traded one pair of
+warnings for two (a separate "no ref access during render" rule caught
+the lazy-init pattern), so it stayed as `useMemo`; the resulting warning
+is the exact same accepted, understood class as `JourneyCameraRig.tsx`'s
+own `camera.position.set(...)` warning, not a new category of problem.
+
+**Phase 2/6 — `api/computeFullWeekRecap.ts` + new templates**, in place of
+"PDF content integration": derives matchup headlines (new
+`MATCHUP_HEADLINES` templates + `buildMatchupHeadline()`, picked per
+`(season, week, matchupIndex)` so a multi-game week doesn't repeat one
+headline shape), an 11-category award list (High/Low Score, Biggest
+Blowout, Closest Game, Most/Least Efficient, Most Left on Bench, Player of
+the Week, Perfect Lineup, Highest/Lowest Combined Score — every one a
+real, honestly-computable stat from `weekRecap()`/`weekAwards()`, not
+invented categories), a full power-ranking table with a rank-percentile-
+derived letter grade (S/A/B/C/D — a real, deterministic function of
+standing, not a subjective per-team judgment) and grade-tier commentary,
+and an efficiency chart sorted by real efficiency. "Record" per team in
+the power-ranking table is the roster's current cumulative season W-L,
+not a reconstructed point-in-time record as of that specific week
+(Sleeper doesn't expose historical per-week standings snapshots) — a
+real, documented simplification, and only actually diverges from "as of
+that week" when viewing an older week after more games have been played.
+
+**Phase 2/3 — `pages/WeeklyRecapsPage.tsx`.** Full-bleed at the page level
+(breaks out of `Layout.tsx`'s own `px-6`, the same trick every other
+full-bleed section in this project already uses), with a `max-w-5xl`
+inner reading column. Matchup cards collapse/expand via local
+`useState` per card (the brief's own "lazy-load... don't render all at
+once" — deferred *disclosure*, not deferred *fetching*: all the data is
+already loaded, only the expanded detail's DOM is conditionally
+rendered). A week-selector `<select>` at the bottom serves as the
+"previous recaps" browser, populated from every concluded week
+(1..latestAvailableWeek) — no separate `allRecaps.ts` static data file
+with hand-typed summaries per week was created, since every week's data
+is already computed live and correctly from Sleeper the same way the
+current week is; a static file duplicating that would drift out of sync
+with real results the first time anyone re-checked an old week.
+
+**Phase 4 — Home integration.** New `components/PaperCrumpleSection.tsx`
+hosts the canvas plus a `bg-gold-bright` CTA button linking to
+`/weekly-recaps` (React Router `<Link>`, not a raw `<a>`). Mounted
+between `WeeklyJourney` and `WeeklyRecapSection` — which meant moving
+`WeeklyRecapSection` from its previous position (right after Hero) to
+after the journey, matching the brief's explicit "after Journey, before
+current Recap" ordering.
+
+**Phase 5 — routing.** `App.tsx` gained `/weekly-recaps` and the optional
+`/weekly-recaps/week/:weekNumber` direct-link route, both rendering
+`WeeklyRecapsPage`; the page reads `:weekNumber` via `useParams` to seed
+its initial week selection (falling back to the latest concluded week
+when absent or invalid) rather than declaring the route without actually
+wiring it to anything.
+
+**Verified:** `tsc -b`, `oxlint` (seven pre-existing plus two newly
+accepted — see Phase 1 above; zero warnings of a genuinely new kind),
+`prettier --write`, and a production `vite build` all pass.
+
+**Not done:** real-device check on the live Vercel URL — whether the
+crumple/launch actually holds 60fps on a real phone (the poly count and
+per-frame cost were reasoned about, not measured), whether the arc
+trajectory and timing read as "premium," whether the collapsed/expanded
+matchup cards feel responsive to tap, and whether the new page's density
+holds up on a 390px screen, are all real-device judgment calls this
+environment can't make. Same carried-forward gap as every phase since the
+redesign began.

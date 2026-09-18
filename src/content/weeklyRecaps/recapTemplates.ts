@@ -46,3 +46,14 @@ export const CLOSINGS = [
   'That’s all for Week {{week}}. Try not to bench your studs again, yeah?',
   'Back to the drawing board for half this league.',
 ]
+
+/** One line per matchup card on the full recap page
+ * (`WeeklyRecapsPage.tsx`) — picked per (season, week, matchup index),
+ * not per week, so a 6-game week doesn't repeat the same headline shape
+ * six times in a row. */
+export const MATCHUP_HEADLINES = [
+  '{{winner}} handled {{loser}} {{winnerScore}}-{{loserScore}}. Not close.',
+  '{{winner}} survives {{loser}}, {{winnerScore}}-{{loserScore}}. Margin: {{margin}}.',
+  '{{loser}} never had an answer for {{winner}} this week — final {{winnerScore}}-{{loserScore}}.',
+  '{{winner}} over {{loser}}, {{winnerScore}}-{{loserScore}}. Book it.',
+]
