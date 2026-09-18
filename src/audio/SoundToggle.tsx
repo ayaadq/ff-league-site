@@ -18,9 +18,10 @@ export function SoundToggle() {
       aria-label={enabled ? 'Turn sound off' : 'Turn sound on'}
       className="text-charcoal-soft hover:text-charcoal flex min-h-11 items-center gap-2 px-1 text-xs tracking-widest uppercase transition-colors duration-300"
     >
-      {/* Three bars that rise and fall while the bed is playing, and sit
-          flat when it isn't — the state is legible without reading the
-          label. aria-hidden because the button's own label says it. */}
+      {/* Three bars that rise and fall while sound is on and ready, and
+          sit flat when it isn't — the state is legible without reading
+          the label. aria-hidden because the button's own label says
+          it. */}
       <span aria-hidden="true" className="flex h-3.5 items-end gap-[2px]">
         {[0, 1, 2].map((i) => (
           <span

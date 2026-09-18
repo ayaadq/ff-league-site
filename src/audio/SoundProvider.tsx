@@ -2,81 +2,43 @@ import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } fro
 import { SoundContext, type SoundName } from './soundContext'
 
 const SOURCES = {
-  ambience: '/audio/ambience.mp3',
-  roar: '/audio/roar.mp3',
   click: '/audio/click.mp3',
   whoosh: '/audio/whoosh.mp3',
 } as const
 
 /** Session-scoped, like the password gate (SPEC.md §3). Surviving a
- * reload inside one visit is convenient; surviving until next week means
- * someone opens the site on Sunday morning and a stadium starts up,
- * which is the behaviour everyone hates. */
+ * reload inside one visit is convenient; surviving until next week is
+ * the behaviour that's easy to forget you turned on. */
 const PREF_KEY = 'trophy-room-sound'
-
-const AMBIENCE_LEVEL = 0.8
-/** Slow on purpose: the bed emerges underneath the roar as the roar
- * decays, so enabling sound is one continuous event rather than two
- * things starting at once. */
-/* Level raised twice on the same feedback ("still very low sounding").
- * The audio files now carry a proper level of their own, so this is a
- * trim rather than the main gain staging it used to be. */
-const FADE_IN = 4.5
-const FADE_OUT = 0.7
-/** The roar is already mixed hotter than the bed and builds its own
- * swell over ~3s, so it needs no envelope from this end. */
-const ROAR_LEVEL = 1.0
-
-/** Skip the first and last moments of the decoded bed when looping. MP3
- * encoders pad the start and end of a file, and looping across that
- * padding is what produces the classic tick every time a loop wraps. */
-const LOOP_TRIM = 0.05
 
 /** Minimum gap between one-shots. Reveal sounds are fired by scroll, and
  * a fast flick down the page can cross several triggers in one frame —
  * without this you get a machine-gun burst instead of a texture. */
 const ONE_SHOT_GAP_MS = 130
 
-/** Scroll-velocity-reactive ambience (PLAN.md Phase 13B, SPEC.md §1's
- * "crowd noise gets louder/softer with scroll velocity"). Implemented as
- * a second gain node in series after `ambienceGain`
- * (`source -> ambienceGain -> velocityGain -> destination`) rather than
- * modulating `ambienceGain` directly, so this composes cleanly with the
- * existing fade-in/out and `duck()` envelopes already scheduled on
- * `ambienceGain` — this node only ever holds a continuous multiplier
- * around 1, never a scheduled ramp of its own, so nothing here can cancel
- * or fight a duck() call mid-swell. */
-const VELOCITY_GAIN_AT_REST = 0.85
-const VELOCITY_GAIN_AT_SPEED = 1.4
-/** Smoothed px/ms scroll speed that reaches the loud ceiling above — a
- * fast deliberate flick, not an ordinary reading scroll. */
-const VELOCITY_FOR_MAX_GAIN = 2.6
-/** Retain factor for the exponential moving average smoothing raw
- * per-frame speed samples — scroll deltas are noisy frame to frame, and
- * without this the gain would flutter rather than swell. */
-const VELOCITY_SMOOTHING = 0.85
-/** `setTargetAtTime`'s time constant — how quickly the gain node chases
- * its target each frame. Short enough to feel responsive to a flick,
- * long enough not to introduce zipper noise. */
-const VELOCITY_GAIN_TIME_CONSTANT = 0.15
-
 interface Loaded {
   ctx: AudioContext
   buffers: Record<string, AudioBuffer>
-  ambienceGain: GainNode
-  velocityGain: GainNode
   uiGain: GainNode
-  source: AudioBufferSourceNode
 }
 
-/** Owns the site's audio. Nothing is fetched, decoded, or constructed
- * until the user opts in, so a visitor who never touches the toggle pays
- * nothing for any of this — not the ~150 KB of audio, not an
- * AudioContext.
+/** Owns the site's audio -- click/whoosh UI one-shots only. The
+ * continuous crowd-ambience bed and its 'roar' one-shot swell (plus the
+ * scroll-velocity-reactive gain modulation and duck() envelope that
+ * existed solely to shape them) were removed entirely, not muted or
+ * gated behind a flag -- this project doesn't keep dead code around
+ * "just in case" (CLAUDE.md's own convention). `enable`/`disable`/
+ * `toggle`/`ready` are kept exactly as they were: browsers still require
+ * a user gesture before any AudioContext can produce sound at all,
+ * ambience or not, so the same opt-in ceremony still applies to the
+ * one-shots that remain.
  *
- * Web Audio rather than <audio> elements: the bed needs a sample-accurate
- * gapless loop and a real fade curve, and the one-shots need to overlap
- * without stealing each other's playback. Both are awkward with media
+ * Nothing is fetched, decoded, or constructed until the user opts in, so
+ * a visitor who never touches the toggle pays nothing for any of this —
+ * not the audio, not an AudioContext.
+ *
+ * Web Audio rather than <audio> elements: the one-shots need to overlap
+ * without stealing each other's playback, which is awkward with media
  * elements and free here. */
 export function SoundProvider({ children }: { children: ReactNode }) {
   const [enabled, setEnabled] = useState(false)
@@ -93,11 +55,7 @@ export function SoundProvider({ children }: { children: ReactNode }) {
     if (loaded.current || starting.current) {
       // Already running, or a second click landed mid-fetch.
       if (loaded.current) {
-        const { ctx, ambienceGain } = loaded.current
-        await ctx.resume()
-        ambienceGain.gain.cancelScheduledValues(ctx.currentTime)
-        ambienceGain.gain.setValueAtTime(ambienceGain.gain.value, ctx.currentTime)
-        ambienceGain.gain.linearRampToValueAtTime(AMBIENCE_LEVEL, ctx.currentTime + FADE_IN)
+        await loaded.current.ctx.resume()
         setReady(true)
       }
       return
@@ -114,41 +72,11 @@ export function SoundProvider({ children }: { children: ReactNode }) {
       )
       const buffers = Object.fromEntries(entries)
 
-      const velocityGain = ctx.createGain()
-      velocityGain.gain.value = VELOCITY_GAIN_AT_REST
-      velocityGain.connect(ctx.destination)
-
-      const ambienceGain = ctx.createGain()
-      ambienceGain.gain.value = 0
-      ambienceGain.connect(velocityGain)
-
       const uiGain = ctx.createGain()
       uiGain.gain.value = 1
       uiGain.connect(ctx.destination)
 
-      const source = ctx.createBufferSource()
-      source.buffer = buffers.ambience
-      source.loop = true
-      source.loopStart = LOOP_TRIM
-      source.loopEnd = Math.max(buffers.ambience.duration - LOOP_TRIM, LOOP_TRIM + 1)
-      source.connect(ambienceGain)
-      source.start(0, LOOP_TRIM)
-
-      ambienceGain.gain.linearRampToValueAtTime(AMBIENCE_LEVEL, ctx.currentTime + FADE_IN)
-
-      // Turning sound on is a touchdown: the crowd goes up, then settles
-      // into the bed. The roar file starts near-silent and takes about
-      // three seconds to peak, so this fires at full level and still
-      // arrives as a build rather than a blast.
-      const roar = ctx.createBufferSource()
-      roar.buffer = buffers.roar
-      const roarGain = ctx.createGain()
-      roarGain.gain.value = ROAR_LEVEL
-      roarGain.connect(ctx.destination)
-      roar.connect(roarGain)
-      roar.start()
-
-      loaded.current = { ctx, buffers, ambienceGain, velocityGain, uiGain, source }
+      loaded.current = { ctx, buffers, uiGain }
       setReady(true)
     } catch {
       // A blocked AudioContext or a failed fetch should leave the site
@@ -164,24 +92,13 @@ export function SoundProvider({ children }: { children: ReactNode }) {
   const stop = useCallback(() => {
     const current = loaded.current
     if (!current) return
-    const { ctx, ambienceGain } = current
-    ambienceGain.gain.cancelScheduledValues(ctx.currentTime)
-    ambienceGain.gain.setValueAtTime(ambienceGain.gain.value, ctx.currentTime)
-    ambienceGain.gain.linearRampToValueAtTime(0, ctx.currentTime + FADE_OUT)
-    // Both of these wait out the fade rather than firing now. `ready`
-    // means "the bed is audible", and during a fade-out it still is —
-    // flipping it here would also be a synchronous setState inside the
-    // effect below, costing an extra render pass every toggle.
+    setReady(false)
     // Suspend rather than close: the buffers stay decoded, so toggling
-    // back on is instant instead of re-fetching.
-    window.setTimeout(
-      () => {
-        if (enabledRef.current) return
-        setReady(false)
-        void ctx.suspend()
-      },
-      FADE_OUT * 1000 + 60,
-    )
+    // back on is instant instead of re-fetching. No fade-out envelope
+    // needed anymore -- that existed only to fade the ambience bed out
+    // gracefully; a one-shot has nothing to fade, it just stops being
+    // playable once suspended.
+    void current.ctx.suspend()
   }, [])
 
   // Starting and stopping happen in the event that caused them, not in
@@ -233,42 +150,6 @@ export function SoundProvider({ children }: { children: ReactNode }) {
     }
   }, [enable])
 
-  // Scroll-velocity-reactive ambience — see the constants block above for
-  // why this drives a dedicated `velocityGain` node rather than touching
-  // `ambienceGain` directly. Only runs while the bed is actually audible;
-  // a visitor who never opts into sound pays nothing for this rAF loop.
-  useEffect(() => {
-    if (!ready) return
-    let frame = 0
-    let lastY = window.scrollY
-    let lastTime = performance.now()
-    let smoothedSpeed = 0
-
-    const tick = (now: number) => {
-      const current = loaded.current
-      if (current && current.ctx.state === 'running') {
-        const dt = Math.max(now - lastTime, 1)
-        const y = window.scrollY
-        const speed = Math.abs(y - lastY) / dt
-        smoothedSpeed = smoothedSpeed * VELOCITY_SMOOTHING + speed * (1 - VELOCITY_SMOOTHING)
-        lastY = y
-        lastTime = now
-
-        const t = Math.min(smoothedSpeed / VELOCITY_FOR_MAX_GAIN, 1)
-        const target = VELOCITY_GAIN_AT_REST + (VELOCITY_GAIN_AT_SPEED - VELOCITY_GAIN_AT_REST) * t
-        current.velocityGain.gain.setTargetAtTime(
-          target,
-          current.ctx.currentTime,
-          VELOCITY_GAIN_TIME_CONSTANT,
-        )
-      }
-      frame = requestAnimationFrame(tick)
-    }
-    frame = requestAnimationFrame(tick)
-
-    return () => cancelAnimationFrame(frame)
-  }, [ready])
-
   const play = useCallback((name: SoundName, options?: { gain?: number }) => {
     const current = loaded.current
     if (!current || current.ctx.state !== 'running') return
@@ -293,25 +174,7 @@ export function SoundProvider({ children }: { children: ReactNode }) {
     node.start()
   }, [])
 
-  const duck = useCallback((depth: number, duration: number) => {
-    const current = loaded.current
-    if (!current || current.ctx.state !== 'running') return
-    const { ctx, ambienceGain } = current
-    const now = ctx.currentTime
-    const half = duration / 2
-    // Same cancel/setValueAtTime/ramp shape start()/stop() already use
-    // on this same node -- one scheduled envelope at a time, whichever
-    // was requested most recently wins outright rather than stacking.
-    ambienceGain.gain.cancelScheduledValues(now)
-    ambienceGain.gain.setValueAtTime(ambienceGain.gain.value, now)
-    ambienceGain.gain.linearRampToValueAtTime(AMBIENCE_LEVEL * depth, now + half)
-    ambienceGain.gain.linearRampToValueAtTime(AMBIENCE_LEVEL, now + duration)
-  }, [])
-
-  const value = useMemo(
-    () => ({ enabled, ready, toggle, play, duck }),
-    [enabled, ready, toggle, play, duck],
-  )
+  const value = useMemo(() => ({ enabled, ready, toggle, play }), [enabled, ready, toggle, play])
 
   return <SoundContext.Provider value={value}>{children}</SoundContext.Provider>
 }

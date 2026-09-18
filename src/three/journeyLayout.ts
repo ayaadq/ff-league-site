@@ -210,32 +210,3 @@ export function matchupIndexAtProgress(rawProgress: number, matchupCount: number
   const clamped = Math.min(contentProgress, 1 - 1e-6)
   return Math.min(matchupCount - 1, Math.floor(clamped * matchupCount))
 }
-
-/** How close each game was, relative to the *other* games this week —
- * not an absolute margin threshold, matching how weekAwards' own
- * "closest game"/"biggest margin" are already relative-to-the-week
- * stats, not fixed cutoffs. 0 is this week's biggest margin, 1 is its
- * closest game (a tie is the closest possible outcome regardless of its
- * own zero margin).
- *
- * Carried over from this journey's previous camera-dwell system (which
- * used it to weight how long the camera lingered per station) — that
- * consumer is gone (PLAN.md Phase H's equal-segment kick), but
- * WeeklyJourney.tsx's audio duck/roar shaping (bigger roar for a
- * blowout, hush-then-eruption for a close one) still reads this same
- * number, so it stays here rather than being deleted along with the
- * camera code that originally motivated it. */
-export function closenessOf(games: Array<{ margin: number; tied: boolean }>): number[] {
-  const values = games.map((g) => (g.tied ? 0 : g.margin))
-  const minMargin = Math.min(...values)
-  const maxMargin = Math.max(...values)
-  const spread = maxMargin - minMargin
-
-  return games.map((_, i) => {
-    // spread === 0 means every game this week was equally close (or
-    // there's only one game) -- nothing to weight against, so every
-    // game gets the same middle-of-the-road closeness.
-    const normalized = spread > 0 ? (values[i] - minMargin) / spread : 0.5
-    return 1 - normalized
-  })
-}

@@ -2518,42 +2518,43 @@ one-shot flourishes (falling confetti, a ball accelerating away, a card
 collapsing into an explosion), not UI transitions — deliberately left
 alone rather than force-fit onto the UI-motion `EASE` tokens, which would
 have blurred an intentionally sharp "physical" moment into a softer
-generic fade. Standardizing *everything* onto one ease would have been
+generic fade. Standardizing _everything_ onto one ease would have been
 the wrong kind of consistency here; the real fix was the one place a UI
 transition had drifted from the UI-motion standard, not making every
 different kind of motion identical.
 
 **Checked, found already correct, no change needed:**
-- *DOM query caching* — every `document.getElementById` call in the
+
+- _DOM query caching_ — every `document.getElementById` call in the
   codebase (`JourneyCameraRig`, `HeroScene`, `PlayerCardArc`,
   `ScrollCameraRig`, `TrophyLineCameraRig`, `HeroSection`,
   `NextWeekPreview`) happens exactly once inside a `useEffect` setup and
   is captured in a closure, never re-queried per frame or per scroll tick.
-- *Layout-thrashing properties* — grepped every `gsap.to`/`fromTo`/`from`
+- _Layout-thrashing properties_ — grepped every `gsap.to`/`fromTo`/`from`
   call site in the codebase; none animates `top`/`left`/`width`/`height`/
   `margin`. Everything animates `x`/`y`/`scale`/`rotate`/opacity, all
   compositor-friendly.
-- *Per-frame allocation* — `PlayerCardArc.tsx` is the only component with
+- _Per-frame allocation_ — `PlayerCardArc.tsx` is the only component with
   a continuous (not scroll-event-driven) `useFrame`, and it's already
   about as tight as this gets: one ref read, one property write, zero
   allocations. No other component runs a continuous per-frame loop
   (`JourneyCameraRig`/`TrophyLineCameraRig`'s `place()` fires on scroll
-  *events* via GSAP's `onUpdate`, not every rendered frame).
-- *Overlapping/conflicting ScrollTrigger instances* — every trigger in the
+  _events_ via GSAP's `onUpdate`, not every rendered frame).
+- _Overlapping/conflicting ScrollTrigger instances_ — every trigger in the
   codebase targets its own distinct DOM id (`hero-scroll-track`,
   `weekly-journey-track`, `trophy-line-scroll-track`,
   `player-cards-scroll-track`, `nextweek-track-${index}`); no two rigs
   share a trigger element.
-  - *ScrollTrigger dwell margins* — the checklist asked to "tighten
+  - _ScrollTrigger dwell margins_ — the checklist asked to "tighten
     overly generous margins if causing stutters." This project's actual
     history has run the other direction: `journeyLayout.ts`'s
     `FINALE_DWELL_SVH`/`LEAD_FRACTION` and `trophyLineLayout.ts`'s own
-    lead fraction were both *raised* across several hotfixes earlier in
+    lead fraction were both _raised_ across several hotfixes earlier in
     this document because they were too tight, cutting finales/champions
     off before the animation finished. No evidence found of the opposite
     problem now; tightening them back down would risk re-introducing bugs
     that took multiple real-device-reported rounds to fix.
-- *`will-change` coverage* — already present on the highest-frequency
+- _`will-change` coverage_ — already present on the highest-frequency
   DOM animation targets (`ConfettiLayer`'s and `NextWeekPreview`'s pixel/
   confetti particles, the trading card's own 3D-flip container) before
   this pass started.
@@ -2573,7 +2574,7 @@ concurrent `<Canvas>` instances on Home. That count is already down from
 4 to 3 since then (the 3D standings-wall canvas was deleted entirely in an
 earlier, unrelated cleanup). A further fix — viewport-gated lazy mounting
 so Journey/PlayerCard's WebGL contexts don't exist until scrolled near —
-was considered and not implemented: it doesn't reduce the *peak*
+was considered and not implemented: it doesn't reduce the _peak_
 concurrent count for someone who scrolls the whole page (all three still
 end up mounted together eventually), and a mount-gating bug is a strictly
 worse failure mode (a canvas that silently never appears) than the
@@ -2594,3 +2595,65 @@ document — but it's worth stating plainly for a task whose own title is
 issues (one was found and fixed above) but cannot confirm the actual,
 measured result without a real device and a real profiler, neither of
 which exist in this session.
+
+## Crowd noise removed entirely
+
+Removed the ambient crowd bed and its 'roar' one-shot swell — both were
+"crowd noise" by the codebase's own description (`soundContext.ts`'s old
+comment called roar "the same crowd swell the bed's own touchdown moment
+uses"). Asked the user to confirm this broader scope first, since the
+request's own file-search criteria (crowd/ambiance/ambient in the
+filename) technically only matched `ambience.mp3`, not `roar.mp3` — they
+confirmed both should go, which also meant removing `duck()`, since its
+entire purpose was dipping the ambience bed's gain around a roar; with
+neither left, it had nothing to duck.
+
+**Deleted:** `public/audio/ambience.mp3`, `public/audio/roar.mp3`.
+
+**`audio/SoundProvider.tsx`** rewritten — `SOURCES` down to `click`/
+`whoosh` only; removed `AMBIENCE_LEVEL`/`FADE_IN`/`FADE_OUT`/`LOOP_TRIM`/
+`ROAR_LEVEL` and the whole velocity-reactive gain system
+(`VELOCITY_GAIN_AT_REST`/`_AT_SPEED`/`_FOR_MAX_GAIN`/`_SMOOTHING`/
+`_TIME_CONSTANT` and the rAF loop that drove them); `start()` no longer
+creates an ambience buffer source or fires a roar on enable, just decodes
+click/whoosh and connects a plain `uiGain`; `stop()` simplified to a bare
+`ctx.suspend()` (no fade-out envelope needed once there's no bed to fade).
+`enable`/`disable`/`toggle`/`ready`/the sessionStorage-remembered-preference
+mechanism are all kept exactly as they were — browsers still require a
+user gesture before any AudioContext can play anything, ambience or not,
+so the same opt-in ceremony still applies to click/whoosh.
+
+**`audio/soundContext.ts`**: `SoundName` narrowed to `'click' | 'whoosh'`,
+`duck` removed from `SoundApi` and its default context value.
+
+**`components/WeeklyJourney.tsx`**: removed the `useSound()`/`duck`/`play('roar')`
+calls from `handleMatchupChange`/`handleFinale` (both now only fire
+confetti) and the whole closeness-based outcome-swell shaping block
+(`ROAR_MIN_GAIN`/`_MAX_GAIN`/`DUCK_MAX_DEPTH_DROP`/`_MIN_DURATION`/
+`_MAX_DURATION`/`FINALE_DUCK_DEPTH`/`_DURATION`).
+
+**`three/journeyLayout.ts`**: deleted `closenessOf()` entirely — its only
+consumer was the audio shaping just removed from `WeeklyJourney.tsx`; its
+own doc comment already said as much ("that consumer is gone... but
+WeeklyJourney.tsx's audio duck/roar shaping still reads this same number,
+so it stays here" — that remaining reason is now gone too).
+
+**`audio/SoundToggle.tsx`**: fixed a doc comment that said "while the bed
+is playing," which no longer means anything with no bed.
+
+Player/team/click/whoosh (`Reveal.tsx`, `TeamPage.tsx`, `HistoryPage.tsx`,
+`EfficiencyChart.tsx`, `Layout.tsx`) were the only other `useSound()`
+consumers in the codebase and use neither `duck` nor `'roar'` — untouched,
+confirmed by grepping every `useSound()`/`play(`/`duck(` call site in
+`src/` before making any change, not assumed. `SPEC.md` has no "crowd
+noise" language to update — the scroll-velocity requirement referenced in
+the old code comments was never actually written into the binding spec
+itself.
+
+**Verified:** `tsc -b`, `oxlint` (same seven pre-existing warnings, zero
+new), `prettier --write`, and a production `vite build` all pass.
+
+**Not verifiable from here:** whether the site is actually silent on load
+and produces no console errors when sound is toggled on (click/whoosh
+should still work; ambience/roar simply no longer exist to fail) — same
+carried-forward real-device gap as every phase in this document.
