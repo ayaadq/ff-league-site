@@ -1,4 +1,3 @@
-import { useQuery } from '@tanstack/react-query'
 import { gsap } from 'gsap'
 import { useEffect, useMemo, useRef } from 'react'
 import {
@@ -11,28 +10,34 @@ import {
 } from '../api/hooks'
 import { playerNameForUser } from '../api/leagueRecords'
 import { playerDisplayName } from '../api/players'
-import { STALE_TIME } from '../api/staleTime'
 import { useLeague } from '../api/useWeekRecap'
-import { generateWeeklyTrashTalk, type WeeklyRecapSummary } from '../api/weeklyRecapAi'
-import { weekAwards, weekRecap } from '../api/weeklyRecap'
+import { computeWeeklyRecapStats } from '../api/computeWeeklyRecapStats'
+import { weekRecap } from '../api/weeklyRecap'
+import { buildWeeklyRecap } from '../content/weeklyRecaps'
 import { setupGsap } from '../motion/gsapSetup'
 import { useReducedMotion } from '../motion/reducedMotionContext'
 import { Reveal } from '../motion/Reveal'
 import { SectionKicker } from './SectionKicker'
 
-/** The previous week's results, told as trash talk by Claude (PLAN.md
- * Phase H.6) — Home's own recap of "what just happened," distinct from
- * the authored `RecapStorylines`/`RecapAwards` content (those render only
- * when someone has hand-written a recap for that week; this renders
- * automatically from live Sleeper numbers every week, win or lose).
+/** The previous week's results, told as hand-authored trash talk (PLAN.md
+ * Phase H.6 Alternative) — Home's own recap of "what just happened,"
+ * distinct from the authored `RecapStorylines`/`RecapAwards` content
+ * (those render only when someone has hand-written a recap for that
+ * week; this renders automatically from live Sleeper numbers every week,
+ * win or lose).
  *
- * The AI call itself never happens here or anywhere in client code — this
- * component computes a compact, already-player-named summary from data
- * this project already fetches (the same `weekRecap`/`weekAwards`
- * `useWeekRecap.ts` uses) and posts *that* to this project's own
- * `/api/weekly-recap` route (`api/weeklyRecapAi.ts`), which is the only
- * thing that ever talks to Anthropic and the only place the API key
- * exists (server-side, `api/weekly-recap.ts`). */
+ * Zero network calls beyond the Sleeper data this project already
+ * fetches — no AI API, no server, no latency. `computeWeeklyRecapStats`
+ * derives a flat stats object from the same `weekRecap()` numbers the
+ * journey/awards use, and `content/weeklyRecaps`'s `buildWeeklyRecap`
+ * fills hand-authored templates with them, picking a variant
+ * deterministically per (season, week) so the same week always reads the
+ * same way rather than re-rolling on every reload.
+ *
+ * This replaces an earlier version of this section that called Claude
+ * through a Vercel serverless function proxy (`api/weekly-recap.ts`,
+ * since deleted) — that infrastructure is gone entirely now that this
+ * component generates its copy client-side from templates. */
 export function WeeklyRecapSection() {
   const { leagueId, season } = useCurrentSeason()
   const nflState = useNflState()
@@ -55,20 +60,20 @@ export function WeeklyRecapSection() {
 
   const hasScores = matchups.data?.some((m) => m.points > 0) ?? false
 
-  const summary = useMemo<WeeklyRecapSummary | null>(() => {
+  // Synchronous derivation, not a query -- there is nothing to fetch here
+  // beyond the Sleeper data above (already its own cached queries), and
+  // recomputing a plain object from already-loaded data is cheap enough
+  // that a separate caching layer would only add complexity for no real
+  // benefit. Recomputes only when the underlying Sleeper data actually
+  // changes, same as any other derived value.
+  const recapText = useMemo(() => {
     if (previousWeek < 1 || !hasScores) return null
     const rosterPositions = league.data?.roster_positions
     if (!rosterPositions || !matchups.data || !players.data || !rosters.data) return null
 
     const ownerByRosterId = new Map(rosters.data.map((r) => [r.roster_id, r.owner_id ?? null]))
-    const { teams, games } = weekRecap(
-      matchups.data,
-      ownerByRosterId,
-      rosterPositions,
-      players.data,
-    )
-    if (games.length === 0) return null
-    const awards = weekAwards({ teams, games })
+    const { teams } = weekRecap(matchups.data, ownerByRosterId, rosterPositions, players.data)
+    if (teams.length === 0) return null
 
     const allUsers = users.data ?? []
     const nameForUser = (userId: string | null) =>
@@ -76,66 +81,10 @@ export function WeeklyRecapSection() {
     const nameForPlayer = (playerId: string) =>
       playerDisplayName(players.data?.[playerId], playerId)
 
-    return {
-      season: season ?? '',
-      week: previousWeek,
-      games: games.map((g) => ({
-        winner: nameForUser(g.winner.userId),
-        winnerScore: g.winner.actual,
-        loser: nameForUser(g.loser.userId),
-        loserScore: g.loser.actual,
-        margin: g.margin,
-        tied: g.tied,
-        winnerTopStarter: g.winner.topStarter
-          ? {
-              name: nameForPlayer(g.winner.topStarter.playerId),
-              points: g.winner.topStarter.points,
-            }
-          : undefined,
-        loserTopStarter: g.loser.topStarter
-          ? { name: nameForPlayer(g.loser.topStarter.playerId), points: g.loser.topStarter.points }
-          : undefined,
-      })),
-      highScore: awards.highScore
-        ? { name: nameForUser(awards.highScore.userId), points: awards.highScore.actual }
-        : undefined,
-      lowScore: awards.lowScore
-        ? { name: nameForUser(awards.lowScore.userId), points: awards.lowScore.actual }
-        : undefined,
-      biggestBlowout: awards.biggestBlowout
-        ? {
-            winner: nameForUser(awards.biggestBlowout.winner.userId),
-            loser: nameForUser(awards.biggestBlowout.loser.userId),
-            margin: awards.biggestBlowout.margin,
-          }
-        : undefined,
-      closestGame: awards.closestGame
-        ? {
-            winner: nameForUser(awards.closestGame.winner.userId),
-            loser: nameForUser(awards.closestGame.loser.userId),
-            margin: awards.closestGame.margin,
-          }
-        : undefined,
-      worstEfficiency: awards.worstEfficiency
-        ? {
-            name: nameForUser(awards.worstEfficiency.userId),
-            efficiency: awards.worstEfficiency.efficiency,
-          }
-        : undefined,
-      mostLeftOnBench: awards.mostLeftOnBench
-        ? {
-            name: nameForUser(awards.mostLeftOnBench.userId),
-            points: awards.mostLeftOnBench.leftOnBench,
-          }
-        : undefined,
-      playerOfWeek: awards.playerOfWeek
-        ? {
-            team: nameForUser(awards.playerOfWeek.team.userId),
-            player: nameForPlayer(awards.playerOfWeek.slot.playerId),
-            points: awards.playerOfWeek.slot.points,
-          }
-        : undefined,
-    }
+    const stats = computeWeeklyRecapStats({ week: previousWeek, teams, nameForUser, nameForPlayer })
+    if (!stats) return null
+
+    return buildWeeklyRecap(stats, season ?? '')
   }, [
     previousWeek,
     hasScores,
@@ -146,22 +95,6 @@ export function WeeklyRecapSection() {
     users.data,
     season,
   ])
-
-  // staleTime: immutable -- a finished week's recap never changes, so this
-  // never regenerates (and never re-bills the Anthropic call) once it has
-  // landed once, matching the "completed weeks are cached forever"
-  // convention every other query in this project already follows
-  // (STALE_TIME.immutable, api/staleTime.ts). The existing global
-  // IndexedDB persister (api/queryClient.ts) carries this across page
-  // reloads/sessions the same way it does every other query -- no separate
-  // localStorage cache needed.
-  const recapQuery = useQuery({
-    queryKey: ['weekly-recap-ai', leagueId, season, previousWeek],
-    queryFn: () => generateWeeklyTrashTalk(summary as WeeklyRecapSummary),
-    enabled: summary !== null,
-    staleTime: STALE_TIME.immutable,
-    retry: 1,
-  })
 
   const sectionRef = useRef<HTMLDivElement>(null)
   const reducedMotion = useReducedMotion()
@@ -218,7 +151,7 @@ export function WeeklyRecapSection() {
     )
   }
 
-  const paragraphs = recapQuery.data?.split(/\n{2,}/).filter(Boolean) ?? []
+  const paragraphs = recapText?.split(/\n{2,}/).filter(Boolean) ?? []
 
   return (
     <section
@@ -231,15 +164,11 @@ export function WeeklyRecapSection() {
         <h2 className="font-display text-marble mt-2 text-3xl sm:text-4xl">The Damage Report</h2>
 
         <div className="mt-8 space-y-5 text-left">
-          {(prereqLoading || recapQuery.isPending) && !recapQuery.isError && (
+          {prereqLoading && (
             <p className="text-mute-on-ink animate-pulse text-center text-lg">Loading recap…</p>
           )}
 
-          {!prereqLoading && !hasScores && (
-            <p className="text-mute-on-ink text-center text-lg">Recap unavailable this week.</p>
-          )}
-
-          {recapQuery.isError && (
+          {!prereqLoading && paragraphs.length === 0 && (
             <p className="text-mute-on-ink text-center text-lg">Recap unavailable this week.</p>
           )}
 

@@ -2198,3 +2198,88 @@ from every other "not done: real-device check" note elsewhere in this
 document, which were about a rendering/animation detail on an already-
 working feature. This entire feature's actual output quality is unknown
 until the API key is configured and someone loads the page.
+
+## Phase H.6 Alternative — template-based weekly recap, zero API
+
+Replaced the Claude-API version of the recap section above with a fully
+client-side, template-based generator — no network call beyond the
+Sleeper data this project already fetches, no serverless function, no
+API key, no per-week latency or cost.
+
+**Removed entirely:** `api/weekly-recap.ts` (and the now-empty `api/`
+directory), `src/api/weeklyRecapAi.ts`, `tsconfig.api.json` and its
+reference in the root `tsconfig.json`, the `@vercel/node` devDependency,
+and `vercel.json`'s `api/` rewrite exclusion (reverted to its original
+form — nothing needs a server route anymore). This project is back to
+being a genuinely backend-free static SPA, matching CLAUDE.md's own
+description of it again rather than being an exception to it.
+
+**New `src/content/weeklyRecaps/recapTemplates.ts`** — pure hand-authored
+template strings (headline/opening/bench-blowup/efficiency/power-ranking/
+closing), several variations per slot, `{{placeholder}}` tokens. Follows
+the same "data file has no logic" split `content/lore`/`content/banter`
+already establish. Can be edited any time without touching any other
+file — more variety, retuned tone, whatever — since it's plain data with
+no build step of its own.
+
+**New `src/content/weeklyRecaps/index.ts`** — the one read/merge surface
+for that data (`buildWeeklyRecap()`), same convention as
+`content/lore/index.ts`. Picks a variant per template slot
+_deterministically_ from `(season, week, slot)` via a small string hash,
+not `Math.random()` — reloading the same week's page always shows the
+same phrasing rather than re-rolling every visit, while different weeks
+land on different variants without needing to track which ones have
+already been used.
+
+**New `src/api/computeWeeklyRecapStats.ts`** — pure derivation from the
+same `weekRecap()`-computed `TeamWeek[]` the journey/awards already use
+into the flat stats object the templates consume (high/low scorer, top
+three, bottom three, biggest bench blowup, efficiency leader, power
+ranking split into top/bottom halves). One honest simplification,
+documented in the type itself: "biggest bench blowup" compares a benched
+player's score against that team's own best _starter_, not a literal
+same-slot swap — Sleeper's data doesn't carry which slot a bench player
+would have filled, so a true apples-to-apples comparison isn't something
+this can honestly compute without guessing at a lineup that never
+happened. Returns `null` for "nobody had a bench player worth roasting"
+rather than a benchBlowup object filled with zeros, so `buildWeeklyRecap`
+can skip that paragraph outright instead of rendering nonsense.
+
+**`WeeklyRecapSection.tsx` rewritten** to call these two instead of the
+deleted `generateWeeklyTrashTalk`/`useQuery` pair — the recap text is now
+a plain `useMemo`, not a query: there is nothing to fetch beyond the
+Sleeper data already being fetched, and recomputing a cheap pure function
+from already-cached data doesn't need its own caching layer the way an
+actual network call did. The brief asked for "cache the computed stats in
+IndexedDB (same as other queries)" — deliberately not done as a separate
+mechanism, since the _inputs_ (Sleeper matchups/rosters/players) are
+already IndexedDB-persisted via the existing global query persister
+(`api/queryClient.ts`) with `STALE_TIME.immutable` for a completed week,
+and deriving from already-cached data is fast enough that adding a
+second cache around the derivation itself would be pure overhead. Same
+scroll-scrubbed enter/exit animation and per-paragraph `Reveal` stagger
+as before — those never depended on where the text came from.
+
+**Verified for real, not just typechecked:** ran the actual merge logic
+(`npx tsx` against a temporary scratch script, deleted after) with
+representative fake stats — confirmed the same `(season, week)` produces
+byte-identical output across repeated calls, a different week produces a
+different headline/opening variant, and setting `benchBlowup: null`
+correctly drops that paragraph instead of rendering broken placeholder
+text. This is the one piece of Phase H.6 that could actually be verified
+end-to-end from within this environment, unlike the Claude-API version's
+completely untested network call.
+
+**Verified:** `tsc -b`, `oxlint` (same seven pre-existing warnings, zero
+new), `prettier --write`, and a production `vite build` all pass.
+`npm audit` is back to zero vulnerabilities now that `@vercel/node`
+(which had pulled in the flagged transitive deps) is gone.
+
+**Not done:** real-device check of the actual rendered section — whether
+the roast tone lands as genuinely funny/sharp rather than flat, whether
+six template variations per slot feel repetitive by mid-season, and
+whether the "power ranking" phrasing reads naturally with a real week's
+worth of names rather than the placeholder set used here, are all
+real-device/content judgment calls this environment can't make. This one
+is at least a known-working feature rather than an untested network
+call, unlike the version it replaced.
