@@ -137,28 +137,54 @@ export function championshipsBySeason(seasons: SeasonData[]): SeasonChampionship
 /** Sleeper team name -> real player first name (PLAN.md Phase H.5) —
  * hand-authored per the league's request to show player identity instead
  * of team branding on the History page specifically, not sitewide (a
- * team name is exactly the right thing to show on Home/Team pages). Team
- * names can't be reverse-derived, so this is a plain lookup, not a
- * computation; anything not in the table falls back to its own team name
- * rather than disappearing or crashing, so an unmapped/future team still
- * renders. */
+ * team name is exactly the right thing to show on Home/Team pages).
+ *
+ * Verified against the live league's current (2026) `/users` response
+ * directly (PLAN.md Phase H.5 hotfix) rather than trusted as typed —
+ * the first version of this table was hand-typed from memory and 7 of
+ * its 12 entries didn't exactly match the real team names (case
+ * differences, a "Mooon" typo, and Tejas's real name carrying two ring
+ * emoji: "2x Champion 💍💍"). An exact-match lookup silently falls back
+ * to the raw team name on any mismatch (see `playerNameForTeamName`
+ * below) rather than erroring, which is exactly what made this
+ * invisible: Tejas's 2025 Sleeper-era championship was resolving to the
+ * literal string "2x" (`"2x Champion 💍💍".split(' ')[0]`) instead of
+ * merging with his 2023 pre-Sleeper title under "Tejas", undercounting
+ * him at 1 title instead of 2 and keeping him out of the trophy line's
+ * front slot.
+ *
+ * Team names can't be reverse-derived, so this stays a plain lookup, not
+ * a computation; anything not in the table falls back to its own team
+ * name rather than disappearing or crashing, so an unmapped/future team
+ * still renders. Matched case-insensitively (`playerNameForTeamName`
+ * normalizes both sides) as a defensive measure against the case drift
+ * that caused 4 of these 7 mismatches — it doesn't protect against a
+ * genuine typo or emoji difference the way this table's own values now
+ * being exact does, but it's a real, free improvement against the most
+ * common kind of future rename drift. */
 const PLAYER_NAME_BY_TEAM_NAME: Record<string, string> = {
+  'Chasing My Next Pacheco': 'Ayaad',
   'My Strange Nabers': 'Zuhayr',
-  '2x Champion': 'Tejas',
-  Rags: 'Raghav',
-  'Justins Team': 'Justin',
-  'I love to chase Brown ppl': 'Rohan',
+  '2x Champion 💍💍': 'Tejas',
   'Njigba Please': 'Supratim',
-  'Waddling to the Moon': 'Sabeeh',
-  'Hopeless again': 'Joey',
   'Mark up the Lamb Price': 'Jai',
+  'justins team': 'Justin',
+  'I Love to Chase Brown ppl': 'Rohan',
+  'hopeless again': 'Joey',
   'Hey Pukie': 'Nidhish',
-  ConkeyonmyCooktilliGoff: 'Zain',
-  'Chasing my next Pacheco': 'Ayaad',
+  'Waddling to the Mooon': 'Sabeeh',
+  Rags: 'Raghav',
+  ConkeyonmyCooktillIGoff: 'Zain',
 }
+const PLAYER_NAME_BY_TEAM_NAME_LOWER: Map<string, string> = new Map(
+  Object.entries(PLAYER_NAME_BY_TEAM_NAME).map(([teamName, playerName]) => [
+    teamName.trim().toLowerCase(),
+    playerName,
+  ]),
+)
 
 export function playerNameForTeamName(teamName: string): string {
-  return PLAYER_NAME_BY_TEAM_NAME[teamName] ?? teamName
+  return PLAYER_NAME_BY_TEAM_NAME_LOWER.get(teamName.trim().toLowerCase()) ?? teamName
 }
 
 export function playerNameForUser(userId: string, users: SleeperUser[]): string {

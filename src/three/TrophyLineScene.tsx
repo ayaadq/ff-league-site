@@ -1,9 +1,14 @@
 import { Trophy } from './Trophy'
-import { slotZ } from './trophyLineLayout'
+import { SIDE_OFFSET, slotZ } from './trophyLineLayout'
 
 const IGNITE = '#ff5a36'
 const CURRENT = '#2ee6d6'
-const TROPHY_GAP = 0.34
+// Scaled up from Trophy.tsx's authored size (PLAN.md Phase H.5 hotfix) --
+// at 1x the trophies read as too small/dark against the ink background,
+// especially on a phone screen. The gap between multiple trophies in one
+// slot scales with it so a 2-title slot's pair doesn't start overlapping.
+const TROPHY_SCALE = 1.8
+const TROPHY_GAP = 0.34 * TROPHY_SCALE
 
 export interface TrophyLineEntry {
   playerName: string
@@ -15,7 +20,13 @@ export interface TrophyLineEntry {
  * "one player, two trophies" rather than looking like two separate
  * people. A small accent point light per slot alternates ignite/current
  * along the line for some rhythm rather than every slot lighting
- * identically. */
+ * identically.
+ *
+ * The light sits toward +X, the same side the camera actually approaches
+ * from (`SIDE_OFFSET` in trophyLineLayout.ts) -- Phase H.5's original
+ * placement offset it in +Z instead, which doesn't face a side-view
+ * camera at all and left the trophies relying on ambient/HDRI light
+ * alone (PLAN.md Phase H.5 hotfix). */
 function TrophySlot({ entry, index }: { entry: TrophyLineEntry; index: number }) {
   const z = slotZ(index)
   const trophyCount = Math.max(1, entry.count)
@@ -26,17 +37,17 @@ function TrophySlot({ entry, index }: { entry: TrophyLineEntry; index: number })
       {Array.from({ length: trophyCount }, (_, i) => {
         const x = (i - (trophyCount - 1) / 2) * TROPHY_GAP
         return (
-          <group key={i} position={[x, 0, 0]}>
-            <Trophy />
+          <group key={i} position={[x, 0, 0]} scale={TROPHY_SCALE}>
+            <Trophy accentColor={accent} />
           </group>
         )
       })}
       <pointLight
         color={accent}
-        intensity={2.6}
-        distance={3.8}
+        intensity={4.5}
+        distance={5.5}
         decay={2}
-        position={[0, 1.15, 0.7]}
+        position={[SIDE_OFFSET * 0.4, 1.7, 0]}
       />
     </group>
   )

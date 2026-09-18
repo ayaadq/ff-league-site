@@ -1689,3 +1689,75 @@ tab's real data (title counts, tiebreak order) actually resolves once
 the 2024-2026 Sleeper brackets are checked against it live — are all
 real-device/data-verification calls this environment can't make. Same
 carried-forward real-device gap as every phase since the redesign began.
+
+## Phase H.5 hotfix — trophy visibility, and a real data bug behind "Tejas shows 1"
+
+Three requested fixes, but only one was actually a rendering issue —
+the other two (Tejas showing 1 trophy instead of 2, and not sorting to
+the front) turned out to be the same real data bug, found by fetching
+the live league's actual Sleeper API responses rather than assuming the
+hand-typed mapping table from Phase H.5 was correct.
+
+**The bug.** `PLAYER_NAME_BY_TEAM_NAME` (`api/leagueRecords.ts`) does an
+exact-string lookup from Sleeper team name to player name, falling back
+to the raw team name on no match. Fetched the live league's current
+`/users` response directly (`https://api.sleeper.app/v1/league/<id>/users`)
+to check the table against real data, and 7 of its 12 entries didn't
+exactly match: four were case differences ("justins team" vs "Justins
+Team", "hopeless again" vs "Hopeless again", "I Love to Chase..." vs "I
+love to chase...", "ConkeyonmyCooktillIGoff" vs "...tilliGoff"), one was
+a typo in the real team name ("Waddling to the **Mooon**", not "Moon"),
+and Tejas's real team name carries two ring emoji: `"2x Champion 💍💍"`,
+not the plain `"2x Champion"` the table had. Confirmed by walking the
+real season chain (2026's `previous_league_id` → 2025 → 2024) and
+resolving both years' championship-bracket winners: 2024's champion is
+"Rags" (→ Raghav, a title not previously known to the app), and 2025's
+is exactly that emoji-carrying team name — Tejas's real second title.
+
+Because the lookup failed silently (an exact-match miss falls back to
+the team name, not an error), Tejas's 2025 win was merging under the key
+`"2x"` (`"2x Champion 💍💍".split(' ')[0]`) instead of "Tejas" — a
+completely different `yearsByPlayer` entry from his 2023 pre-Sleeper
+title, so he showed as two separate 1x entries instead of one 2x, and
+neither had enough weight to sort to the front. This also means the
+Championships tab was rendering a nonsense "2x - 1x Champion" row before
+this fix, not just under-counting Tejas — a second, silent symptom the
+brief didn't ask about but this same table fix also resolves.
+
+**The fix.** Corrected all 12 entries to the exact strings from the live
+`/users` response. Also made the lookup itself case-insensitive
+(`playerNameForTeamName` now compares `.trim().toLowerCase()` on both
+sides via a pre-normalized `Map`) as a defensive measure against the
+most common kind of future rename drift — it wouldn't have caught the
+typo or the emoji difference, but does protect against the 4 case-only
+mismatches recurring. No change was needed to the trophy-count rendering
+logic itself (`TrophySlot` in `TrophyLineScene.tsx` already rendered
+`Math.max(1, entry.count)` trophies per slot) or the sort
+(`playerChampionships`'s existing count/wins/PFF sort) — both were
+already correct, and correctly reflect Tejas at the front with 2 trophies
+now that the underlying data merges properly.
+
+**Trophy visibility** (the one genuinely visual fix). `Trophy.tsx`: added
+a flat, unlit glow disc at the base (`meshBasicMaterial`,
+`toneMapped={false}`, the same "reads regardless of scene lighting"
+idiom this project's other small accent details already use — Football's
+laces, JourneyScene's yard lines), colored via a new `accentColor` prop
+(alternating ignite/current per slot, same as the point light).
+`TrophyLineScene.tsx`: trophies scaled 1.8x (`TROPHY_SCALE`, with the
+multi-trophy gap scaled alongside it so a 2-title slot's pair doesn't
+start overlapping), and the per-slot point light repositioned from an
+offset in +Z — which doesn't face a *side-view* camera at all — to +X
+(`SIDE_OFFSET`'s own direction, the side the camera actually approaches
+from), with intensity raised 2.6→4.5 and distance 3.8→5.5.
+
+**Verified:** `tsc -b`, `oxlint` (same seven pre-existing warnings, zero
+new), `prettier --write`, and a production `vite build` all pass.
+
+**Not done:** real-device check on the live Vercel URL — whether the
+trophies now read as clearly visible/premium rather than just "less dark
+than before," and whether the new light position/intensity looks right
+rather than blown out, are real-device/visual judgment calls this
+environment can't make. Worth also spot-checking the Championships tab
+directly against this same live-fetch approach once real users can look
+at it, in case any of the *other* 11 team names have since been renamed
+again since this fix was written.
