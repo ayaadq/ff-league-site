@@ -22,39 +22,46 @@ export interface TrophyLineEntry {
  * camera's own viewing axis here: `TrophyLineCameraRig.tsx` sits at a
  * fixed X and looks down -X, so an X offset foreshortens toward zero
  * separation on screen instead of actually separating two cups
- * left/right the way a Z offset does). Each cup swaps which accent is
- * dominant (`bowlColor` vs `baseColor`) relative to its neighbor, so two
- * cups on the same podium read as visually distinct trophies, not one
- * cup duplicated.
+ * left/right the way a Z offset does).
  *
- * A small accent point light per slot alternates ignite/current along
- * the line for some rhythm rather than every slot lighting identically
- * — on top of each cup's own self-illuminated material, this is extra
- * ambient spill onto the podium below it, not what makes the cups
- * themselves visible. */
-function TrophySlot({ entry, index }: { entry: TrophyLineEntry; index: number }) {
+ * Each cup is a solid color, alternating ignite/current across the
+ * *global* running cup count (`cupIndexOffset`, passed in from
+ * `TrophyLineScene` below), not this slot's own index — a 2-cup slot's
+ * pair are two differently, solidly colored trophies (PLAN.md Phase H.5
+ * hotfix #4, replacing the previous pass's two-tone bowl/stem split per
+ * cup), and the alternation carries on seamlessly into the next slot's
+ * cup(s) rather than resetting per slot.
+ *
+ * The podium's own glow/point light still key off this slot's own index
+ * (not the running cup count) for rhythm along the line — that's ambient
+ * spill onto the podium, not the cups' own color. */
+function TrophySlot({
+  entry,
+  index,
+  cupIndexOffset,
+}: {
+  entry: TrophyLineEntry
+  index: number
+  cupIndexOffset: number
+}) {
   const z = slotZ(index)
   const cupCount = Math.max(1, entry.count)
-  const accent = index % 2 === 0 ? IGNITE : CURRENT
-  const otherAccent = accent === IGNITE ? CURRENT : IGNITE
+  const podiumAccent = index % 2 === 0 ? IGNITE : CURRENT
 
   return (
     <group position={[0, 0, z]}>
-      <Podium accentColor={accent} />
+      <Podium accentColor={podiumAccent} />
       {Array.from({ length: cupCount }, (_, i) => {
         const cupZ = (i - (cupCount - 1) / 2) * CUP_GAP
-        const swapped = i % 2 === 1
+        const cupColor = (cupIndexOffset + i) % 2 === 0 ? IGNITE : CURRENT
         return (
           <group key={i} position={[0, CUP_BASE_Y, cupZ]}>
-            <TrophyCup
-              bowlColor={swapped ? otherAccent : accent}
-              baseColor={swapped ? accent : otherAccent}
-            />
+            <TrophyCup color={cupColor} />
           </group>
         )
       })}
       <pointLight
-        color={accent}
+        color={podiumAccent}
         intensity={4.5}
         distance={5.5}
         decay={2}
@@ -73,10 +80,24 @@ function TrophySlot({ entry, index }: { entry: TrophyLineEntry; index: number })
  * against the canvas's own ink background (`TrophyLineCanvas.tsx`), not
  * the old scene's flat paper-white one. */
 export function TrophyLineScene({ entries }: { entries: TrophyLineEntry[] }) {
+  // Each slot's starting position in the global cup sequence -- computed
+  // as a fresh array rather than a mutable running counter inside the
+  // render/map below, which oxlint's immutability rule (correctly) flags
+  // as unsafe to reassign after render.
+  const cupIndexOffsets = entries.reduce<number[]>((offsets, _entry, i) => {
+    offsets.push(i === 0 ? 0 : offsets[i - 1] + Math.max(1, entries[i - 1].count))
+    return offsets
+  }, [])
+
   return (
     <group>
       {entries.map((entry, i) => (
-        <TrophySlot key={entry.playerName} entry={entry} index={i} />
+        <TrophySlot
+          key={entry.playerName}
+          entry={entry}
+          index={i}
+          cupIndexOffset={cupIndexOffsets[i]}
+        />
       ))}
     </group>
   )

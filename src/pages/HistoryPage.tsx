@@ -49,9 +49,18 @@ const NO_SEASONS: SeasonChainEntry[] = []
  * the whole line's scroll track needs to scale with however many
  * distinct champions there are (real Sleeper data, not a fixed count),
  * so "no cutoff, all players visible" holds regardless of how many
- * people have won a title by the time this renders. */
-const TROPHY_SLOT_SVH = 70
-const TROPHY_TRACK_BUFFER_SVH = 60
+ * people have won a title by the time this renders. Raised from 70/60svh
+ * (PLAN.md Phase H.5 hotfix #4) — 70svh per slot felt fast enough that a
+ * normal scroll speed could carry a reader through most of the line
+ * before they'd registered what was happening, and now matches
+ * WeeklyJourney's own per-matchup dwell (100svh, "every matchup is
+ * exactly one screen tall") for a consistent pace between this project's
+ * two scroll-driven "walk through N things" sections. The bigger
+ * contributor to champions actually getting cut off was a real bug in
+ * `trophyLineLayout.ts`'s camera math (fixed alongside this), not just
+ * this number being too small on its own. */
+const TROPHY_SLOT_SVH = 100
+const TROPHY_TRACK_BUFFER_SVH = 90
 
 export function HistoryPage() {
   const { play } = useSound()

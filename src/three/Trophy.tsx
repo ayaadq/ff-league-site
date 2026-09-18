@@ -92,16 +92,18 @@ function Handle({ accentColor, side }: { accentColor: string; side: 'left' | 'ri
 }
 
 /** One trophy cup — base plate, tapered stem, a wide flared bowl with a
- * rim, and two side handles — a real loving-cup silhouette rather than
- * the previous pass's plain foot/stem/dome (PLAN.md Phase H.5 hotfix
- * #3). Two-tone: `bowlColor` covers the bowl/rim/handles (the dominant,
- * most visible mass), `baseColor` the stem/base plate beneath it, so
- * every cup genuinely uses both ignite and current rather than one
- * accent per slot. Every part stays `meshBasicMaterial`/
- * `toneMapped={false}` from the previous hotfix — fully self-illuminated
- * regardless of scene lighting, this project's actual mechanism for
- * "glows" given it avoids bloom/post-processing on mobile (SPEC.md
- * §7.2).
+ * rim, and two side handles — a real loving-cup silhouette. Solid one
+ * color across every part (PLAN.md Phase H.5 hotfix #4 — the previous
+ * pass's two-tone bowl/stem split read as "half-colored" rather than "a
+ * distinct trophy," so every part now takes the same `color`).
+ * `TrophyLineScene.tsx` alternates that color ignite/current across the
+ * *global* sequence of cups (not per slot), so a 2-cup podium's pair are
+ * two differently, solidly colored trophies, and the alternation
+ * continues seamlessly into the next slot's cup(s) rather than resetting.
+ * Every part stays `meshBasicMaterial`/`toneMapped={false}` — fully
+ * self-illuminated regardless of scene lighting, this project's actual
+ * mechanism for "glows" given it avoids bloom/post-processing on mobile
+ * (SPEC.md §7.2).
  *
  * Dumb, no position of its own — callers (`TrophyLineScene.tsx`) place
  * this on top of a `<Podium>` and offset multiple cups apart along Z
@@ -110,19 +112,19 @@ function Handle({ accentColor, side }: { accentColor: string; side: 'left' | 'ri
  * them front-to-back, would foreshorten toward zero separation from this
  * camera's exact viewing angle rather than actually separating them on
  * screen). */
-export function TrophyCup({ bowlColor, baseColor }: { bowlColor: string; baseColor: string }) {
+export function TrophyCup({ color }: { color: string }) {
   const bowlBaseY = CUP_BASE_HEIGHT + CUP_STEM_HEIGHT
   return (
     <group>
       <mesh position={[0, CUP_BASE_HEIGHT / 2, 0]}>
         <cylinderGeometry args={[CUP_BASE_RADIUS, CUP_BASE_RADIUS * 1.1, CUP_BASE_HEIGHT, 24]} />
-        <meshBasicMaterial color={baseColor} toneMapped={false} />
+        <meshBasicMaterial color={color} toneMapped={false} />
       </mesh>
       <mesh position={[0, CUP_BASE_HEIGHT + CUP_STEM_HEIGHT / 2, 0]}>
         <cylinderGeometry
           args={[CUP_STEM_TOP_RADIUS, CUP_STEM_BOTTOM_RADIUS, CUP_STEM_HEIGHT, 20]}
         />
-        <meshBasicMaterial color={baseColor} toneMapped={false} />
+        <meshBasicMaterial color={color} toneMapped={false} />
       </mesh>
       {/* Open-ended (no caps baked in) so the bowl reads as hollow --
           DoubleSide so the inside wall still renders if the camera ever
@@ -133,20 +135,20 @@ export function TrophyCup({ bowlColor, baseColor }: { bowlColor: string; baseCol
         <cylinderGeometry
           args={[CUP_BOWL_TOP_RADIUS, CUP_BOWL_BOTTOM_RADIUS, CUP_BOWL_HEIGHT, 28, 1, true]}
         />
-        <meshBasicMaterial color={bowlColor} toneMapped={false} side={DoubleSide} />
+        <meshBasicMaterial color={color} toneMapped={false} side={DoubleSide} />
       </mesh>
       <mesh position={[0, bowlBaseY, 0]} rotation={[-Math.PI / 2, 0, 0]}>
         <circleGeometry args={[CUP_BOWL_BOTTOM_RADIUS, 28]} />
-        <meshBasicMaterial color={bowlColor} toneMapped={false} />
+        <meshBasicMaterial color={color} toneMapped={false} />
       </mesh>
       <mesh position={[0, bowlBaseY + CUP_BOWL_HEIGHT, 0]} rotation={[Math.PI / 2, 0, 0]}>
         <torusGeometry args={[CUP_BOWL_TOP_RADIUS, CUP_RIM_TUBE, 12, 32]} />
-        <meshBasicMaterial color={bowlColor} toneMapped={false} />
+        <meshBasicMaterial color={color} toneMapped={false} />
       </mesh>
-      <Handle accentColor={bowlColor} side="left" />
-      <Handle accentColor={bowlColor} side="right" />
+      <Handle accentColor={color} side="left" />
+      <Handle accentColor={color} side="right" />
       <pointLight
-        color={bowlColor}
+        color={color}
         intensity={4}
         distance={3.2}
         decay={2}

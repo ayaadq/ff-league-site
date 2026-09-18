@@ -1818,15 +1818,16 @@ turned out to have two independent causes, not one.
 
 **The overlap bug.** Two things were each wrong on their own, and
 together fully explain why a 2-title slot's cups were indistinguishable:
+
 1. The previous pass offset multiple cups along **X**. The trophy line's
    camera (`TrophyLineCameraRig.tsx`) sits at a fixed X and looks down
-   -X — X is its *depth* axis, not a left-right screen axis, so an X
+   -X — X is its _depth_ axis, not a left-right screen axis, so an X
    offset between two cups foreshortens toward near-zero separation on
    screen instead of actually placing them side by side. Z is the axis
    that reads as "sideways" to this camera (it's also the axis the whole
    line itself runs along), so cups now offset along Z instead. The
    brief's own option (B) — offset one forward/back for depth separation
-   — would have hit the exact same problem, since "forward/back" *is* X
+   — would have hit the exact same problem, since "forward/back" _is_ X
    here; documented in `TrophyCup`'s own comment so this doesn't get
    re-introduced by a future pass reaching for the intuitive-sounding
    fix.
@@ -1872,3 +1873,67 @@ non-overlapping, and whether the redesigned silhouette is "immediately
 recognizable as a championship trophy" are all real-device/visual
 judgment calls this environment can't make. Same carried-forward gap as
 every phase since the redesign began.
+
+## Phase H.5 hotfix #4 — solid trophy colors, and a real dwell-time bug behind cut-off champions
+
+Two fixes: a straightforward color simplification, and a scroll-pacing
+issue that turned out to have a real, previously-unimplemented bug behind
+it rather than just needing a bigger number.
+
+**Solid colors.** `TrophyCup` (`Trophy.tsx`) took a single `color` prop
+in place of the previous hotfix's two-tone `bowlColor`/`baseColor` split,
+applied to every part (base, stem, bowl, rim, both handles) — one solid
+color per cup rather than "half-colored." `TrophyLineScene.tsx` now
+alternates ignite/current across the *global* running count of cups
+(`cupIndexOffset`, computed as a plain array via `.reduce()` rather than
+a mutable counter incremented inside the render `.map()` — oxlint's
+immutability rule correctly flagged the mutable version), not per slot,
+so a 2-cup podium's pair are two distinctly, solidly colored trophies and
+the alternation continues into the next slot rather than resetting. The
+podium's own glow/point light still key off the slot's own index for
+rhythm along the line — that's ambient spill, not the cups' own color.
+
+**The dwell-time bug.** `cameraZAtProgress`'s own doc comment (written in
+the original Phase H.5 pass) claimed "a little lead-in/lead-out room so
+the front and back trophies aren't jammed right at the edge of the
+frame" — but the function itself was a bare lerp across the full 0..1
+progress range with no such margin ever actually implemented. In
+practice this meant the camera reached the *last* slot at the exact
+instant the scrollable range ran out, with zero time left to look at it
+before the track released — a strong candidate for the real cause behind
+"scrolled past before all champions were visible," independent of how
+much total scroll distance the track had. Fixed with a real
+`easedProgress()` (an 8% margin at each end, `LEAD_FRACTION`) that both
+`cameraZAtProgress` and `activeIndexAtProgress` now share, so the camera
+holds at the front/back slot for a real dwell window rather than arriving
+right as the section ends, and the two functions can't drift out of sync
+with each other.
+
+A second, smaller bug in the same function: `activeIndexAtProgress`
+picked the active slot via `Math.round(progress * (count - 1))`, which
+centers bins on each slot's exact position — giving the *first* and
+*last* slots only half the dwell window of every middle slot. Switched to
+the same equal-bin scheme `journeyLayout.ts`'s `matchupIndexAtProgress`
+already uses (`Math.floor(eased * count)`), so every slot, including the
+front and back, gets a genuinely equal share.
+
+**Also raised the per-slot scroll distance** from 70svh/60svh buffer to
+100svh/90svh (`HistoryPage.tsx`), matching `WeeklyJourney`'s own
+per-matchup dwell convention (100svh, "every matchup is exactly one
+screen tall") — a real, if smaller, contributor on its own, since the
+camera-math bug alone wouldn't necessarily have made 70svh feel
+comfortable at a normal scroll speed.
+
+**Verified:** `tsc -b`, `oxlint` (same seven pre-existing warnings after
+fixing one genuinely new one this pass introduced and caught before
+committing — a mutable loop counter reassigned during render, replaced
+with a pure `.reduce()` over the entries array), `prettier --write`, and
+a production `vite build` all pass.
+
+**Not done:** real-device check on the live Vercel URL — whether the new
+8% lead-in/lead-out margin feels right (too much dead scroll at the ends
+vs. too little), whether solid-colored cups read more clearly as
+distinct trophies than the previous two-tone version, and whether every
+champion is now genuinely reachable without feeling rushed, are all
+real-device judgment calls this environment can't make. Same
+carried-forward gap as every phase since the redesign began.
