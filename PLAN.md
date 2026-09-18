@@ -2400,7 +2400,7 @@ that week" when viewing an older week after more games have been played.
 full-bleed section in this project already uses), with a `max-w-5xl`
 inner reading column. Matchup cards collapse/expand via local
 `useState` per card (the brief's own "lazy-load... don't render all at
-once" — deferred *disclosure*, not deferred *fetching*: all the data is
+once" — deferred _disclosure_, not deferred _fetching_: all the data is
 already loaded, only the expanded detail's DOM is conditionally
 rendered). A week-selector `<select>` at the bottom serves as the
 "previous recaps" browser, populated from every concluded week
@@ -2437,3 +2437,18 @@ matchup cards feel responsive to tap, and whether the new page's density
 holds up on a 390px screen, are all real-device judgment calls this
 environment can't make. Same carried-forward gap as every phase since the
 redesign began.
+
+### Quick fix — recap CTA button moved below the teaser
+
+The "View Full Weekly Recap" button used to live inside
+`PaperCrumpleSection.tsx`, overlaid on the canvas itself. Moved it out
+entirely — `PaperCrumpleSection` is now just the canvas, no button/link
+markup or the scroll-linked lift tween that used to animate it — and
+into `HomePage.tsx` directly, as a plain centered `bg-gold-bright` link
+sitting after `WeeklyRecapSection`'s own content and before
+`SeasonLeadersSection`. Order is now: journey → paper crumple → recap
+teaser → button → season leaders.
+
+**Verified:** `tsc -b`, `oxlint` (same nine warnings from the previous
+entry — seven pre-existing, two already-accepted — zero new), `prettier
+--write`, and a production `vite build` all pass.

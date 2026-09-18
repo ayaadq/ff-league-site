@@ -1,4 +1,5 @@
 import { useMemo } from 'react'
+import { Link } from 'react-router'
 import {
   useAllPlayers,
   useCurrentSeason,
@@ -223,11 +224,24 @@ export function HomePage() {
           H.6 Alternative) -- distinct from Act 1 above: this renders every
           week from live Sleeper numbers via hand-authored templates,
           whether or not anyone has hand-authored a recap for it. Sits
-          after the paper-crumple CTA now (moved from before Act 1) so the
-          "view full recap" button leads straight into this shorter teaser
-          before the rest of the page continues. No Reveal wrapper -- it
-          manages its own scroll-scrubbed enter/exit animation. */}
+          after the paper crumple now (moved from before Act 1) so the
+          crumple leads straight into this shorter teaser before the "view
+          full recap" button below it. No Reveal wrapper -- it manages its
+          own scroll-scrubbed enter/exit animation. */}
         <WeeklyRecapSection />
+
+        {/* CTA into the full recap page -- sits below the teaser's own
+          content now (layout hotfix; previously overlaid the paper
+          crumple canvas above, before the reorder that moved
+          WeeklyRecapSection in between). */}
+        <div className="mt-10 flex justify-center md:mt-14">
+          <Link
+            to="/weekly-recaps"
+            className="bg-gold-bright text-marble rounded-full px-8 py-3 text-sm font-semibold tracking-[0.1em] uppercase shadow-lg transition-transform hover:scale-105"
+          >
+            View Full Weekly Recap
+          </Link>
+        </div>
 
         <SeasonLeadersSection leaders={leaders} />
 
