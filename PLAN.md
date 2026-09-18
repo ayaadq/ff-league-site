@@ -2283,3 +2283,48 @@ worth of names rather than the placeholder set used here, are all
 real-device/content judgment calls this environment can't make. This one
 is at least a known-working feature rather than an untested network
 call, unlike the version it replaced.
+
+### Hotfix — two more team-name mappings, one factual correction
+
+Two requested additions to `PLAYER_NAME_BY_TEAM_NAME`, verified against
+live Sleeper data the same way the Phase H.5 hotfix's original 7-of-12
+mismatches were caught, rather than trusted as typed.
+
+**"Dammit russ" → Rishab:** confirmed. The real string has a trailing
+space ("Dammit russ ", 2025 season) — harmless, since this table's lookup
+already `.trim()`s both sides before comparing. Owner is `RishabhIyer7`,
+not present in the current (2026) 12-team roster.
+
+**"Team Lost Cause" → Justin:** did not check out, and wasn't added as
+asked. Walked all three Sleeper seasons directly — the closest real team
+name is "Lost Cause" (no "Team" prefix, 2024 season only), owned by a
+completely different Sleeper account (`display_name: "Arsham"`) than
+Justin's (`justinmjoyce`, whose 2024/2025/2026 team names were "sorry
+team"/"tight white ends"/"justins team" — never anything with "Lost
+Cause"). Asked the user to confirm before mapping two different people's
+history together; they confirmed Arsham is a separate, real, distinct
+manager and asked for him to be integrated in his own right instead —
+mapped as `'Lost Cause': 'Arsham'`.
+
+**No new data-fetching was needed for Arsham.** The follow-up request
+described fetching his roster/matchups via a fresh `/v1/user/{id}/leagues`
+call, as if he were external data — he isn't. He's already inside the
+2024 season this app's own season chain walks every load;
+`mergeUsersAcrossSeasons` and `buildGameResults` (`api/leagueRecords.ts`)
+already include every manager from every season, current roster or not.
+Adding the one mapping entry is the entire fix: his real name now
+resolves everywhere `playerNameForUser` already runs, most visibly in
+Head-to-Head's manager dropdown (`allUsers`-derived, already cross-season)
+— selecting "Arsham" there now shows his real 2024 record. He correctly
+does not appear in the Championships tab or trophy line (never won a
+title) or in the current-season Standings table on Home (not a current
+roster). A literal "combined standings table, current 12 then historical
+managers at the bottom" section, as separately described, doesn't exist
+anywhere in this codebase yet and wasn't built here — it's a distinct,
+larger feature from "make his name and history resolve correctly," which
+is what was actually blocking, and building new speculative
+infrastructure for a section that may not be wanted once the simpler fix
+is understood didn't seem like the right call to make unprompted.
+
+**Verified:** `tsc -b`, `oxlint` (same seven pre-existing warnings, zero
+new), `prettier --write`, and a production `vite build` all pass.

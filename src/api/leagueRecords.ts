@@ -175,6 +175,20 @@ const PLAYER_NAME_BY_TEAM_NAME: Record<string, string> = {
   'Waddling to the Mooon': 'Sabeeh',
   Rags: 'Raghav',
   ConkeyonmyCooktillIGoff: 'Zain',
+  // The two entries below are past-season-only managers, no longer in the
+  // current (2026) 12-team roster -- confirmed by walking all three
+  // Sleeper seasons directly (League History hotfix), not assumed. Their
+  // cross-season history (Head-to-Head, Best Week, etc.) already surfaces
+  // automatically once mapped: `mergeUsersAcrossSeasons`/`buildGameResults`
+  // already walk every season including the ones these two only appear
+  // in, so no separate data fetch was needed to "add" them.
+  'Dammit russ': 'Rishab', // 2025 team name (real string has a trailing
+  // space, "Dammit russ ", stripped by this table's own trim()-before-
+  // compare lookup) -- RishabhIyer7, not in the 2026 season.
+  'Lost Cause': 'Arsham', // 2024 team name -- a distinct Sleeper account
+  // (display_name "Arsham") from Justin's (justinmjoyce); confirmed NOT
+  // the same manager as Justin before mapping this, since the original
+  // ask conflated the two.
 }
 const PLAYER_NAME_BY_TEAM_NAME_LOWER: Map<string, string> = new Map(
   Object.entries(PLAYER_NAME_BY_TEAM_NAME).map(([teamName, playerName]) => [
