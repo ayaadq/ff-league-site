@@ -3,6 +3,7 @@ import { SoundProvider } from './audio/SoundProvider'
 import { PasswordGate } from './auth/PasswordGate'
 import { useAuthGate } from './auth/useAuthGate'
 import { Layout } from './components/Layout'
+import { useLenis } from './hooks/useLenis'
 import { EffectsTierProvider } from './motion/EffectsTierProvider'
 import { ReducedMotionProvider } from './motion/ReducedMotionProvider'
 import { HistoryPage } from './pages/HistoryPage'
@@ -12,6 +13,7 @@ import { WeeklyRecapsPage } from './pages/WeeklyRecapsPage'
 
 function App() {
   const { unlocked, unlock } = useAuthGate()
+  useLenis()
 
   return (
     <EffectsTierProvider>
