@@ -14,7 +14,7 @@ import { useLeague } from '../api/useWeekRecap'
 import { computeWeeklyRecapStats } from '../api/computeWeeklyRecapStats'
 import { weekRecap } from '../api/weeklyRecap'
 import { buildWeeklyRecap } from '../content/weeklyRecaps'
-import { setupGsap } from '../motion/gsapSetup'
+import { EASE, setupGsap } from '../motion/gsapSetup'
 import { useReducedMotion } from '../motion/reducedMotionContext'
 import { Reveal } from '../motion/Reveal'
 import { SectionKicker } from './SectionKicker'
@@ -112,6 +112,17 @@ export function WeeklyRecapSection() {
     // fairground"). This section is different -- a distinct scroll
     // "moment" between the hero and the journey, not persistent reference
     // content someone scrolls back to reread.
+    //
+    // Ease switched from raw `power2.out`/`power2.in` literals to this
+    // project's own `EASE.weighted` token (animation optimization pass)
+    // -- SPEC.md §5.5's own mandate is one consistent "weighted" motion
+    // texture site-wide, the same curve `Reveal.tsx` and
+    // `PlayerCardArc.tsx`'s drag-release already use, not each transition
+    // picking its own GSAP preset. `will-change` added since this element
+    // is continuously mutated for the whole scrub range, not a one-shot
+    // tween -- a real hint for the browser to promote it to its own
+    // compositor layer up front rather than reactively.
+    el.style.willChange = 'opacity, transform'
     const ctx = gsap.context(() => {
       gsap.set(el, { opacity: 0, y: 48 })
       const tl = gsap.timeline({
@@ -122,9 +133,9 @@ export function WeeklyRecapSection() {
           scrub: 0.6,
         },
       })
-      tl.to(el, { opacity: 1, y: 0, ease: 'power2.out', duration: 0.35 })
+      tl.to(el, { opacity: 1, y: 0, ease: EASE.weighted, duration: 0.35 })
         .to(el, { opacity: 1, y: 0, duration: 0.3 })
-        .to(el, { opacity: 0, y: -48, ease: 'power2.in', duration: 0.35 })
+        .to(el, { opacity: 0, y: -48, ease: EASE.weighted, duration: 0.35 })
     }, sectionRef)
 
     return () => ctx.revert()

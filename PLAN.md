@@ -2482,3 +2482,115 @@ had introduced (accepted at the time as the same class as
 genuinely gone — `prettier --write`, and a production `vite build` all
 pass. The build's own chunk list confirms the `PaperCrumpleCanvas` lazy
 chunk is gone from the bundle entirely, not just unreferenced.
+
+## Animation audit — one real fix, everything else checked and already fine
+
+A full code-level pass across every animation on the site, against the
+checklist requested. Read through every GSAP/ScrollTrigger call site,
+every `useFrame`, every `will-change`/DOM-query pattern in the codebase
+— not a sample. One genuine fix came out of it; most of the checklist's
+concerns turned out to already be handled, several by earlier phases in
+this exact document, and a few can't honestly be answered without a real
+browser, which this environment doesn't have.
+
+**What was actually fixed.** `WeeklyRecapSection.tsx`'s section-level
+enter/exit tween used raw `power2.out`/`power2.in` literals instead of
+this project's own `EASE.weighted` token (`motion/gsapSetup.ts`) — the
+one real ease inconsistency found. SPEC.md §5.5 calls for one consistent
+"weighted" motion texture site-wide specifically so it doesn't become "two
+curves that happen to both be called weighted"; `Reveal.tsx` and
+`PlayerCardArc.tsx`'s drag-release already use `EASE.weighted`, and this
+was the one UI-transition site-wide that didn't. Switched both legs to
+it. Also added `will-change: opacity, transform` directly on that
+element — it's continuously mutated for its entire scrub range, not a
+one-shot tween, so it's a real candidate for the hint (added, not blanket
+-applied elsewhere; see below on why the other candidates weren't).
+
+**Ease audit — most of it was already correct, on purpose.** Every
+scroll-scrubbed camera rig (`ScrollCameraRig`, `JourneyCameraRig`,
+`TrophyLineCameraRig`, `PlayerCardArc`, `HeroSection`) already uses
+`ease: 'none'` with a comment explaining the scrub value itself supplies
+the "weight," not the ease — correct and consistent, no change needed.
+The remaining raw `power1`/`power2` literals (`ConfettiLayer`,
+`HeroScene`'s ball drop, `JourneyCameraRig`'s pass-through flourish,
+`NextWeekPreview`'s pixel burst/disintegration) are all physics-motivated
+one-shot flourishes (falling confetti, a ball accelerating away, a card
+collapsing into an explosion), not UI transitions — deliberately left
+alone rather than force-fit onto the UI-motion `EASE` tokens, which would
+have blurred an intentionally sharp "physical" moment into a softer
+generic fade. Standardizing *everything* onto one ease would have been
+the wrong kind of consistency here; the real fix was the one place a UI
+transition had drifted from the UI-motion standard, not making every
+different kind of motion identical.
+
+**Checked, found already correct, no change needed:**
+- *DOM query caching* — every `document.getElementById` call in the
+  codebase (`JourneyCameraRig`, `HeroScene`, `PlayerCardArc`,
+  `ScrollCameraRig`, `TrophyLineCameraRig`, `HeroSection`,
+  `NextWeekPreview`) happens exactly once inside a `useEffect` setup and
+  is captured in a closure, never re-queried per frame or per scroll tick.
+- *Layout-thrashing properties* — grepped every `gsap.to`/`fromTo`/`from`
+  call site in the codebase; none animates `top`/`left`/`width`/`height`/
+  `margin`. Everything animates `x`/`y`/`scale`/`rotate`/opacity, all
+  compositor-friendly.
+- *Per-frame allocation* — `PlayerCardArc.tsx` is the only component with
+  a continuous (not scroll-event-driven) `useFrame`, and it's already
+  about as tight as this gets: one ref read, one property write, zero
+  allocations. No other component runs a continuous per-frame loop
+  (`JourneyCameraRig`/`TrophyLineCameraRig`'s `place()` fires on scroll
+  *events* via GSAP's `onUpdate`, not every rendered frame).
+- *Overlapping/conflicting ScrollTrigger instances* — every trigger in the
+  codebase targets its own distinct DOM id (`hero-scroll-track`,
+  `weekly-journey-track`, `trophy-line-scroll-track`,
+  `player-cards-scroll-track`, `nextweek-track-${index}`); no two rigs
+  share a trigger element.
+  - *ScrollTrigger dwell margins* — the checklist asked to "tighten
+    overly generous margins if causing stutters." This project's actual
+    history has run the other direction: `journeyLayout.ts`'s
+    `FINALE_DWELL_SVH`/`LEAD_FRACTION` and `trophyLineLayout.ts`'s own
+    lead fraction were both *raised* across several hotfixes earlier in
+    this document because they were too tight, cutting finales/champions
+    off before the animation finished. No evidence found of the opposite
+    problem now; tightening them back down would risk re-introducing bugs
+    that took multiple real-device-reported rounds to fix.
+- *`will-change` coverage* — already present on the highest-frequency
+  DOM animation targets (`ConfettiLayer`'s and `NextWeekPreview`'s pixel/
+  confetti particles, the trading card's own 3D-flip container) before
+  this pass started.
+
+**Not a real issue, just an inaccurate checklist reference:** "review
+vertex displacement in Journey (camera + ball motion)" — `JourneyScene.tsx`
+has no vertex displacement of any kind; it's static geometry (field,
+goalposts, ball) with a rigid position/rotation update on the ball each
+scroll tick. The component that actually did per-vertex displacement
+(`PaperCrumpleAnimation.tsx`) was deleted entirely two commits ago.
+
+**Deliberately not done: WebGL context consolidation across Hero/Journey/
+PlayerCard canvases.** The checklist asked to check this, and it's a real,
+previously-documented concern — the original WebGL-context-loss incident
+earlier in this project's history was root-caused partly to too many
+concurrent `<Canvas>` instances on Home. That count is already down from
+4 to 3 since then (the 3D standings-wall canvas was deleted entirely in an
+earlier, unrelated cleanup). A further fix — viewport-gated lazy mounting
+so Journey/PlayerCard's WebGL contexts don't exist until scrolled near —
+was considered and not implemented: it doesn't reduce the *peak*
+concurrent count for someone who scrolls the whole page (all three still
+end up mounted together eventually), and a mount-gating bug is a strictly
+worse failure mode (a canvas that silently never appears) than the
+already-reduced status quo, on a change this environment has no way to
+verify against a real browser. Flagging it as a named follow-up rather
+than shipping something unverifiable.
+
+**Verified:** `tsc -b`, `oxlint` (same seven pre-existing warnings, zero
+new), `prettier --write`, and a production `vite build` all pass.
+
+**Cannot be verified from this environment, at all:** Lighthouse
+performance score, actual frame rate during any interaction, GPU usage,
+real touch-scroll feel, and every item under this checklist's own
+"Real-device test on iPhone 15 Pro Max" section. This isn't a gap in this
+pass specifically — it's been true of every phase in this entire
+document — but it's worth stating plainly for a task whose own title is
+"optimization pass," since a code-level audit can find and fix real
+issues (one was found and fixed above) but cannot confirm the actual,
+measured result without a real device and a real profiler, neither of
+which exist in this session.
