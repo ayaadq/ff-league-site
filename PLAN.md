@@ -1568,7 +1568,7 @@ New `championshipsBySeason()` in `api/leagueRecords.ts` — each season's
 championship bracket match (`p: 1`), both `w` (winner) and `l` (loser)
 resolved to their roster's `owner_id`. This is the per-year complement to
 the existing `championsByUser()`, which only ever aggregated a title
-*count* per manager and was left completely untouched (still Sleeper-only,
+_count_ per manager and was left completely untouched (still Sleeper-only,
 still feeding the existing "Championships" tally section as before).
 
 `HistoryPage.tsx` merges `preSleeperArchive` (2020-2023) with
@@ -1592,3 +1592,100 @@ phase since the redesign began. Also worth a look once the current
 2026 season concludes: this list will show a `season` for it as soon as
 its bracket resolves, same as every other season-chain-driven record on
 this page — nothing specific to this feature, just noting it's live data.
+
+## Phase H.5 — League History podium redesign (player names + 3D trophy line)
+
+The user's own request named this "Phase H.4" — renumbered to H.5 here
+since that number was already used for the pre-Sleeper-archive addition
+directly above; the commit message still uses the user's exact wording.
+A complete redesign of League History's championship display: player
+names everywhere on this page instead of team names, the separate
+aggregate-count and year-by-year sections combined into one tab, and the
+marble/gold `TrophyRoomScene` replaced with a scroll-driven 3D trophy
+line.
+
+**Player names, not team names, on this page only.** New
+`PLAYER_NAME_BY_TEAM_NAME` in `api/leagueRecords.ts` — a hand-authored
+lookup from each of the 12 current Sleeper team names to the manager's
+real first name, falling back to the team name itself for anything not
+in the table (an unmapped/future team still renders instead of
+disappearing). `playerNameForUser()` composes this with the existing
+`teamNameForUser()`. Every name display on `HistoryPage.tsx` — Best
+single week, Longest win streak, the Head-to-Head manager picker and
+list, Rivalries, and the new Championships tab below — now calls this
+instead of `teamNameForUser()` directly. Scoped deliberately to this one
+page: Home and Team pages keep team names, which is the correct identity
+to show there.
+
+**One combined Championships tab.** New `PlayerChampionship`/
+`playerChampionships()` in `api/leagueRecords.ts` replaces the deleted
+`championsByUser()` (aggregate count) and the H.4-only direct use of
+`championshipsBySeason()` (year-by-year) with a single merged, sorted
+list. The pre-Sleeper archive (2020-2023, plain names) and Sleeper-era
+winners (2024+, resolved through the player-name table) merge under one
+identity by first name — 2020's archive entry is authored as "Rohan
+Haware" (the one year with a surname) while every Sleeper-era name is
+bare-first-name-only, so `name.split(' ')[0]` is the one normalization
+that lands both on the same key rather than showing as two people.
+Sorted by title count (desc), then career Sleeper-era wins (desc), then
+career Sleeper-era points for (desc) — tiebreak stats computed from real
+roster data and resolved to a player name via the same reverse lookup,
+so even a pre-Sleeper-only champion (all four of 2020-2023's are also
+current Sleeper managers) gets a real, live tiebreak basis rather than a
+fabricated one.
+
+**3D trophy line, replacing `TrophyRoomScene` entirely on this page.**
+New `three/Trophy.tsx` (a "dumb" pedestal+cup+base mesh, no position of
+its own — same convention as `Football.tsx`; reuses `GOLD_MATERIAL_PROPS`/
+`BRASS_MATERIAL_PROPS` directly, which are already ignite/current under
+the hood per `materials.ts`'s own comment, so this needed no new color
+definitions), `three/trophyLineLayout.ts` (pure layout/camera math, same
+separation-of-concerns reason `journeyLayout.ts` is its own file),
+`three/TrophyLineScene.tsx` (one slot per distinct champion, front-to-back
+along -Z in the exact order `playerChampionships()` sorted them — a
+multi-title slot gets that many `<Trophy>`s side by side rather than
+stacked, so it reads as "one player, several trophies"), and
+`three/TrophyLineCameraRig.tsx` + `three/TrophyLineCanvas.tsx` (a
+scroll-scrubbed side-view dolly along Z, same single-shared-progress
+idiom as every other camera rig here — `ScrollCameraRig`, `JourneyCameraRig`
+— rather than two independently-computed reads of scroll position).
+`TrophyLineCanvas` sets an explicit ink (`#0b0b0e`) canvas background
+rather than relying on transparency, since History's own page background
+is the light paper canvas everywhere else on this route.
+
+`HistoryPage.tsx` hosts it full-bleed with the same `w-screen` +
+`calc(50% - 50vw)` breakout the journey's own fullscreen fix uses
+(PLAN.md Phase H.3) — this page wraps everything in a `max-w-3xl` reading
+column, the same problem the journey had on Home. The scroll track's
+height scales with the real (Sleeper-data-dependent) champion count
+(`TROPHY_SLOT_SVH` per slot plus a flat buffer) rather than a fixed
+number, so "no cutoff, every player visible" holds regardless of how many
+people have won a title by the time this runs. A DOM caption
+(`onActiveChange` from the camera rig) shows the currently-centered
+player's name and title count as plain, accessible-when-visible text —
+this project's established "every word is DOM, not 3D text geometry"
+rule (WeeklyJourney.tsx's own doc comment) applied here too, rather than
+adding a font-geometry dependency for a handful of labels.
+
+**Incidental cleanup.** Deleting `TrophyRoomScene.tsx`/
+`TrophyRoomCanvas.tsx` surfaced that `Portrait.tsx` and `SceneFloor.tsx`
+had already gone completely unused — orphaned when the Home page's 3D
+standings wall (`WeeklySummaryScene.tsx`) was deleted earlier and never
+followed up on. Both deleted now, along with the now-fully-unused
+`IVORY_MATERIAL_PROPS` from `materials.ts`. `arcLayout.ts` stays —
+`PlayerCardArc.tsx` (Home's rotating player cards) still uses it.
+
+**Verified:** `tsc -b`, `oxlint` (seven warnings, down from the prior
+eight — `Portrait.tsx`'s own immutability warning is gone with the file,
+not suppressed; nothing new), `prettier --write`, and a production
+`vite build` all pass. The build's chunk list confirms `TrophyRoomCanvas`
+is gone and a new `TrophyLineCanvas` chunk (~2.7KB) replaces it.
+
+**Not done:** real-device check on the live Vercel URL — whether the
+side-view dolly actually reads as "liquid"/premium on a real touch
+scroll, whether the trophy line's per-slot dwell time (`TROPHY_SLOT_SVH`)
+feels right rather than too fast/slow, and how the combined Championships
+tab's real data (title counts, tiebreak order) actually resolves once
+the 2024-2026 Sleeper brackets are checked against it live — are all
+real-device/data-verification calls this environment can't make. Same
+carried-forward real-device gap as every phase since the redesign began.

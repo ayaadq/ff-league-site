@@ -1,5 +1,7 @@
+import { preSleeperArchive } from '../content/leagueHistory/preSleeperArchive'
 import { pairMatchups } from './matchups'
-import type { SleeperBracketMatch, SleeperMatchup, SleeperRoster } from './types'
+import { teamNameForUser, totalPoints } from './standings'
+import type { SleeperBracketMatch, SleeperMatchup, SleeperRoster, SleeperUser } from './types'
 
 export interface SeasonData {
   season: string
@@ -104,20 +106,6 @@ export function longestWinStreak(games: GameResult[]): WinStreak | null {
   return best
 }
 
-/** Counts each season's championship-game winner (bracket match `p: 1`)
- * toward that roster's owner. */
-export function championsByUser(seasons: SeasonData[]): Map<string, number> {
-  const counts = new Map<string, number>()
-  for (const season of seasons) {
-    const championshipMatch = season.bracket.find((match) => match.p === 1)
-    if (championshipMatch?.w == null) continue
-    const champion = season.rosters.find((r) => r.roster_id === championshipMatch.w)
-    if (!champion?.owner_id) continue
-    counts.set(champion.owner_id, (counts.get(champion.owner_id) ?? 0) + 1)
-  }
-  return counts
-}
-
 export interface SeasonChampionship {
   season: string
   championUserId: string
@@ -125,9 +113,10 @@ export interface SeasonChampionship {
 }
 
 /** Each season's championship game (bracket match `p: 1`), both sides
- * resolved to their owner — the per-year complement to `championsByUser`'s
- * aggregate title count, for a chronological "year by year" list
- * (PLAN.md Phase H.4). */
+ * resolved to their owner — the building block `playerChampionships`
+ * below merges with the pre-Sleeper archive into one combined,
+ * player-named list (PLAN.md Phase H.5, replacing Phase H.4's separate
+ * aggregate-count/year-by-year split). */
 export function championshipsBySeason(seasons: SeasonData[]): SeasonChampionship[] {
   const result: SeasonChampionship[] = []
   for (const season of seasons) {
@@ -142,6 +131,133 @@ export function championshipsBySeason(seasons: SeasonData[]): SeasonChampionship
       runnerUpUserId: runnerUp.owner_id,
     })
   }
+  return result
+}
+
+/** Sleeper team name -> real player first name (PLAN.md Phase H.5) —
+ * hand-authored per the league's request to show player identity instead
+ * of team branding on the History page specifically, not sitewide (a
+ * team name is exactly the right thing to show on Home/Team pages). Team
+ * names can't be reverse-derived, so this is a plain lookup, not a
+ * computation; anything not in the table falls back to its own team name
+ * rather than disappearing or crashing, so an unmapped/future team still
+ * renders. */
+const PLAYER_NAME_BY_TEAM_NAME: Record<string, string> = {
+  'My Strange Nabers': 'Zuhayr',
+  '2x Champion': 'Tejas',
+  Rags: 'Raghav',
+  'Justins Team': 'Justin',
+  'I love to chase Brown ppl': 'Rohan',
+  'Njigba Please': 'Supratim',
+  'Waddling to the Moon': 'Sabeeh',
+  'Hopeless again': 'Joey',
+  'Mark up the Lamb Price': 'Jai',
+  'Hey Pukie': 'Nidhish',
+  ConkeyonmyCooktilliGoff: 'Zain',
+  'Chasing my next Pacheco': 'Ayaad',
+}
+
+export function playerNameForTeamName(teamName: string): string {
+  return PLAYER_NAME_BY_TEAM_NAME[teamName] ?? teamName
+}
+
+export function playerNameForUser(userId: string, users: SleeperUser[]): string {
+  return playerNameForTeamName(teamNameForUser(userId, users))
+}
+
+export interface PlayerChampionship {
+  playerName: string
+  count: number
+  /** Ascending — oldest first. */
+  years: string[]
+  /** This player's career Sleeper-era (2024+) wins and total points for,
+   * summed across every season they've played — the tiebreak basis for
+   * the sort below. A pre-Sleeper-only champion who's also a current
+   * Sleeper manager (every one of the four 2020-2023 champions is) still
+   * gets real numbers here, since these are their own current-era
+   * record, not a stat tied to the specific year(s) they won — there's
+   * no matchup-level data for 2020-2023 to compute a "that year's"
+   * record from anyway. Someone with no Sleeper presence at all falls
+   * back to 0, which simply sorts them last among ties. */
+  wins: number
+  pointsFor: number
+}
+
+/** The single combined, player-named championship list (PLAN.md Phase
+ * H.5) — merges the hand-authored pre-Sleeper archive (2020-2023, plain
+ * names) with live Sleeper bracket results (2024+, resolved through
+ * `PLAYER_NAME_BY_TEAM_NAME` above), replacing the old separate
+ * aggregate-count (`championsByUser`) and year-by-year
+ * (`championshipsBySeason` alone) sections entirely.
+ *
+ * A pre-Sleeper archive name and its Sleeper-era counterpart merge under
+ * one identity by their shared first name (`name.split(' ')[0]`) — 2020's
+ * archive entry is authored as "Rohan Haware" (a surname was given for
+ * that one year only) while every Sleeper-era name is bare first-name-
+ * only, so this is the one normalization that lets both sides land on
+ * the same key rather than showing as two separate people.
+ *
+ * Sorted by title count (desc), then career wins (desc), then career
+ * points for (desc) — the same three-key sort the 3D trophy line
+ * (`TrophyLineScene.tsx`) consumes directly, so "front of the line" and
+ * "top of this list" are always the same order by construction. */
+export function playerChampionships(
+  seasons: SeasonData[],
+  users: SleeperUser[],
+): PlayerChampionship[] {
+  const yearsByPlayer = new Map<string, string[]>()
+  const addYear = (rawName: string, season: string) => {
+    const playerName = rawName.split(' ')[0]
+    const years = yearsByPlayer.get(playerName) ?? []
+    years.push(season)
+    yearsByPlayer.set(playerName, years)
+  }
+
+  for (const entry of preSleeperArchive) {
+    addYear(entry.championName, entry.season)
+  }
+  for (const { season, championUserId } of championshipsBySeason(seasons)) {
+    addYear(playerNameForUser(championUserId, users), season)
+  }
+
+  // Career wins/PFF per user_id, summed across every season's roster —
+  // resolved to a player name via the same reverse mapping, independent
+  // of which year(s) that player's title(s) came from.
+  const statsByUserId = new Map<string, { wins: number; pointsFor: number }>()
+  for (const season of seasons) {
+    for (const roster of season.rosters) {
+      if (!roster.owner_id) continue
+      const current = statsByUserId.get(roster.owner_id) ?? { wins: 0, pointsFor: 0 }
+      current.wins += roster.settings.wins
+      current.pointsFor += totalPoints(roster.settings)
+      statsByUserId.set(roster.owner_id, current)
+    }
+  }
+  const userIdByPlayerName = new Map<string, string>()
+  for (const user of users) {
+    const playerName = playerNameForUser(user.user_id, users)
+    if (!userIdByPlayerName.has(playerName)) userIdByPlayerName.set(playerName, user.user_id)
+  }
+
+  const result: PlayerChampionship[] = [...yearsByPlayer.entries()].map(([playerName, years]) => {
+    const sortedYears = [...years].sort((a, b) => Number(a) - Number(b))
+    const userId = userIdByPlayerName.get(playerName)
+    const stats = userId ? statsByUserId.get(userId) : undefined
+    return {
+      playerName,
+      count: sortedYears.length,
+      years: sortedYears,
+      wins: stats?.wins ?? 0,
+      pointsFor: stats?.pointsFor ?? 0,
+    }
+  })
+
+  result.sort((a, b) => {
+    if (b.count !== a.count) return b.count - a.count
+    if (b.wins !== a.wins) return b.wins - a.wins
+    return b.pointsFor - a.pointsFor
+  })
+
   return result
 }
 

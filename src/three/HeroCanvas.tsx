@@ -12,9 +12,9 @@ const LOOK_TARGET: [number, number, number] = [0, 0.1, -2]
 /** Home's hero backdrop (PLAN.md Phase H) — one centered, rotating
  * football behind the hero copy that drops away as the hero scroll track
  * releases, handing off to the journey below (HeroScene.tsx). Same
- * self-contained-canvas shape as the other scenes (WeeklySummaryCanvas,
- * TrophyRoomCanvas): owns its own scroll-track id and camera framing,
- * mounted inside HeroSection.tsx's sticky track.
+ * self-contained-canvas shape as this project's other scroll-driven
+ * canvases (JourneyCanvas, TrophyLineCanvas): owns its own scroll-track
+ * id and camera framing, mounted inside HeroSection.tsx's sticky track.
  *
  * Mobile performance (SPEC.md §7.2): capped devicePixelRatio, no
  * post-processing, the shared three-light SceneLighting rig rather than
