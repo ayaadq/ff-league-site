@@ -1970,13 +1970,13 @@ ignite/current colors on every part of `TrophyCup` (base, stem, bowl,
 rim, both handles). Metalness kept moderate (0.5-0.6) rather than pushed
 toward 0.9+, for the exact reason `materials.ts`'s own
 `GOLD_MATERIAL_PROPS` comment already documents: at very high metalness
-a material's visible color comes almost entirely from the *reflected*
+a material's visible color comes almost entirely from the _reflected_
 environment map, and this scene's single HDRI can leave instances facing
 away from its bright side reading as flat black. A nonzero `emissive` on
 each preset plus each cup's own point light (kept, recolored to the
 medal's own tone) is what keeps "still glows" true despite switching off
 the fully unlit `meshBasicMaterial` the last two hotfixes used — a lit
-material needs *some* real light reaching it to be visible at all.
+material needs _some_ real light reaching it to be visible at all.
 `medalMaterialAt(globalCupIndex)` assigns gold/silver/bronze by rank
 across the same running cup count `TrophyLineScene.tsx` already tracked
 for color alternation, cycling past index 2 rather than erroring if more
@@ -2011,3 +2011,17 @@ calls this environment can't make. Same carried-forward gap as every
 phase since the redesign began — and increasingly the one actually
 blocking forward progress on this feature specifically, given how many
 of its hotfixes have been guesses at "what a real screen would show."
+
+### Quick fix — player name pill
+
+The trophy line's name caption was plain `text-marble` with no
+background — legible against ink, but the same "blends into the light
+marble podium" problem the count line below it was already fixed for one
+hotfix ago. Same pill treatment, inverted tone: `bg-charcoal` (dark,
+opaque) behind bold `text-marble` (white) for the name, versus the
+count's `bg-marble` behind bold `text-charcoal`. Both pills now stay
+legible regardless of whether ink or podium ends up behind them at a
+given scroll position.
+
+**Verified:** `tsc -b`, `oxlint` (same seven pre-existing warnings, zero
+new), `prettier --write`, and a production `vite build` all pass.
