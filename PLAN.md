@@ -2452,3 +2452,33 @@ teaser → button → season leaders.
 **Verified:** `tsc -b`, `oxlint` (same nine warnings from the previous
 entry — seven pre-existing, two already-accepted — zero new), `prettier
 --write`, and a production `vite build` all pass.
+
+### Quick fix — paper crumple removed from homepage entirely
+
+The paper crumple transition didn't work out — removed outright rather
+than iterated on. Deleted `components/PaperCrumpleSection.tsx`,
+`three/PaperCrumpleCanvas.tsx`, and `three/PaperCrumpleAnimation.tsx`
+entirely (no lingering imports; `WeeklyRecapsPage.tsx`'s own doc comment,
+its only remaining mention anywhere, updated to stop pointing at a
+deleted file). `HomePage.tsx` no longer mounts it, so the journey now
+leads directly into `WeeklyRecapSection`.
+
+Also removed `WeeklyJourney.tsx`'s own "boundary transition" gradient div
+(the ink-to-transparent fade that used to sit right after the journey's
+`</section>`) — that gradient existed specifically to smooth over the gap
+where the paper crumple used to sit, so with the crumple gone it was
+dead weight, not a bug on its own. The journey's own sticky canvas still
+releases and scrolls away over its own natural one-viewport-height
+scroll distance (an inherent property of the sticky-canvas technique
+this project's other scroll-driven scenes already use, e.g.
+`TrophyLineCanvas`/`JourneyCanvas` themselves) — that wasn't something
+this fix touched or was asked to touch, only the extra gradient buffer
+layered on top of it.
+
+**Verified:** `tsc -b`, `oxlint` — back down to the original seven
+pre-existing warnings, since the two warnings the paper crumple component
+had introduced (accepted at the time as the same class as
+`JourneyCameraRig.tsx`'s own) left with the deleted file, not suppressed,
+genuinely gone — `prettier --write`, and a production `vite build` all
+pass. The build's own chunk list confirms the `PaperCrumpleCanvas` lazy
+chunk is gone from the bundle entirely, not just unreferenced.

@@ -311,22 +311,6 @@ export function WeeklyJourney({
           <div aria-hidden="true" style={{ height: `${FINALE_DWELL_SVH}svh` }} />
         </div>
       </section>
-
-      {/* Boundary transition -- the sticky canvas above releases and
-          scrolls away over its own final ~100svh (a plain sticky-release
-          fact this placement leans on: the canvas's natural, un-stuck
-          flow position ends exactly where the section above ends, so
-          whatever sits directly after it in the document is what
-          continued scrolling reveals during that release).
-
-          A static CSS gradient, not a scroll-triggered JS tween: the
-          fade is driven by scroll POSITION within this block, never by
-          wall-clock time, so it can't desync or read as abrupt no matter
-          how fast someone scrolls through it. */}
-      <div
-        aria-hidden="true"
-        className="mx-[calc(50%-50vw)] h-[45svh] w-screen bg-[linear-gradient(to_bottom,#0B0B0E_0%,#0B0B0E_35%,transparent_100%)]"
-      />
     </>
   )
 }

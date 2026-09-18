@@ -62,7 +62,7 @@ function MatchupCard({
 }
 
 /** The full weekly recap (PLAN.md "Weekly Recaps Page") — a dedicated
- * page linked from `PaperCrumpleSection.tsx` on Home, going deeper than
+ * page linked from a CTA button on Home (`HomePage.tsx`), going deeper than
  * `WeeklyRecapSection.tsx`'s homepage teaser: every matchup individually,
  * a fuller award set, the whole power-ranking table, and an efficiency
  * chart. Every number here is real, computed from the same

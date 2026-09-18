@@ -31,7 +31,6 @@ import { ActivityFeed } from '../components/ActivityFeed'
 import { EfficiencyChart } from '../components/EfficiencyChart'
 import { GameOfTheWeekHero } from '../components/GameOfTheWeekHero'
 import { HeroSection } from '../components/HeroSection'
-import { PaperCrumpleSection } from '../components/PaperCrumpleSection'
 import { RecapAwards } from '../components/RecapAwards'
 import { RecapRankings } from '../components/RecapRankings'
 import { RecapStorylines } from '../components/RecapStorylines'
@@ -215,25 +214,19 @@ export function HomePage() {
           playerNameFor={(playerId) => playerDisplayName(players.data?.[playerId], playerId)}
         />
 
-        {/* Paper crumple transition into the full recap page -- self-
-          contained, own scroll track, no Reveal wrapper for the same
-          sticky/transform reason WeeklyJourney above has none. */}
-        <PaperCrumpleSection />
-
         {/* Auto-generated trash-talk teaser of last week (PLAN.md Phase
           H.6 Alternative) -- distinct from Act 1 above: this renders every
           week from live Sleeper numbers via hand-authored templates,
           whether or not anyone has hand-authored a recap for it. Sits
-          after the paper crumple now (moved from before Act 1) so the
-          crumple leads straight into this shorter teaser before the "view
-          full recap" button below it. No Reveal wrapper -- it manages its
-          own scroll-scrubbed enter/exit animation. */}
+          directly after the journey now -- the paper-crumple transition
+          that used to sit between them was removed, along with the
+          journey's own boundary-transition gradient, so the turf flows
+          straight into this section's own background. No Reveal wrapper
+          -- it manages its own scroll-scrubbed enter/exit animation. */}
         <WeeklyRecapSection />
 
         {/* CTA into the full recap page -- sits below the teaser's own
-          content now (layout hotfix; previously overlaid the paper
-          crumple canvas above, before the reorder that moved
-          WeeklyRecapSection in between). */}
+          content. */}
         <div className="mt-10 flex justify-center md:mt-14">
           <Link
             to="/weekly-recaps"
