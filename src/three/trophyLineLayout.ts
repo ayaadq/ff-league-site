@@ -33,8 +33,9 @@ export function slotZ(index: number): number {
  * scroll ran out the moment the camera arrived, not before. The doc
  * comment on the old, pre-hotfix `cameraZAtProgress` already claimed "a
  * little lead-in/lead-out room" that was never actually implemented —
- * this is that fix, for real. */
-const LEAD_FRACTION = 0.08
+ * this is that fix, for real. Raised 8%→14% in hotfix #5 (still within
+ * the 12-15% the brief itself suggested) once 8% alone wasn't enough. */
+const LEAD_FRACTION = 0.14
 
 /** Raw progress (0..1) eased into the compressed middle range that
  * actually drives camera movement — progress below `LEAD_FRACTION` or

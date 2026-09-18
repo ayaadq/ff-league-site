@@ -58,9 +58,12 @@ const NO_SEASONS: SeasonChainEntry[] = []
  * two scroll-driven "walk through N things" sections. The bigger
  * contributor to champions actually getting cut off was a real bug in
  * `trophyLineLayout.ts`'s camera math (fixed alongside this), not just
- * this number being too small on its own. */
-const TROPHY_SLOT_SVH = 100
-const TROPHY_TRACK_BUFFER_SVH = 90
+ * this number being too small on its own. Raised again 100→120svh
+ * (PLAN.md Phase H.5 hotfix #5) alongside a bigger lead-in/lead-out
+ * margin (`trophyLineLayout.ts`'s `LEAD_FRACTION`, 8%→14%) once 100svh
+ * combined with the smaller margin still wasn't enough scroll room. */
+const TROPHY_SLOT_SVH = 120
+const TROPHY_TRACK_BUFFER_SVH = 110
 
 export function HistoryPage() {
   const { play } = useSound()
@@ -243,13 +246,23 @@ export function HistoryPage() {
                   </Suspense>
                 </ChunkErrorBoundary>
 
+                {/* Name above, count below in its own high-contrast pill
+                  (PLAN.md Phase H.5 hotfix #5) -- the previous order (a
+                  thin, light `text-mute-on-ink` count line above the
+                  name) sat low enough in frame to land on the light
+                  marble podium in the scene behind it, where that light,
+                  thin text nearly disappeared. A solid `bg-marble` pill
+                  behind dark, bold text fixes that regardless of whether
+                  the ink background or the lighter podium ends up behind
+                  it at any given scroll position, rather than picking one
+                  text color that only works against one of the two. */}
                 {activeChampion && (
-                  <div className="pointer-events-none absolute inset-x-0 bottom-10 flex flex-col items-center gap-1 text-center transition-opacity duration-300 sm:bottom-14">
-                    <span className="text-mute-on-ink text-[0.65rem] tracking-[0.3em] uppercase">
-                      {activeChampion.count}x Champion
-                    </span>
+                  <div className="pointer-events-none absolute inset-x-0 bottom-16 flex flex-col items-center gap-2 text-center transition-opacity duration-300 sm:bottom-24">
                     <span className="font-display text-marble text-3xl sm:text-4xl">
                       {activeChampion.playerName}
+                    </span>
+                    <span className="bg-marble text-charcoal rounded-full px-3 py-1 text-xs font-bold tracking-[0.2em] uppercase sm:text-sm">
+                      {activeChampion.count}x Champion
                     </span>
                   </div>
                 )}

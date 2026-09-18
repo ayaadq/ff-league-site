@@ -1,3 +1,4 @@
+import { medalMaterialAt } from './medalMaterials'
 import { CUP_BASE_Y, CUP_WIDEST_RADIUS, Podium, TrophyCup } from './Trophy'
 import { SIDE_OFFSET, slotZ } from './trophyLineLayout'
 
@@ -24,17 +25,19 @@ export interface TrophyLineEntry {
  * separation on screen instead of actually separating two cups
  * left/right the way a Z offset does).
  *
- * Each cup is a solid color, alternating ignite/current across the
- * *global* running cup count (`cupIndexOffset`, passed in from
- * `TrophyLineScene` below), not this slot's own index — a 2-cup slot's
- * pair are two differently, solidly colored trophies (PLAN.md Phase H.5
- * hotfix #4, replacing the previous pass's two-tone bowl/stem split per
- * cup), and the alternation carries on seamlessly into the next slot's
- * cup(s) rather than resetting per slot.
+ * Each cup gets a realistic metal (`medalMaterialAt`, gold/silver/bronze,
+ * PLAN.md Phase H.5 hotfix #5 — replacing the previous hotfix's solid
+ * ignite/current colors, which read as neon rather than championship
+ * hardware) by rank across the *global* running cup count
+ * (`cupIndexOffset`, passed in from `TrophyLineScene` below), not this
+ * slot's own index — a 2-cup slot's pair get two distinct medal tones,
+ * and the ranking carries on seamlessly into the next slot's cup(s)
+ * rather than resetting per slot.
  *
  * The podium's own glow/point light still key off this slot's own index
- * (not the running cup count) for rhythm along the line — that's ambient
- * spill onto the podium, not the cups' own color. */
+ * (not the running cup count) for ignite/current rhythm along the line —
+ * that's ambient spill onto the marble podium, a separate decorative
+ * choice from the cups' own now-metallic color. */
 function TrophySlot({
   entry,
   index,
@@ -53,10 +56,9 @@ function TrophySlot({
       <Podium accentColor={podiumAccent} />
       {Array.from({ length: cupCount }, (_, i) => {
         const cupZ = (i - (cupCount - 1) / 2) * CUP_GAP
-        const cupColor = (cupIndexOffset + i) % 2 === 0 ? IGNITE : CURRENT
         return (
           <group key={i} position={[0, CUP_BASE_Y, cupZ]}>
-            <TrophyCup color={cupColor} />
+            <TrophyCup material={medalMaterialAt(cupIndexOffset + i)} />
           </group>
         )
       })}

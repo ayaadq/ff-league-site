@@ -1884,7 +1884,7 @@ it rather than just needing a bigger number.
 in place of the previous hotfix's two-tone `bowlColor`/`baseColor` split,
 applied to every part (base, stem, bowl, rim, both handles) — one solid
 color per cup rather than "half-colored." `TrophyLineScene.tsx` now
-alternates ignite/current across the *global* running count of cups
+alternates ignite/current across the _global_ running count of cups
 (`cupIndexOffset`, computed as a plain array via `.reduce()` rather than
 a mutable counter incremented inside the render `.map()` — oxlint's
 immutability rule correctly flagged the mutable version), not per slot,
@@ -1898,7 +1898,7 @@ the original Phase H.5 pass) claimed "a little lead-in/lead-out room so
 the front and back trophies aren't jammed right at the edge of the
 frame" — but the function itself was a bare lerp across the full 0..1
 progress range with no such margin ever actually implemented. In
-practice this meant the camera reached the *last* slot at the exact
+practice this meant the camera reached the _last_ slot at the exact
 instant the scrollable range ran out, with zero time left to look at it
 before the track released — a strong candidate for the real cause behind
 "scrolled past before all champions were visible," independent of how
@@ -1911,8 +1911,8 @@ with each other.
 
 A second, smaller bug in the same function: `activeIndexAtProgress`
 picked the active slot via `Math.round(progress * (count - 1))`, which
-centers bins on each slot's exact position — giving the *first* and
-*last* slots only half the dwell window of every middle slot. Switched to
+centers bins on each slot's exact position — giving the _first_ and
+_last_ slots only half the dwell window of every middle slot. Switched to
 the same equal-bin scheme `journeyLayout.ts`'s `matchupIndexAtProgress`
 already uses (`Math.floor(eased * count)`), so every slot, including the
 front and back, gets a genuinely equal share.
@@ -1937,3 +1937,77 @@ distinct trophies than the previous two-tone version, and whether every
 champion is now genuinely reachable without feeling rushed, are all
 real-device judgment calls this environment can't make. Same
 carried-forward gap as every phase since the redesign began.
+
+## Phase H.5 hotfix #5 — more scroll room, caption contrast, real metal, faster motion
+
+Four fixes, all fairly independent of each other this pass (no single
+underlying bug tying them together the way earlier hotfixes had).
+
+**More scroll room.** The previous hotfix's 8% lead-in/lead-out margin
+and 100svh-per-slot dwell weren't enough on their own. Raised
+`trophyLineLayout.ts`'s `LEAD_FRACTION` 8%→14% (still inside the brief's
+own suggested 12-15%) and `HistoryPage.tsx`'s `TROPHY_SLOT_SVH`/
+`TROPHY_TRACK_BUFFER_SVH` 100/90→120/110svh.
+
+**Caption contrast.** The count line ("2x Champion") sat above the name
+in a thin, light `text-mute-on-ink` style — low enough in frame to often
+land on the scene's light marble podium behind it, where light, thin text
+nearly disappeared. Reordered (name above, count below, matching the
+brief's "move count below name, move name up") and put the count in a
+solid `bg-marble` pill with bold, dark (`text-charcoal`) text — a chip
+that stays legible regardless of whether the ink background or the
+lighter podium ends up behind it at that point in the scroll, rather than
+one text color that only ever worked against one of the two.
+
+**Real metal, not neon.** New `three/medalMaterials.ts` (kept separate
+from `Trophy.tsx` — a file mixing component and non-component exports
+breaks Fast Refresh, the same reason `journeyLayout.ts`/
+`trophyLineLayout.ts` are their own files; oxlint's
+`react/only-export-components` rule caught this when a first pass put
+`medalMaterialAt` directly in `Trophy.tsx`). Three `meshStandardMaterial`
+presets — gold, silver, bronze — replace hotfix #4's solid unlit
+ignite/current colors on every part of `TrophyCup` (base, stem, bowl,
+rim, both handles). Metalness kept moderate (0.5-0.6) rather than pushed
+toward 0.9+, for the exact reason `materials.ts`'s own
+`GOLD_MATERIAL_PROPS` comment already documents: at very high metalness
+a material's visible color comes almost entirely from the *reflected*
+environment map, and this scene's single HDRI can leave instances facing
+away from its bright side reading as flat black. A nonzero `emissive` on
+each preset plus each cup's own point light (kept, recolored to the
+medal's own tone) is what keeps "still glows" true despite switching off
+the fully unlit `meshBasicMaterial` the last two hotfixes used — a lit
+material needs *some* real light reaching it to be visible at all.
+`medalMaterialAt(globalCupIndex)` assigns gold/silver/bronze by rank
+across the same running cup count `TrophyLineScene.tsx` already tracked
+for color alternation, cycling past index 2 rather than erroring if more
+than three cups exist in the whole line. The podium's own ignite/current
+glow disc and rhythm light are unchanged — a separate decorative choice
+from the cups' own now-metallic material.
+
+**Faster, less sluggish motion.** `TrophyLineCameraRig.tsx`'s
+ScrollTrigger `scrub` dropped from 1.2 (this project's usual value,
+matching `ScrollCameraRig`/`JourneyCameraRig`) to 0.45 — a bigger scrub
+number is more lag between the actual scroll position and where the
+camera currently sits, and on a line this long that lag was enough that
+the camera never really caught up to a normal scroll speed. Scoped to
+just this one rig, not the others, since the brief was specifically
+about the trophy line feeling sluggish.
+
+**Verified:** `tsc -b`, `oxlint` (same seven pre-existing warnings after
+fixing one genuinely new one this pass introduced and caught before
+committing — `medalMaterialAt` exported alongside components in
+`Trophy.tsx`, resolved by giving it its own file), `prettier --write`,
+and a production `vite build` all pass.
+
+**Not done:** real-device check on the live Vercel URL — whether 14%
+lead-in/lead-out plus 120svh per slot is enough this time (this project
+has now iterated on this exact number three times without a way to see
+the actual result), whether the metal reads as real gold/silver/bronze
+versus still looking synthetic under this scene's single HDRI, whether
+the caption pill looks intentional rather than like a sticker, and
+whether 0.45 scrub actually reads as "premium and fast" rather than
+either still sluggish or now too twitchy, are all real-device judgment
+calls this environment can't make. Same carried-forward gap as every
+phase since the redesign began — and increasingly the one actually
+blocking forward progress on this feature specifically, given how many
+of its hotfixes have been guesses at "what a real screen would show."

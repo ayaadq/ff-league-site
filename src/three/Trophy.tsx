@@ -1,5 +1,6 @@
 import { DoubleSide } from 'three'
 import { MARBLE_MATERIAL_PROPS } from './materials'
+import type { MedalMaterial } from './medalMaterials'
 
 const PODIUM_HEIGHT = 0.55
 const PODIUM_GLOW_RADIUS = 0.9
@@ -77,7 +78,7 @@ export function Podium({ accentColor }: { accentColor: string }) {
  * read as cleanly attached versus slightly floating is a real-device
  * visual check, same as this project's other first-pass 3D geometry
  * (PLAN.md's own history of catching scale/pose issues that way). */
-function Handle({ accentColor, side }: { accentColor: string; side: 'left' | 'right' }) {
+function Handle({ material, side }: { material: MedalMaterial; side: 'left' | 'right' }) {
   const z = side === 'left' ? -CUP_HANDLE_Z_OFFSET : CUP_HANDLE_Z_OFFSET
   const yRotation = side === 'left' ? Math.PI / 2 : -Math.PI / 2
   return (
@@ -86,24 +87,21 @@ function Handle({ accentColor, side }: { accentColor: string; side: 'left' | 'ri
       rotation={[0, yRotation, 0]}
     >
       <torusGeometry args={[CUP_HANDLE_RADIUS, CUP_HANDLE_TUBE, 12, 28, CUP_HANDLE_ARC]} />
-      <meshBasicMaterial color={accentColor} toneMapped={false} />
+      <meshStandardMaterial {...material} />
     </mesh>
   )
 }
 
 /** One trophy cup — base plate, tapered stem, a wide flared bowl with a
- * rim, and two side handles — a real loving-cup silhouette. Solid one
- * color across every part (PLAN.md Phase H.5 hotfix #4 — the previous
- * pass's two-tone bowl/stem split read as "half-colored" rather than "a
- * distinct trophy," so every part now takes the same `color`).
- * `TrophyLineScene.tsx` alternates that color ignite/current across the
- * *global* sequence of cups (not per slot), so a 2-cup podium's pair are
- * two differently, solidly colored trophies, and the alternation
- * continues seamlessly into the next slot's cup(s) rather than resetting.
- * Every part stays `meshBasicMaterial`/`toneMapped={false}` — fully
- * self-illuminated regardless of scene lighting, this project's actual
- * mechanism for "glows" given it avoids bloom/post-processing on mobile
- * (SPEC.md §7.2).
+ * rim, and two side handles — a real loving-cup silhouette. One
+ * `MedalMaterial` across every part (PLAN.md Phase H.5 hotfix #5 —
+ * realistic gold/silver/bronze metal, replacing the previous hotfix's
+ * solid ignite/current colors, which read as neon rather than a
+ * championship trophy). `TrophyLineScene.tsx` assigns gold/silver/bronze
+ * by rank across the *global* sequence of cups (not per slot), cycling
+ * if there are more than three, so a 2-cup podium's pair get two
+ * distinct medal tones and the ranking continues into the next slot's
+ * cup(s) rather than resetting.
  *
  * Dumb, no position of its own — callers (`TrophyLineScene.tsx`) place
  * this on top of a `<Podium>` and offset multiple cups apart along Z
@@ -112,19 +110,19 @@ function Handle({ accentColor, side }: { accentColor: string; side: 'left' | 'ri
  * them front-to-back, would foreshorten toward zero separation from this
  * camera's exact viewing angle rather than actually separating them on
  * screen). */
-export function TrophyCup({ color }: { color: string }) {
+export function TrophyCup({ material }: { material: MedalMaterial }) {
   const bowlBaseY = CUP_BASE_HEIGHT + CUP_STEM_HEIGHT
   return (
     <group>
       <mesh position={[0, CUP_BASE_HEIGHT / 2, 0]}>
         <cylinderGeometry args={[CUP_BASE_RADIUS, CUP_BASE_RADIUS * 1.1, CUP_BASE_HEIGHT, 24]} />
-        <meshBasicMaterial color={color} toneMapped={false} />
+        <meshStandardMaterial {...material} />
       </mesh>
       <mesh position={[0, CUP_BASE_HEIGHT + CUP_STEM_HEIGHT / 2, 0]}>
         <cylinderGeometry
           args={[CUP_STEM_TOP_RADIUS, CUP_STEM_BOTTOM_RADIUS, CUP_STEM_HEIGHT, 20]}
         />
-        <meshBasicMaterial color={color} toneMapped={false} />
+        <meshStandardMaterial {...material} />
       </mesh>
       {/* Open-ended (no caps baked in) so the bowl reads as hollow --
           DoubleSide so the inside wall still renders if the camera ever
@@ -135,21 +133,21 @@ export function TrophyCup({ color }: { color: string }) {
         <cylinderGeometry
           args={[CUP_BOWL_TOP_RADIUS, CUP_BOWL_BOTTOM_RADIUS, CUP_BOWL_HEIGHT, 28, 1, true]}
         />
-        <meshBasicMaterial color={color} toneMapped={false} side={DoubleSide} />
+        <meshStandardMaterial {...material} side={DoubleSide} />
       </mesh>
       <mesh position={[0, bowlBaseY, 0]} rotation={[-Math.PI / 2, 0, 0]}>
         <circleGeometry args={[CUP_BOWL_BOTTOM_RADIUS, 28]} />
-        <meshBasicMaterial color={color} toneMapped={false} />
+        <meshStandardMaterial {...material} />
       </mesh>
       <mesh position={[0, bowlBaseY + CUP_BOWL_HEIGHT, 0]} rotation={[Math.PI / 2, 0, 0]}>
         <torusGeometry args={[CUP_BOWL_TOP_RADIUS, CUP_RIM_TUBE, 12, 32]} />
-        <meshBasicMaterial color={color} toneMapped={false} />
+        <meshStandardMaterial {...material} />
       </mesh>
-      <Handle accentColor={color} side="left" />
-      <Handle accentColor={color} side="right" />
+      <Handle material={material} side="left" />
+      <Handle material={material} side="right" />
       <pointLight
-        color={color}
-        intensity={4}
+        color={material.color}
+        intensity={3}
         distance={3.2}
         decay={2}
         position={[0, bowlBaseY + CUP_BOWL_HEIGHT, 0.3]}

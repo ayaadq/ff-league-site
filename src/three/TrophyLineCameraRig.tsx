@@ -73,7 +73,17 @@ export function TrophyLineCameraRig({
         trigger: track,
         start: 'top top',
         end: 'bottom top',
-        scrub: 1.2,
+        // 1.2 (this project's usual scrub value, matching
+        // ScrollCameraRig/JourneyCameraRig) read as sluggish specifically
+        // here (PLAN.md Phase H.5 hotfix #5) -- a bigger scrub number is
+        // more lag between the actual scroll position and where the
+        // camera currently is, and on a line this long that lag was
+        // enough that the camera never really caught up to a normal
+        // scroll speed. 0.45 keeps a little of the "liquid" smoothing
+        // this project's scroll rigs are built around, rather than an
+        // instant 1:1 scrub that would feel rigid, while responding fast
+        // enough to read as premium rather than delayed.
+        scrub: 0.45,
       },
       onUpdate: () => place(state.progress),
     })
